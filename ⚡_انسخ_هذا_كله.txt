@@ -1,0 +1,64 @@
+═══════════════════════════════════════════════════════════════════
+⚡ طريقة سهلة جداً - خطوتان فقط!
+═══════════════════════════════════════════════════════════════════
+
+الخطوة 1: افتح Cloud Shell
+───────────────────────────
+اذهب إلى: https://console.cloud.google.com/?cloudshell=true
+
+
+الخطوة 2: انسخ والصق الأمر التالي (كل شيء مرة واحدة)
+──────────────────────────────────────────────────────────
+
+cd ~/backend_v2 && gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --timeout 300 --memory 2Gi --cpu 2 --project etisak-784d6
+
+
+═══════════════════════════════════════════════════════════════════
+
+⚠️ انتظر! هناك مشكلة:
+────────────────────────
+
+الملف المحدث موجود على جهازك فقط!
+يجب نقله إلى Cloud Shell أولاً.
+
+
+✅ الحل الأسهل:
+────────────────
+
+استخدم Google Cloud Console Editor:
+
+1. اذهب إلى: https://console.cloud.google.com
+2. افتح Cloud Shell (الأيقونة في الأعلى)
+3. اضغط على "Open Editor" (أيقونة القلم)
+4. في الشجرة اليسرى، اذهب إلى:
+   backend_v2 → app → services → solver_service.py
+5. احذف كل المحتوى
+6. افتح الملف من مشروعك: backend_v2/UPDATED_solver_service.py
+7. انسخ كل المحتوى والصقه
+8. احفظ (Ctrl+S أو File → Save)
+9. ارجع للـ Terminal
+10. نفذ أمر النشر أعلاه
+
+
+═══════════════════════════════════════════════════════════════════
+🎯 أو استخدم هذه الطريقة الأسرع:
+═══════════════════════════════════════════════════════════════════
+
+1. افتح: https://console.cloud.google.com/?cloudshell=true
+2. اضغط على الثلاث نقاط (...) في Cloud Shell
+3. اختر "Upload file"
+4. ارفع الملف: backend_v2/UPDATED_solver_service.py
+5. نفذ هذه الأوامر:
+
+mv UPDATED_solver_service.py ~/backend_v2/app/services/solver_service.py
+cd ~/backend_v2
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --timeout 300 --memory 2Gi --cpu 2 --project etisak-784d6
+
+
+═══════════════════════════════════════════════════════════════════
+✅ بعد النشر:
+═══════════════════════════════════════════════════════════════════
+
+اختبر على: https://etisak-784d6.web.app
+
+═══════════════════════════════════════════════════════════════════

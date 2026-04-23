@@ -1,0 +1,29 @@
+========================================
+  التحسينات التي تمت:
+========================================
+
+✅ إزالة الاعتماد على Firebase credentials
+✅ تحديث إصدارات المكتبات لتكون متوافقة
+✅ إضافة .dockerignore
+✅ إصلاح جميع الـ imports
+✅ إضافة ScheduleResponse model
+
+========================================
+  نفذ هذا الأمر في PowerShell:
+========================================
+
+cd C:\Users\asus\my\almadrasah\backend_v2
+
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --timeout 300 --memory 1Gi --cpu 1 --project etisak-784d6
+
+========================================
+  بعد النشر (3-5 دقائق):
+========================================
+
+اختبر:
+curl https://schedule-solver-979291699789.us-central1.run.app/health
+
+يجب أن ترى:
+{"status":"healthy","version":"2.0.0"}
+
+========================================

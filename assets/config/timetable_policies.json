@@ -1,0 +1,283 @@
+{
+  "version": "1.1.0",
+  "defaultPolicy": "middle_only",
+  "globalDefaults": {
+    "daysPerWeek": 5,
+    "periodsPerDay": 7,
+    "allowWaitingAssignments": true,
+    "countWaitingWithinWorkload": true,
+    "strictMaxWorkload": true,
+    "preventTeacherDoubleBooking": true,
+    "preventClassDoubleBooking": true,
+    "preventRoomDoubleBooking": true,
+    "optimizeTeacherGaps": true,
+    "optimizeClassBalance": true,
+    "optimizeDailyLoadBalance": true,
+    "maxSolverTimeSeconds": 30,
+    "maxBacktrackingSteps": 250000,
+    "failIfUnassignedLessonsRemain": true,
+    "balancingPolicy": {
+      "preferNoEmptyTeacherDay": true,
+      "hardDisallowEmptyTeacherDay": false,
+      "emptyTeacherDayPenalty": 120,
+      "dailyLoadVariancePenalty": 35,
+      "enableRebalancing": true,
+      "rebalanceIterations": 300,
+      "targetDailyLoadMode": "weekly_load_divided_by_school_days",
+      "autoFillPriority": [
+        "rebalance_real_lessons",
+        "activity",
+        "supervision",
+        "waiting"
+      ]
+    }
+  },
+  "teacherPreferencePolicy": {
+    "treatUnavailableSlotsAsHard": false,
+    "unavailableSlotPenalty": 12.0,
+    "noSeventhPeriodMode": "soft",
+    "noSeventhPeriodPenalty": 18.0,
+    "preferConsecutiveWeight": -0.9
+  },
+  "teacherRoleGroups": {
+    "leadershipRolesWithReducedLoad": [
+      "principal",
+      "vice_principal",
+      "academic_supervisor",
+      "student_affairs_supervisor"
+    ],
+    "specialReducedLoadRoles": [
+      "homeroom_leader",
+      "activity_coordinator",
+      "learning_resources_coordinator"
+    ],
+    "teachingRoles": [
+      "teacher",
+      "senior_teacher",
+      "shared_teacher"
+    ]
+  },
+  "teacherClassifications": {
+    "primary_lower": { "mode": "homeroom", "label": "معلم صفوف أولية" },
+    "primary_upper": { "mode": "subject_based", "label": "معلم صفوف عليا" },
+    "middle_subject": { "mode": "subject_based", "label": "معلم مرحلة متوسطة" },
+    "secondary_subject": { "mode": "subject_based", "label": "معلم مرحلة ثانوية" },
+    "shared_between_stages": { "mode": "shared", "label": "معلم مشترك بين مراحل" }
+  },
+  "workloadPolicies": {
+    "defaultWeeklyLoad": 24,
+    "minWeeklyLoad": 0,
+    "maxWeeklyLoad": 24,
+    "reductionRules": [
+      { "id": "principal_reduction", "matchRoles": ["principal"], "reduceBy": 24, "floor": 0 },
+      { "id": "vice_principal_reduction", "matchRoles": ["vice_principal"], "reduceBy": 6, "floor": 0 },
+      { "id": "academic_supervisor_reduction", "matchRoles": ["academic_supervisor"], "reduceBy": 4, "floor": 0 },
+      { "id": "student_affairs_supervisor_reduction", "matchRoles": ["student_affairs_supervisor"], "reduceBy": 4, "floor": 0 },
+      { "id": "homeroom_leader_reduction", "matchRoles": ["homeroom_leader"], "reduceBy": 2, "floor": 0 },
+      { "id": "activity_coordinator_reduction", "matchRoles": ["activity_coordinator"], "reduceBy": 2, "floor": 0 },
+      { "id": "learning_resources_coordinator_reduction", "matchRoles": ["learning_resources_coordinator"], "reduceBy": 2, "floor": 0 }
+    ],
+    "waitingPolicy": {
+      "enabled": true,
+      "countsAsRealLoad": true,
+      "maxWaitingPerTeacherPerWeek": 6,
+      "maxWaitingPerTeacherPerDay": 2,
+      "assignOnlyAfterTeachingDistribution": true,
+      "prioritizeTeachersBelowTargetLoad": true
+    }
+  },
+  "subjectRules": {
+    "preventSameSubjectTwicePerDayByDefault": true,
+    "heavySubjects": ["mathematics", "science", "physics", "chemistry", "biology", "english", "arabic"],
+    "lightSubjects": ["art", "skills", "physical_education", "digital_skills"],
+    "labSubjects": ["physics", "chemistry", "biology", "computer"]
+  },
+  "stageProfiles": {
+    "primary_only": {
+      "stage": "primary",
+      "label": "ابتدائي فقط",
+      "grades": [1, 2, 3, 4, 5, 6],
+      "supportsLowerGrades": true,
+      "supportsUpperGrades": true,
+      "supportsTracks": false,
+      "teacherClassificationRules": {
+        "lowerGrades": { "grades": [1, 2, 3], "classification": "primary_lower" },
+        "upperGrades": { "grades": [4, 5, 6], "classification": "primary_upper" }
+      },
+      "defaultLoads": { "primary_lower": 24, "primary_upper": 24, "shared_between_stages": 24 },
+      "solverOrder": [
+        "assign_primary_lower_homerooms",
+        "assign_primary_lower_core_bundle",
+        "assign_primary_upper_scarce_teachers",
+        "assign_primary_upper_heavy_subjects",
+        "assign_primary_upper_remaining_subjects",
+        "optimize_teacher_gaps",
+        "optimize_class_balance",
+        "assign_waiting"
+      ],
+      "constraints": {
+        "preferHomeroomSingleClass": true,
+        "requirePrimaryLowerAsBundledSubjects": true,
+        "preventLowerGradesTeacherFragmentation": true,
+        "preventSameSubjectTwicePerDay": true,
+        "preferBalancedDays": true,
+        "allowSeventhPeriod": false,
+        "maxDailyLessonsPerTeacher": 6,
+        "maxConsecutiveLessonsPerTeacher": 4
+      },
+      "teacherPreferencePolicy": {
+        "noSeventhPeriodMode": "hard"
+      },
+      "primaryLowerBundleRules": {
+        "enabled": true,
+        "grades": [1, 2, 3],
+        "preferredTeacherMode": "homeroom",
+        "bundleSubjects": ["arabic", "mathematics", "science", "islamic_studies", "skills"],
+        "preferSingleClassOwnership": true,
+        "allowSecondaryTeacherSupport": false
+      }
+    },
+    "middle_only": {
+      "stage": "middle",
+      "label": "متوسطة فقط",
+      "grades": [7, 8, 9],
+      "supportsLowerGrades": false,
+      "supportsUpperGrades": false,
+      "supportsTracks": false,
+      "teacherClassificationRules": { "default": { "grades": [7, 8, 9], "classification": "middle_subject" } },
+      "defaultLoads": { "middle_subject": 24, "shared_between_stages": 24 },
+      "solverOrder": [
+        "assign_scarce_teachers",
+        "assign_lab_subjects",
+        "assign_heavy_subjects",
+        "assign_remaining_subjects",
+        "optimize_teacher_gaps",
+        "optimize_class_balance",
+        "optimize_daily_balance",
+        "assign_waiting"
+      ],
+      "constraints": {
+        "preferHomeroomSingleClass": false,
+        "preventSameSubjectTwicePerDay": true,
+        "preferBalancedDays": true,
+        "allowSeventhPeriod": true,
+        "maxDailyLessonsPerTeacher": 6,
+        "maxConsecutiveLessonsPerTeacher": 4
+      }
+    },
+    "secondary_only": {
+      "stage": "secondary",
+      "label": "ثانوية فقط",
+      "grades": [10, 11, 12],
+      "supportsLowerGrades": false,
+      "supportsUpperGrades": false,
+      "supportsTracks": true,
+      "secondaryProgramTypes": ["general", "masarat"],
+      "teacherClassificationRules": { "default": { "grades": [10, 11, 12], "classification": "secondary_subject" } },
+      "defaultLoads": { "secondary_subject": 24, "shared_between_stages": 24 },
+      "solverOrder": [
+        "assign_track_locked_subjects",
+        "assign_shared_subjects",
+        "assign_scarce_teachers",
+        "assign_lab_subjects",
+        "assign_heavy_subjects",
+        "assign_remaining_subjects",
+        "optimize_teacher_gaps",
+        "optimize_class_balance",
+        "optimize_daily_balance",
+        "assign_waiting"
+      ],
+      "constraints": {
+        "respectTracks": true,
+        "respectTrackTeacherEligibility": true,
+        "preventSameSubjectTwicePerDay": true,
+        "preferBalancedDays": true,
+        "allowSeventhPeriod": true,
+        "maxDailyLessonsPerTeacher": 6,
+        "maxConsecutiveLessonsPerTeacher": 4
+      }
+    },
+    "primary_middle_combined": {
+      "stage": "combined",
+      "label": "ابتدائي ومتوسط",
+      "grades": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      "supportsTracks": false,
+      "subProfiles": ["primary_only", "middle_only"],
+      "solverOrder": [
+        "solve_primary_locally",
+        "solve_middle_locally",
+        "resolve_cross_stage_teacher_conflicts",
+        "reoptimize_combined_balance",
+        "assign_waiting"
+      ],
+      "constraints": {
+        "resolveSharedTeachersAcrossStages": true,
+        "preventCrossStageTeacherDoubleBooking": true
+      }
+    },
+    "middle_secondary_combined": {
+      "stage": "combined",
+      "label": "متوسط وثانوي",
+      "grades": [7, 8, 9, 10, 11, 12],
+      "supportsTracks": true,
+      "subProfiles": ["middle_only", "secondary_only"],
+      "solverOrder": [
+        "solve_middle_locally",
+        "solve_secondary_locally",
+        "resolve_cross_stage_teacher_conflicts",
+        "reoptimize_combined_balance",
+        "assign_waiting"
+      ],
+      "constraints": {
+        "resolveSharedTeachersAcrossStages": true,
+        "preventCrossStageTeacherDoubleBooking": true
+      }
+    },
+    "all_stages_combined": {
+      "stage": "combined",
+      "label": "ابتدائي ومتوسط وثانوي",
+      "grades": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "supportsTracks": true,
+      "subProfiles": ["primary_only", "middle_only", "secondary_only"],
+      "solverOrder": [
+        "solve_primary_locally",
+        "solve_middle_locally",
+        "solve_secondary_locally",
+        "resolve_cross_stage_teacher_conflicts",
+        "reoptimize_combined_balance",
+        "assign_waiting"
+      ],
+      "constraints": {
+        "resolveSharedTeachersAcrossStages": true,
+        "preventCrossStageTeacherDoubleBooking": true
+      }
+    }
+  },
+  "schoolProfileResolver": {
+    "rules": [
+      { "ifSchoolEducationProfile": "primary_only", "useStageProfile": "primary_only" },
+      { "ifSchoolEducationProfile": "middle_only", "useStageProfile": "middle_only" },
+      { "ifSchoolEducationProfile": "secondary_only", "useStageProfile": "secondary_only" },
+      { "ifSchoolEducationProfile": "primary_middle_combined", "useStageProfile": "primary_middle_combined" },
+      { "ifSchoolEducationProfile": "middle_secondary_combined", "useStageProfile": "middle_secondary_combined" },
+      { "ifSchoolEducationProfile": "all_stages_combined", "useStageProfile": "all_stages_combined" }
+    ]
+  },
+  "qualityScoring": {
+    "weights": {
+      "hardViolations": -1000,
+      "unassignedLessons": -500,
+      "teacherOverload": -300,
+      "teacherDailyOverload": -100,
+      "teacherGaps": -8,
+      "classImbalance": -5,
+      "sameSubjectRepeatedSameDay": -40,
+      "crossStageSharedTeacherConflict": -500,
+      "waitingOverTarget": -25,
+      "balancedTeacherLoad": 20,
+      "balancedClassDayDistribution": 20,
+      "respectPreferredConstraints": 30
+    },
+    "minimumAcceptableScore": 0
+  }
+}

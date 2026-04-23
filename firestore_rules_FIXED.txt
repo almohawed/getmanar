@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // دالة مساعدة للحصول على schoolId للمستخدم الحالي
+    function getUserSchoolId() {
+      return get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.schoolId;
+    }
+    
+    // دالة مساعدة للتحقق من أن المستخدم من نفس المدرسة
+    function isSameSchool(schoolId) {
+      return request.auth != null && getUserSchoolId() == schoolId;
+    }
+    
+    // دالة للتحقق من أن المستخدم admin
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // ============================================
+    // قواعد المستخدمين
+    // ============================================
+    match /Users/{userId} {
+      // السماح بالقراءة للمستخدم نفسه أو من نفس المدرسة
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        (resource.data.schoolId != null && getUserSchoolId() == resource.data.schoolId)
+      );
+      
+      // السماح بالكتابة للمستخدم نفسه أو للـ admin
+      allow write: if request.auth != null && (
+        request.auth.uid == userId ||
+        isAdmin()
+      );
+      
+      // السماح بإنشاء مستخدم جديد
+      allow create: if request.auth != null;
+    }
+    
+    // ============================================
+    // قواعد المدارس - مفتوحة للقراءة والكتابة
+    // ============================================
+    match /Schools/{schoolId} {
+      // السماح بالقراءة لأي مستخدم مسجل
+      allow read: if request.auth != null;
+      
+      // السماح بالكتابة لأي مستخدم مسجل (للسماح بإضافة مدارس جديدة)
+      allow write: if request.auth != null;
+      
+      // السماح بإنشاء مدرسة جديدة
+      allow create: if request.auth != null;
+      
+      // المجموعات الفرعية - مفتوحة للقراءة والكتابة
+      match /{document=**} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+        allow create: if request.auth != null;
+      }
+    }
+    
+    // ============================================
+    // قواعد الحضور - مفتوحة تماماً
+    // ============================================
+    match /StudentAttendance/{attendanceId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+    
+    // ============================================
+    // قواعد السلوك - مفتوحة
+    // ============================================
+    match /behavior_records/{recordId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+    
+    // ============================================
+    // قواعد الطلاب - مفتوحة
+    // ============================================
+    match /students/{studentId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+    
+    // ============================================
+    // قواعد عامة لباقي المجموعات
+    // ============================================
+    match /{document=**} {
+      // السماح بالقراءة والكتابة لأي مستخدم مسجل
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+  }
+}

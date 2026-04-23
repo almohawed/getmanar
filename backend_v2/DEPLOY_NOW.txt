@@ -1,0 +1,15 @@
+========================================
+  نفذ هذا الأمر في PowerShell
+========================================
+
+cd C:\Users\asus\my\almadrasah\backend_v2
+
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --timeout 300 --memory 1Gi --cpu 1 --project etisak-784d6
+
+========================================
+
+بعد النشر، اختبر:
+
+curl https://schedule-solver-979291699789.us-central1.run.app/health
+
+========================================

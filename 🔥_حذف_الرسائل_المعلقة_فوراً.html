@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حذف الرسائل المعلقة - SMS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .warning-box h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .warning-box p {
+            color: #856404;
+            line-height: 1.6;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(245, 87, 108, 0.3);
+        }
+
+        .btn-danger:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border: 2px solid #17a2b8;
+            color: #0c5460;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .instructions {
+            background: #e7f3ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .instructions h3 {
+            color: #004085;
+            margin-bottom: 15px;
+        }
+
+        .instructions ol {
+            padding-right: 20px;
+            color: #004085;
+        }
+
+        .instructions li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ حذف الرسائل المعلقة</h1>
+        <p class="subtitle">أداة سريعة لحذف جميع رسائل SMS في حالة الانتظار</p>
+
+        <div class="warning-box">
+            <h3>
+                <span style="font-size: 24px;">⚠️</span>
+                تحذير مهم
+            </h3>
+            <p>
+                <strong>هذه العملية لا يمكن التراجع عنها!</strong><br>
+                سيتم حذف جميع الرسائل في حالة "pending" نهائياً ولن يتم إرسالها.
+            </p>
+        </div>
+
+        <div class="input-group">
+            <label for="schoolId">معرف المدرسة (School ID)</label>
+            <input 
+                type="text" 
+                id="schoolId" 
+                placeholder="أدخل معرف المدرسة من Firebase"
+                required
+            >
+        </div>
+
+        <button class="btn btn-danger" onclick="deletePendingMessages()" id="deleteBtn">
+            🗑️ حذف جميع الرسائل المعلقة
+        </button>
+
+        <div id="result"></div>
+
+        <div class="instructions">
+            <h3>📋 كيفية الاستخدام:</h3>
+            <ol>
+                <li>افتح <strong>Firebase Console</strong></li>
+                <li>اذهب إلى <strong>Firestore Database</strong></li>
+                <li>افتح مجموعة <strong>Schools</strong></li>
+                <li>انسخ <strong>معرف المدرسة</strong> (School ID)</li>
+                <li>الصقه في الحقل أعلاه</li>
+                <li>اضغط على زر الحذف</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCXKjh3hVKBxGOuFJGqKvXWJqvXWJqvXW",
+            authDomain: "etisak-784d6.firebaseapp.com",
+            projectId: "etisak-784d6",
+            storageBucket: "etisak-784d6.firebasestorage.app",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abc123"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const functions = firebase.functions();
+
+        // للتطوير المحلي (إذا كنت تختبر محلياً)
+        // functions.useEmulator("localhost", 5001);
+
+        async function deletePendingMessages() {
+            const schoolId = document.getElementById('schoolId').value.trim();
+            const resultDiv = document.getElementById('result');
+            const deleteBtn = document.getElementById('deleteBtn');
+
+            // التحقق من إدخال School ID
+            if (!schoolId) {
+                showResult('error', '❌ يرجى إدخال معرف المدرسة (School ID)');
+                return;
+            }
+
+            // تأكيد الحذف
+            const confirmed = confirm(
+                `⚠️ هل أنت متأكد من حذف جميع الرسائل المعلقة للمدرسة:\n\n${schoolId}\n\nهذه العملية لا يمكن التراجع عنها!`
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            // تعطيل الزر وعرض حالة التحميل
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<span class="spinner"></span> جاري الحذف...';
+            showResult('info', '⏳ جاري الاتصال بالخادم...');
+
+            try {
+                // استدعاء Cloud Function
+                const deletePendingSmsMessages = functions.httpsCallable('deletePendingSmsMessages');
+                const result = await deletePendingSmsMessages({ schoolId: schoolId });
+
+                const data = result.data;
+                const deletedCount = data.deletedCount || 0;
+                const message = data.message || 'تم الحذف بنجاح';
+
+                if (data.success) {
+                    showResult('success', `✅ ${message}\n\nتم حذف ${deletedCount} رسالة`);
+                } else {
+                    showResult('error', `❌ فشل الحذف: ${message}`);
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                let errorMessage = 'حدث خطأ غير متوقع';
+
+                if (error.code === 'unauthenticated') {
+                    errorMessage = 'يجب تسجيل الدخول أولاً';
+                } else if (error.code === 'permission-denied') {
+                    errorMessage = 'ليس لديك صلاحية لتنفيذ هذا الإجراء';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
+                showResult('error', `❌ خطأ: ${errorMessage}`);
+            } finally {
+                // إعادة تفعيل الزر
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = '🗑️ حذف جميع الرسائل المعلقة';
+            }
+        }
+
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = type;
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+
+            // إخفاء الرسالة بعد 10 ثواني
+            if (type === 'success') {
+                setTimeout(() => {
+                    resultDiv.style.display = 'none';
+                }, 10000);
+            }
+        }
+
+        // السماح بالضغط على Enter لتنفيذ الحذف
+        document.getElementById('schoolId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                deletePendingMessages();
+            }
+        });
+    </script>
+</body>
+</html>

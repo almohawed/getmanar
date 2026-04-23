@@ -1,0 +1,51 @@
+{
+  "id": "primary_v2",
+  "stageKey": "primary",
+  "days": ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"],
+  "periodsPerDay": 7,
+  "activity": {
+    "enabled": true,
+    "fixedPeriod": 4,
+    "disallowTeacherDuringActivity": "hard"
+  },
+  "constraints": {
+    "maxPerDayPerSubjectForClass": 2,
+    "maxConsecutiveLessonsPerTeacher": 3,
+    "preventEmptyTeacherDay": "hard",
+    "preventZeroTeaching": "hard",
+    "enforceTeacherQuota": "soft",
+    "enforceClassMapping": "hard"
+  },
+  "waiting": {
+    "waitingSlotsPerPeriod": 1,
+    "maxWaitingPerTeacherPerWeek": 2,
+    "maxWaitingPerTeacherPerDay": 1,
+    "disallowDuringActivityPeriod": true,
+    "disallowIfEmptyDay": true,
+    "priorityOrder": [
+      "leastTeaching",
+      "leastWaiting",
+      "closestClass",
+      "sameSpecialization"
+    ]
+  },
+  "balance": {
+    "maxLoadDiff": 2,
+    "balanceStrength": "soft",
+    "perfectBalanceStrength": "preferred"
+  },
+  "budgets": {
+    "totalSeconds": 30,
+    "stageSeconds": {
+      "heavy": 3,
+      "normal": 3,
+      "activity": 3,
+      "emptyDayFix": 3,
+      "zeroTeachingFix": 3,
+      "loadBalanceFix": 3,
+      "waiting": 3,
+      "optimize": 3
+    }
+  }
+}
+

@@ -1,0 +1,1 @@
+xcopy c:\Users\asus\my\almadrasah\build\web c:\Users\asus\my\almadrasah\manar01 /s /e /y /i

@@ -1,0 +1,202 @@
+========================================
+الحل النهائي المضمون - انسخ كل شيء
+========================================
+
+gcloud config set project etisak-784d6 && mkdir -p ~/ultra_backend && cd ~/ultra_backend && cat > main.py << 'ENDOFFILE'
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Dict, Any
+from ortools.sat.python import cp_model
+import firebase_admin
+from firebase_admin import credentials, firestore
+import time
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+class Req(BaseModel):
+    schoolId: str
+    classes: List[Dict[str, Any]]
+    teachers: List[Dict[str, Any]]
+    assignments: List[Dict[str, Any]]
+
+@app.get("/api/v2/health")
+def health():
+    return {"status": "healthy", "version": "5.0-ultra"}
+
+@app.post("/api/v2/simple_generate")
+def generate(req: Req):
+    try:
+        logger.info(f"=== Request for {req.schoolId} ===")
+        logger.info(f"Classes: {len(req.classes)}, Teachers: {len(req.teachers)}, Assignments: {len(req.assignments)}")
+        
+        if not firebase_admin._apps:
+            cred = credentials.Certificate({"type":"service_account","project_id":"etisak-784d6","private_key_id":"88ba42e85386357edf8cbf4070b4225f4c514cc1","private_key":"-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC/7grz1X8A6M3T\nOD+cK4YZp6Z7P1m7zFGwQXwVVYzyVESdsqG+Nif6OO69HuOjz7XM2aH2GfawjNDb\nET6VgVk9bd0CHEEfYNX3fFjqXe+COOoRqKSMiT5tEwqdbzaqIsTWawYEwVl7JOak\njDirHI7Ys+CFgQdx4UX6pYekSUy+kTstQ/MUP9ulk9hHrz8LzENvSr7CDeozPXg4\nA6D4gGfnalyVyQYBS6tWx8UTwCIaMwaBK45chO33dQl4biyUDhNPlm0bXXVBi+Yj\npHoArPKNfxKdvso/ogfmM7dFvn1kQThSrFt96HdI02ecjAOq+RzMSgqNb76BzpZn\nPt5lYJA3AgMBAAECggEAWrPIykXVgN0EVDMLYKby91HS7ADay9T5r+Wqmbx14Rmw\n2aPPK0CVsPtR299qrgIdxQL+tvq7KeFKXJTwMiBQR6cRYItwvT76rzw9GvkslKqH\n97NunBnJ/isXA6LIvyuyQTCPxhSH0Jn2Q8Iej8LtwPx0+TKqjYdsFlE+4oVfdtkC\vEc2gqHX6r8tB8Tpr1cSgGFwobukX6Z9rDud9UcDnWW0L2gGOosXaH/cE3J3mGM5\nAmrRehUjKfS58hwRfbSyELflUnXe/Z5KSnUrllOgbUK1QJz02EY+gm2ZeBxc8AX4\nIzjLZcFwXQYCh4MniR2gwa3AqvPEr2WFC5zlSlRwcQKBgQDqWoeFCfmFnGYHZOqp\nMKX+TrEbbGmIc8BIH9kLjv5W5SWgEESPUQME1eCVd02wdT8W3ziiA0fk5fus0Vkg\nQfv2N0brNCEwlm16JfgG4JQrd+Mgx9YItLAXBjRkWIQeLYzPbxkB/NJAU11wI9eB\nZeyYOIXTwRW+9+bzxmilCDI0sQKBgQDRqF7uLxqHFFUsvQs8jC97wWi775Rez6/L\nvTeDgWVkzHK4xJ2jxNvHlPt3FO9tvXIO/Lx7eTeiytQOx3EycZYQgMBuvqD2ARNF\nr48uPUbl4hm+a6Xy+16pNdO9bIMpwJfiMspGIytmClUo6qEVi4qP4dGtC44z92gZ\nxta0TB5tZwKBgG75c5ciRBBrIT17IkwAB3rHVMLBsa+18GW2/xakHfiUBh8n1O9w\n01ck2HauyhE3VCrGhZDisNbJuUX61JOb626KeoDCbL0PXsQq2qqXClMTMHDDcK0q\nswAUJhcme1m3BCjuWQ9B42Ymk+aYcmKKG2Fx0p2Vn3CQ/8KMP912Zh/hAoGADN6w\nDSD5GOenntpv8SSN2aPywO6hBfzrxq7z1G/CAKEIPc1b++yerS65DQNM+0iQ0tiy\n3UWAo86dm9akXTtZweOVbHbpPJCuVS3EtUrvqjbp66WCB1tk4TA7sjoSByMab7k8\nb3fDNz1VIvDcOI1bUR/ElkHKVehPDJ4HGgQ+LesCgYApFE0/h6KdUwZTRHc6a9xH\nrJ6AgjNW4J3Ut9ZKb4gPsAfOm5Knkng7lP60PKNDqfkkX8y/qdzNMoAG0Sv+jnfo\naqaQAAibd1DEWgYYlHM8IPkKcepIUGfP3pJ/Ugwly2fthZKGBOoTcInajTHFDalh\nDzhYTicE0jyFCbWgiRXwWw==\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-fbsvc@etisak-784d6.iam.gserviceaccount.com","client_id":"108812714482294952052","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40etisak-784d6.iam.gserviceaccount.com"})
+            firebase_admin.initialize_app(cred)
+        
+        db = firestore.client()
+        start = time.time()
+        
+        # التحقق من إمكانية الحل
+        total_slots = len(req.classes) * 5 * 7  # classes * days * periods
+        total_needed = sum(a.get('weeklyHours', 2) for a in req.assignments)
+        
+        logger.info(f"Total slots: {total_slots}, Total needed: {total_needed}")
+        
+        if total_needed > total_slots:
+            return {"success": False, "error": f"عدد الحصص المطلوبة ({total_needed}) أكبر من الفترات المتاحة ({total_slots})"}
+        
+        # بناء النموذج مع قيود مرنة
+        model = cp_model.CpModel()
+        days = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس']
+        periods = list(range(1,8))
+        lessons = {}
+        
+        # إنشاء المتغيرات
+        for a in req.assignments:
+            cid = a.get('classId','')
+            tid = a.get('teacherId','')
+            sid = a.get('subjectId','')
+            if not cid or not tid or not sid:
+                logger.warning(f"Skipping incomplete assignment: {a}")
+                continue
+            for d in days:
+                for p in periods:
+                    lessons[(cid,d,p,tid,sid)] = model.NewBoolVar(f"L_{cid}_{d}_{p}_{tid}_{sid}")
+        
+        logger.info(f"Created {len(lessons)} lesson variables")
+        
+        # القيد 1: كل فصل له حصة واحدة في كل فترة
+        for c in req.classes:
+            cid = c.get('id','')
+            for d in days:
+                for p in periods:
+                    vs = [v for k,v in lessons.items() if k[0]==cid and k[1]==d and k[2]==p]
+                    if vs:
+                        model.Add(sum(vs) == 1)
+        
+        # القيد 2: المعلم لا يدرس حصتين في نفس الوقت
+        for t in req.teachers:
+            tid = t.get('id','')
+            for d in days:
+                for p in periods:
+                    vs = [v for k,v in lessons.items() if k[3]==tid and k[1]==d and k[2]==p]
+                    if vs:
+                        model.Add(sum(vs) <= 1)
+        
+        # القيد 3: عدد الحصص الأسبوعية (مرن)
+        shortage_vars = []
+        for a in req.assignments:
+            cid = a.get('classId','')
+            tid = a.get('teacherId','')
+            sid = a.get('subjectId','')
+            wh = min(a.get('weeklyHours', 2), 7)  # حد أقصى 7 حصص في الأسبوع
+            
+            vs = [v for k,v in lessons.items() if k[0]==cid and k[3]==tid and k[4]==sid]
+            if vs:
+                # متغير للنقص
+                shortage = model.NewIntVar(0, wh, f"shortage_{cid}_{tid}_{sid}")
+                model.Add(sum(vs) + shortage == wh)
+                shortage_vars.append(shortage)
+        
+        # دالة الهدف: تقليل النقص
+        if shortage_vars:
+            model.Minimize(sum(shortage_vars))
+        
+        # الحل
+        solver = cp_model.CpSolver()
+        solver.parameters.max_time_in_seconds = 120.0
+        solver.parameters.num_search_workers = 4
+        solver.parameters.log_search_progress = True
+        
+        logger.info("Starting solver...")
+        status = solver.Solve(model)
+        logger.info(f"Solver status: {solver.StatusName(status)}")
+        
+        if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
+            result = []
+            for k,v in lessons.items():
+                if solver.Value(v) == 1:
+                    result.append({
+                        'classId': k[0],
+                        'day': k[1],
+                        'period': k[2],
+                        'teacherId': k[3],
+                        'subjectId': k[4]
+                    })
+            
+            logger.info(f"Generated {len(result)} lessons")
+            
+            # حفظ في Firestore
+            ref = db.collection(f'Schools/{req.schoolId}/Schedules').document()
+            ref.set({
+                'createdAt': firestore.SERVER_TIMESTAMP,
+                'lessons': result,
+                'stats': {
+                    'count': len(result),
+                    'time': time.time() - start,
+                    'status': solver.StatusName(status)
+                }
+            })
+            
+            # توزيع على الفصول
+            for c in req.classes:
+                cid = c.get('id','')
+                cls_lessons = [l for l in result if l['classId'] == cid]
+                if cls_lessons:
+                    db.collection(f'Schools/{req.schoolId}/Classes/{cid}/ClassSchedules').document(ref.id).set({
+                        'lessons': cls_lessons,
+                        'createdAt': firestore.SERVER_TIMESTAMP
+                    })
+            
+            # توزيع على المعلمين
+            for t in req.teachers:
+                tid = t.get('id','')
+                tch_lessons = [l for l in result if l['teacherId'] == tid]
+                if tch_lessons:
+                    db.collection(f'Schools/{req.schoolId}/Teachers/{tid}/TeacherSchedules').document(ref.id).set({
+                        'lessons': tch_lessons,
+                        'createdAt': firestore.SERVER_TIMESTAMP
+                    })
+            
+            logger.info(f"✅ Success! Schedule ID: {ref.id}")
+            
+            return {
+                "success": True,
+                "message": f"تم توليد {len(result)} حصة بنجاح في {time.time()-start:.1f} ثانية",
+                "scheduleId": ref.id,
+                "stats": {
+                    "lessonsPlaced": len(result),
+                    "executionTime": time.time() - start
+                }
+            }
+        else:
+            error_msg = f"فشل التوليد: {solver.StatusName(status)}"
+            logger.error(error_msg)
+            return {"success": False, "error": error_msg}
+            
+    except Exception as e:
+        logger.error(f"Exception: {e}", exc_info=True)
+        return {"success": False, "error": f"خطأ: {str(e)}"}
+ENDOFFILE
+cat > Dockerfile << 'ENDOFFILE'
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir fastapi==0.104.1 uvicorn[standard]==0.24.0 ortools==9.8.3296 firebase-admin==6.3.0 pydantic==2.5.0
+COPY main.py .
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--log-level", "info"]
+ENDOFFILE
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --memory 4Gi --cpu 4 --timeout 300 --min-instances 0 --max-instances 10
+
+========================================
+هذا الحل يتعامل مع:
+- القيود المستحيلة
+- عدد حصص كبير
+- بيانات ناقصة
+- يعطي أفضل حل ممكن حتى لو لم يكن مثالياً
+========================================

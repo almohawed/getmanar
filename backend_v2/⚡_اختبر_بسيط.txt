@@ -1,0 +1,24 @@
+========================================
+  اختبار Generate
+========================================
+
+نفذ هذا الأمر:
+
+python test_generate.py
+
+========================================
+
+يجب أن ترى:
+- Success: True
+- Total Lessons Placed: 35
+- Solver Status: OPTIMAL
+
+========================================
+
+إذا نجح، انشر:
+
+gcloud config set project etisak-784d6
+
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --set-build-env-vars GOOGLE_ENTRYPOINT="gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --bind :8080"
+
+========================================

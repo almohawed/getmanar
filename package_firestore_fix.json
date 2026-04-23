@@ -1,0 +1,15 @@
+{
+  "name": "firestore-rules-auto-fix",
+  "version": "1.0.0",
+  "description": "إصلاح تلقائي لقواعد Firestore",
+  "main": "auto_fix_firestore.js",
+  "scripts": {
+    "fix": "node auto_fix_firestore.js",
+    "install-deps": "npm install google-auth-library"
+  },
+  "dependencies": {
+    "google-auth-library": "^9.0.0"
+  },
+  "author": "Kiro AI",
+  "license": "MIT"
+}

@@ -1,0 +1,774 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import '../../../core/utils/email_generator.dart';
+import '../../../core/domain/models/user.dart';
+import '../../../core/utils/text_utils.dart';
+import '../data/mock_staff_repository.dart';
+import '../../auth/presentation/auth_controller.dart';
+import '../domain/models/delegated_permissions.dart';
+import '../../common/services/audit_service.dart';
+
+class AddStaffScreen extends ConsumerStatefulWidget {
+  final UserRole role;
+  final String title;
+  final User? staffToEdit;
+
+  const AddStaffScreen({
+    super.key,
+    required this.role,
+    required this.title,
+    this.staffToEdit,
+  });
+
+  @override
+  ConsumerState<AddStaffScreen> createState() => _AddStaffScreenState();
+}
+
+class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _identityController =
+      TextEditingController(); // This will store System ID
+  final _nationalIdController =
+      TextEditingController(); // Actual National ID (Internal)
+  final _phoneController = TextEditingController();
+  final _customUsernameController = TextEditingController();
+  String? _selectedDeputyType;
+  bool _isLoading = false;
+  final bool _useCustomUsername = false;
+
+  // Delegation State
+  bool _enableDelegation = false; // "Give additional permissions" toggle
+  bool _showAll = false;
+  bool _sensitiveMode = false;
+  final Map<String, List<String>> _selectedPermissions = {};
+
+  static final Map<String, Map<AdminSection, List<AdminPermission>>>
+  _defaultDeputyPresets = {
+    'academic': {
+      AdminSection.students: [
+        AdminPermission.view,
+        AdminPermission.edit,
+        AdminPermission.export,
+      ],
+      AdminSection.teachers: [
+        AdminPermission.view,
+        AdminPermission.edit,
+        AdminPermission.export,
+      ],
+      AdminSection.exams: [
+        AdminPermission.view,
+        AdminPermission.create,
+        AdminPermission.edit,
+        AdminPermission.export,
+      ],
+      AdminSection.schedule: [
+        AdminPermission.view,
+        AdminPermission.edit,
+        AdminPermission.export,
+      ],
+      AdminSection.reports: [AdminPermission.view, AdminPermission.export],
+    },
+    'student': {
+      AdminSection.students: [
+        AdminPermission.view,
+        AdminPermission.edit,
+        AdminPermission.export,
+      ],
+      AdminSection.administrative: [
+        AdminPermission.view,
+        AdminPermission.create,
+        AdminPermission.edit,
+        AdminPermission.approve,
+      ],
+      AdminSection.reports: [AdminPermission.view, AdminPermission.export],
+    },
+    'school': {
+      AdminSection.administrative: [
+        AdminPermission.view,
+        AdminPermission.create,
+        AdminPermission.edit,
+        AdminPermission.approve,
+      ],
+      AdminSection.schedule: [AdminPermission.view, AdminPermission.edit],
+      AdminSection.reports: [AdminPermission.view, AdminPermission.export],
+    },
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    final staff = widget.staffToEdit;
+
+    String roleCodePrefix(UserRole role) {
+      switch (role) {
+        case UserRole.deputy:
+          return 'WK';
+        case UserRole.counselor:
+          return 'CN';
+        case UserRole.administrative:
+          return 'AD';
+        case UserRole.admin:
+          return 'MG';
+        case UserRole.technicalSupport:
+        case UserRole.supportAdmin:
+          return 'TS';
+        case UserRole.teacher:
+          return 'TC';
+        case UserRole.student:
+          return 'ST';
+        case UserRole.parent:
+          return 'PR';
+        case UserRole.superAdmin:
+          return 'MG';
+      }
+    }
+
+    String generateShortCode(UserRole role) {
+      final prefix = roleCodePrefix(role);
+      final digits = TextUtils.generateRandomDigits(6);
+      return '$prefix$digits';
+    }
+
+    if (staff == null) {
+      _identityController.text = generateShortCode(widget.role);
+    }
+
+    if (staff != null) {
+      _nameController.text = staff.name;
+      _identityController.text = staff.mnCode ?? staff.identityNumber ?? '';
+      _nationalIdController.text = staff.nationalId ?? '';
+      _phoneController.text = staff.phoneNumber ?? '';
+      _selectedDeputyType = staff.deputyType;
+      if (staff.delegatedPermissions != null) {
+        staff.delegatedPermissions!.forEach((key, value) {
+          final list = (value as List).map((e) => e.toString()).toList();
+          _selectedPermissions[key] = list;
+        });
+        if (_selectedPermissions.isNotEmpty) {
+          _enableDelegation = true;
+          if (staff.delegatedPermissions!.containsKey(
+                AdminSection.roles.name,
+              ) ||
+              staff.delegatedPermissions!.containsKey(
+                AdminSection.settings.name,
+              )) {
+            _sensitiveMode = true;
+          }
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _identityController.dispose();
+    _phoneController.dispose();
+    _customUsernameController.dispose();
+    super.dispose();
+  }
+
+  void _togglePermission(
+    AdminSection section,
+    AdminPermission permission,
+    bool? value,
+  ) {
+    setState(() {
+      final key = section.name;
+      if (value == true) {
+        if (!_selectedPermissions.containsKey(key)) {
+          _selectedPermissions[key] = [];
+        }
+        if (!_selectedPermissions[key]!.contains(permission.name)) {
+          _selectedPermissions[key]!.add(permission.name);
+        }
+      } else {
+        if (_selectedPermissions.containsKey(key)) {
+          _selectedPermissions[key]!.remove(permission.name);
+          if (_selectedPermissions[key]!.isEmpty) {
+            _selectedPermissions.remove(key);
+          }
+        }
+      }
+    });
+  }
+
+  void _toggleAll(bool? value) {
+    setState(() {
+      _showAll = value ?? false;
+      if (_showAll) {
+        for (var section in AdminSection.values) {
+          // Skip sensitive sections unless sensitive mode is on
+          if ((section == AdminSection.roles ||
+                  section == AdminSection.settings) &&
+              !_sensitiveMode) {
+            continue;
+          }
+          _selectedPermissions[section.name] = AdminPermission.values
+              .map((e) => e.name)
+              .toList();
+        }
+      } else {
+        _selectedPermissions.clear();
+      }
+    });
+  }
+
+  void _applyDefaultPreset() {
+    if (_selectedDeputyType == null) {
+      return;
+    }
+    final preset = _defaultDeputyPresets[_selectedDeputyType!];
+    if (preset == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا توجد صلاحيات افتراضية لهذا النوع من الوكلاء'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _enableDelegation = true;
+      _sensitiveMode = false;
+      _showAll = false;
+      _selectedPermissions.clear();
+
+      preset.forEach((section, perms) {
+        _selectedPermissions[section.name] = perms.map((e) => e.name).toList();
+      });
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    // Validate Deputy Type
+    if (widget.role == UserRole.deputy && _selectedDeputyType == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('يرجى اختيار نوع الوكيل')));
+      return;
+    }
+
+    // Validate Sensitive Permissions
+    if (_sensitiveMode &&
+        (_selectedPermissions.containsKey(AdminSection.roles.name) ||
+            _selectedPermissions.containsKey(AdminSection.settings.name))) {
+      // Mock confirmation
+      bool confirmed =
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('تأكيد صلاحيات حساسة'),
+              content: const Text(
+                'أنت على وشك منح صلاحيات سيادية (أدوار/إعدادات). هل أنت متأكد؟',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('إلغاء'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text(
+                    'تأكيد',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (!confirmed) return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final currentUser = ref.read(authStateProvider).value;
+      final isSchoolMode =
+          currentUser != null && (currentUser.schoolId?.isNotEmpty ?? false);
+
+      final normalizedCode = TextUtils.normalizeDigits(_identityController.text)
+          .replaceAll(RegExp(r'[\u200E\u200F\u202A-\u202E]'), '')
+          .trim()
+          .toUpperCase();
+      final normalizedNationalId = TextUtils.normalizeDigits(
+        _nationalIdController.text.trim(),
+      );
+      final normalizedPhone = TextUtils.normalizeDigits(
+        _phoneController.text.trim(),
+      );
+      if (widget.staffToEdit != null) {
+        final base = widget.staffToEdit!;
+        final updated = base.copyWith(
+          name: _nameController.text.trim(),
+          mnCode: normalizedCode,
+          nationalId: normalizedNationalId,
+          phoneNumber: normalizedPhone,
+          deputyType: _selectedDeputyType,
+          delegatedPermissions:
+              _enableDelegation && _selectedPermissions.isNotEmpty
+              ? _selectedPermissions
+              : null,
+        );
+
+        if (isSchoolMode) {
+          final repo = ref.read(firestoreStaffRepositoryProvider);
+          await repo.updateStaff(updated);
+        } else {
+          final repo = ref.read(mockStaffRepositoryProvider);
+          await repo.updateStaff(updated);
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تم تعديل بيانات الموظف بنجاح')),
+          );
+          context.pop();
+        }
+      } else {
+        String email;
+
+        email = EmailGenerator.generateEmail(
+          widget.role,
+          identityNumber: normalizedCode,
+        );
+
+        final newStaff = User(
+          id: const Uuid().v4(),
+          name: _nameController.text.trim(),
+          email: email,
+          role: widget.role,
+          schoolId: isSchoolMode ? (currentUser.schoolId ?? '') : '',
+          deputyType: _selectedDeputyType,
+          identityNumber: null,
+          mnCode: normalizedCode,
+          nationalId: normalizedNationalId,
+          phoneNumber: normalizedPhone,
+          isPasswordChangeRequired: true,
+          isTwoFactorEnabled: true, // Auto-enable 2FA for sensitive roles
+          delegatedPermissions:
+              _enableDelegation && _selectedPermissions.isNotEmpty
+              ? _selectedPermissions
+              : null,
+        );
+
+        final randomPassword = TextUtils.generateRandomDigits(6);
+
+        final StaffProvisioningResult provision;
+        if (isSchoolMode) {
+          final repo = ref.read(firestoreStaffRepositoryProvider);
+          provision = await repo.addStaff(newStaff, randomPassword);
+        } else {
+          final repo = ref.read(mockStaffRepositoryProvider);
+          provision = await repo.addStaff(newStaff, randomPassword);
+        }
+
+        // Register Global Entry Code via Cloud Function
+        // تم تعطيل هذا مؤقتاً لأنه يحتاج Cloud Function
+        /*
+        try {
+          final functions = FirebaseFunctions.instance;
+          final callable = functions.httpsCallable('manageUserCode');
+          await callable.call({
+            'action': 'create',
+            'code': normalizedIdentity.toUpperCase(),
+            'email': newStaff.email,
+            'schoolId': currentUser?.schoolId,
+            'role': newStaff.role.name,
+            'name': newStaff.name,
+          });
+        } catch (e) {
+          debugPrint('Warning: Failed to register National ID as code: $e');
+          // Don't block the flow, as the user is already created
+        }
+        */
+
+        // تم تعطيل Audit Log مؤقتاً
+        /*
+        if (newStaff.delegatedPermissions != null &&
+            newStaff.delegatedPermissions!.isNotEmpty) {
+          ref
+              .read(auditServiceProvider)
+              .logAction(
+                action: 'delegate_permissions',
+                description:
+                    'School Manager delegated permissions to staff user',
+                metadata: {
+                  'target_user_id': newStaff.id,
+                  'permissions': newStaff.delegatedPermissions,
+                  'sensitive_mode': _sensitiveMode,
+                },
+              );
+        }
+        */
+
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green),
+                  SizedBox(width: 8),
+                  Text('تمت الإضافة بنجاح'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'كود الدخول: ${provision.mnCode.isNotEmpty ? provision.mnCode : normalizedCode}',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'كلمة المرور: ${provision.password.isNotEmpty ? provision.password : randomPassword}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'يرجى حفظ بيانات الدخول وتزويدها للمستخدم.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.pop();
+                  },
+                  child: const Text('موافق'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('إضافة ${widget.title}')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Name
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'الاسم الرباعي',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                ),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'يرجى إدخال الاسم' : null,
+              ),
+              const SizedBox(height: 16),
+
+              // System ID / Username
+              TextFormField(
+                controller: _identityController,
+                decoration: const InputDecoration(
+                  labelText: 'كود الدخول (حرفين + 6 أرقام)',
+                  helperText: 'مثال: AD345694',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.badge),
+                ),
+                readOnly: widget.staffToEdit != null,
+                validator: (value) {
+                  final v = (value ?? '')
+                      .replaceAll(RegExp(r'[\u200E\u200F\u202A-\u202E]'), '')
+                      .trim()
+                      .toUpperCase();
+                  if (v.isEmpty) return 'يرجى إدخال كود الدخول';
+                  if (!RegExp(r'^[A-Z]{2}\d{6}$').hasMatch(v)) {
+                    return 'صيغة الكود غير صحيحة (حرفين + 6 أرقام)';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // National ID (Internal)
+              TextFormField(
+                controller: _nationalIdController,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty && value.length != 10) {
+                    return 'رقم الهوية يجب أن يكون 10 أرقام';
+                  }
+                  return null;
+                },
+                decoration: const InputDecoration(
+                  labelText: 'رقم الهوية/الإقامة (اختياري - داخلي)',
+                  helperText: 'بيان داخلي مشفر لأغراض التحقق فقط',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.fingerprint),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Phone Number
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'رقم الجوال (للتحقق OTP)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.phone),
+                ),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'يرجى إدخال رقم الجوال'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+
+              // Deputy Type Dropdown
+              if (widget.role == UserRole.deputy)
+                DropdownButtonFormField<String>(
+                  value: _selectedDeputyType,
+                  decoration: const InputDecoration(
+                    labelText: 'نوع الوكيل',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.category),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'student',
+                      child: Text('وكيل شؤون الطلاب'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'academic',
+                      child: Text('وكيل الشؤون التعليمية'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'school',
+                      child: Text('وكيل الشؤون المدرسية'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedDeputyType = value;
+                    });
+                  },
+                ),
+
+              // Delegation Section (for any Deputy type)
+              if (widget.role == UserRole.deputy &&
+                  _selectedDeputyType != null) ...[
+                const SizedBox(height: 24),
+                const Divider(thickness: 2),
+
+                SwitchListTile(
+                  title: const Text('منح صلاحيات إضافية (لوحة مدير المدرسة)'),
+                  subtitle: const Text(
+                    'تمكين الوكيل من الوصول إلى أقسام محددة في لوحة المدير',
+                  ),
+                  value: _enableDelegation,
+                  onChanged: (val) {
+                    setState(() {
+                      _enableDelegation = val;
+                      if (!val) {
+                        _selectedPermissions.clear();
+                        _showAll = false;
+                        _sensitiveMode = false;
+                      }
+                    });
+                  },
+                ),
+
+                if (_enableDelegation) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'تحديد الصلاحيات المفوضة:',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.auto_awesome),
+                      label: const Text('تطبيق الصلاحيات الافتراضية للوكيل'),
+                      onPressed: _applyDefaultPreset,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'سيتم تعبئة صلاحيات مقترحة حسب نوع الوكيل، ويمكنك تعديلها يدويًا بعد ذلك.',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+
+                  SwitchListTile(
+                    title: const Text('إظهار الكل (صلاحيات كاملة عدا الحساسة)'),
+                    value: _showAll,
+                    onChanged: _toggleAll,
+                  ),
+
+                  SwitchListTile(
+                    title: const Text('تفعيل صلاحيات حساسة (يتطلب تأكيد)'),
+                    subtitle: const Text(
+                      'مثل: الصلاحيات والأدوار، إعدادات المدرسة',
+                    ),
+                    value: _sensitiveMode,
+                    onChanged: (val) {
+                      setState(() {
+                        _sensitiveMode = val;
+                        if (!val) {
+                          // Remove sensitive permissions if toggled off
+                          _selectedPermissions.remove(AdminSection.roles.name);
+                          _selectedPermissions.remove(
+                            AdminSection.settings.name,
+                          );
+                        }
+                      });
+                    },
+                    activeColor: Colors.red,
+                  ),
+
+                  const SizedBox(height: 16),
+                  _buildPermissionsList(),
+                ],
+              ],
+
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submit,
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('إضافة'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionsList() {
+    return Column(
+      children: AdminSection.values.map((section) {
+        // Skip sensitive sections if mode is off
+        if (!_sensitiveMode &&
+            (section == AdminSection.roles ||
+                section == AdminSection.settings)) {
+          return const SizedBox.shrink();
+        }
+
+        final sectionName = _getSectionName(section);
+        final isSelected = _selectedPermissions.containsKey(section.name);
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ExpansionTile(
+            title: Text(sectionName),
+            leading: Checkbox(
+              value: isSelected,
+              onChanged: (val) {
+                setState(() {
+                  if (val == true) {
+                    // Default to View only when checking the section
+                    _togglePermission(section, AdminPermission.view, true);
+                  } else {
+                    _selectedPermissions.remove(section.name);
+                  }
+                });
+              },
+            ),
+            children: [
+              Wrap(
+                spacing: 8,
+                children: AdminPermission.values.map((perm) {
+                  final hasPerm =
+                      _selectedPermissions[section.name]?.contains(perm.name) ??
+                      false;
+                  return FilterChip(
+                    label: Text(_getPermissionName(perm)),
+                    selected: hasPerm,
+                    onSelected: (val) => _togglePermission(section, perm, val),
+                    visualDensity: VisualDensity.compact,
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _getSectionName(AdminSection section) {
+    switch (section) {
+      case AdminSection.leadership:
+        return 'القيادة والمؤشرات';
+      case AdminSection.classes:
+        return 'الفصول والشُعب';
+      case AdminSection.students:
+        return 'الطلاب';
+      case AdminSection.teachers:
+        return 'المعلمين';
+      case AdminSection.administrative:
+        return 'التكليفات الإدارية';
+      case AdminSection.schedule:
+        return 'الجداول';
+      case AdminSection.exams:
+        return 'الاختبارات';
+      case AdminSection.roles:
+        return 'الصلاحيات والأدوار (حساس)';
+      case AdminSection.reports:
+        return 'التقارير';
+      case AdminSection.settings:
+        return 'إعدادات المدرسة (حساس)';
+    }
+  }
+
+  String _getPermissionName(AdminPermission perm) {
+    switch (perm) {
+      case AdminPermission.view:
+        return 'عرض';
+      case AdminPermission.create:
+        return 'إنشاء';
+      case AdminPermission.edit:
+        return 'تعديل';
+      case AdminPermission.delete:
+        return 'حذف';
+      case AdminPermission.approve:
+        return 'اعتماد';
+      case AdminPermission.export:
+        return 'تصدير';
+    }
+  }
+}

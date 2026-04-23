@@ -1,0 +1,210 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/GlobalUsers/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return isAuthenticated() && userDoc().exists ? userDoc().data.role : null;
+    }
+
+    function userSchoolId() {
+      return isAuthenticated() && userDoc().exists ? userDoc().data.schoolId : null;
+    }
+
+    function staffDoc(schoolId) {
+      return get(/databases/$(database)/documents/Schools/$(schoolId)/Staff/$(request.auth.uid));
+    }
+
+    function teacherDoc(schoolId) {
+      return get(/databases/$(database)/documents/Schools/$(schoolId)/Teachers/$(request.auth.uid));
+    }
+
+    function schoolUserDoc(schoolId) {
+      return get(/databases/$(database)/documents/Schools/$(schoolId)/Users/$(request.auth.uid));
+    }
+
+    function roleForSchool(schoolId) {
+      return userDoc().exists
+        ? userDoc().data.role
+        : teacherDoc(schoolId).exists
+          ? 'teacher'
+          : staffDoc(schoolId).exists
+            ? staffDoc(schoolId).data.role
+            : schoolUserDoc(schoolId).exists
+              ? schoolUserDoc(schoolId).data.role
+            : null;
+    }
+
+    function deputyTypeForSchool(schoolId) {
+      return userDoc().exists
+        ? userDoc().data.deputyType
+        : staffDoc(schoolId).exists
+          ? staffDoc(schoolId).data.deputyType
+          : schoolUserDoc(schoolId).exists
+            ? schoolUserDoc(schoolId).data.deputyType
+          : null;
+    }
+
+    function isSuperAdmin() {
+      return (userRole() in ['superAdmin', 'owner', 'Owner']) || (
+        isAuthenticated() &&
+        request.auth.token.email != null &&
+        request.auth.token.email in [
+          'mohwed32@getmanar.com',
+          'mohawed32@manar.com',
+          'mohwed32@manar.com',
+          'mohawed32@getmanar.com',
+          'almohawed@gmail.com'
+        ]
+      );
+    }
+
+    function isSchoolMember(schoolId) {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        userSchoolId() == schoolId ||
+        teacherDoc(schoolId).exists ||
+        staffDoc(schoolId).exists ||
+        schoolUserDoc(schoolId).exists ||
+        exists(/databases/$(database)/documents/Schools/$(schoolId)/Students/$(request.auth.uid)) ||
+        exists(/databases/$(database)/documents/Schools/$(schoolId)/Parents/$(request.auth.uid))
+      );
+    }
+
+    function isSchoolStaffMember(schoolId) {
+      return isAuthenticated() &&
+        userDoc().exists &&
+        userDoc().data.schoolId == schoolId &&
+        !(userDoc().data.role in ['student', 'parent']);
+    }
+
+    function canManageStudentsByGlobal(schoolId) {
+      return isAuthenticated() &&
+        userDoc().exists &&
+        userDoc().data.schoolId == schoolId &&
+        !(userDoc().data.role in ['student', 'parent']);
+    }
+
+    function isSchoolAdmin() {
+      return userRole() in ['admin', 'manager', 'principal'];
+    }
+
+    function isAcademicDeputy() {
+      return userRole() == 'deputy' &&
+        (userDoc().exists ? userDoc().data.deputyType : null) == 'academic';
+    }
+
+    function isSchoolAdminForSchool(schoolId) {
+      return roleForSchool(schoolId) in ['admin', 'manager', 'principal'];
+    }
+
+    function isAcademicDeputyForSchool(schoolId) {
+      return roleForSchool(schoolId) == 'deputy' &&
+        deputyTypeForSchool(schoolId) == 'academic';
+    }
+
+    function canManageStudents(schoolId) {
+      return isSuperAdmin() ||
+        isSchoolAdminForSchool(schoolId) ||
+        roleForSchool(schoolId) in ['deputy', 'supportAdmin', 'technicalSupport'];
+    }
+
+    match /UserCodes/{code} {
+      allow read, write: if false;
+    }
+
+    match /OtpGateTokens/{token} {
+      allow read, write: if false;
+    }
+
+    match /LoginAliases/{uid} {
+      allow read, write: if false;
+    }
+
+    match /FailedLoginAttempts/{docId} {
+      allow read, write: if false;
+    }
+
+    match /GlobalUsers/{uid} {
+      allow read: if isAuthenticated() && (
+        uid == request.auth.uid ||
+        isSuperAdmin() ||
+        (resource.data.schoolId == userSchoolId() && isSchoolAdmin())
+      );
+
+      allow create, delete: if false;
+
+      allow update: if isAuthenticated() && uid == request.auth.uid &&
+        !('role' in request.resource.data.diff(resource.data).changedKeys()) &&
+        !('schoolId' in request.resource.data.diff(resource.data).changedKeys()) &&
+        !('identityNumber' in request.resource.data.diff(resource.data).changedKeys()) &&
+        !('mnCode' in request.resource.data.diff(resource.data).changedKeys());
+    }
+
+    match /SchoolRequests/{requestId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated() && isSuperAdmin();
+    }
+
+    match /Schools/{schoolId}/{document=**} {
+      allow read: if isAuthenticated() && (
+        isSuperAdmin() ||
+        isSchoolMember(schoolId) ||
+        isSchoolStaffMember(schoolId)
+      );
+      allow write: if isAuthenticated() && (isSuperAdmin() || isSchoolMember(schoolId)) &&
+        document[0] != 'StaffCirculars';
+    }
+
+    match /Schools/{schoolId}/Students/{studentId} {
+      allow read: if isAuthenticated() && (
+        isSuperAdmin() ||
+        isSchoolStaffMember(schoolId) ||
+        isSchoolMember(schoolId)
+      );
+      allow create, update, delete: if isAuthenticated() &&
+        canManageStudentsByGlobal(schoolId);
+    }
+
+    match /Schools/{schoolId}/Parents/{parentId} {
+      allow read: if isAuthenticated() && (
+        isSuperAdmin() ||
+        isSchoolStaffMember(schoolId) ||
+        isSchoolMember(schoolId)
+      );
+      allow create, update, delete: if isAuthenticated() &&
+        canManageStudentsByGlobal(schoolId);
+    }
+
+    match /Schools/{schoolId}/StaffCirculars/{circularId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || isSchoolMember(schoolId));
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() ||
+        isSchoolAdminForSchool(schoolId) ||
+        isAcademicDeputyForSchool(schoolId)
+      );
+      allow update, delete: if false;
+
+      match /Recipients/{uid} {
+        allow read: if isAuthenticated() && (
+          uid == request.auth.uid ||
+          isSuperAdmin() ||
+          isSchoolAdminForSchool(schoolId) ||
+          isAcademicDeputyForSchool(schoolId)
+        );
+        allow write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if isAuthenticated() &&
+        !(document[0] == 'Schools' && document[2] == 'StaffCirculars');
+    }
+  }
+}

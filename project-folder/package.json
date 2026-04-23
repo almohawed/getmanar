@@ -1,0 +1,16 @@
+{
+  "name": "project-folder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "delete_all_except.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "firebase-admin": "^13.7.0"
+  }
+}

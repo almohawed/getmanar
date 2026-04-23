@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // دالة مساعدة للحصول على schoolId للمستخدم الحالي
+    function getUserSchoolId() {
+      return get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.schoolId;
+    }
+    
+    // دالة مساعدة للتحقق من أن المستخدم من نفس المدرسة
+    function isSameSchool(schoolId) {
+      return request.auth != null && getUserSchoolId() == schoolId;
+    }
+    
+    // ============================================
+    // قواعد المستخدمين
+    // ============================================
+    match /Users/{userId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        getUserSchoolId() == resource.data.schoolId
+      );
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // ============================================
+    // قواعد المدارس - مفتوحة للقراءة
+    // ============================================
+    match /Schools/{schoolId} {
+      // السماح بالقراءة لأي مستخدم مسجل من نفس المدرسة
+      allow read: if request.auth != null && isSameSchool(schoolId);
+      
+      // السماح بالكتابة للمدير فقط
+      allow write: if request.auth != null && 
+                      isSameSchool(schoolId) &&
+                      get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.role == 'admin';
+      
+      // المجموعات الفرعية - مفتوحة للقراءة والكتابة
+      match /{document=**} {
+        allow read: if request.auth != null && isSameSchool(schoolId);
+        allow write: if request.auth != null && isSameSchool(schoolId);
+      }
+    }
+    
+    // ============================================
+    // قواعد الحضور - مفتوحة تماماً للقراءة
+    // ============================================
+    match /StudentAttendance/{attendanceId} {
+      // السماح بالقراءة لأي مستخدم مسجل من نفس المدرسة
+      allow read: if request.auth != null && 
+                     isSameSchool(resource.data.schoolId);
+      
+      // السماح بالكتابة لأي مستخدم من نفس المدرسة
+      allow write: if request.auth != null && 
+                      isSameSchool(request.resource.data.schoolId);
+    }
+    
+    // ============================================
+    // قواعد السلوك
+    // ============================================
+    match /behavior_records/{recordId} {
+      allow read: if request.auth != null && 
+                     isSameSchool(resource.data.schoolId);
+      allow write: if request.auth != null && 
+                      isSameSchool(request.resource.data.schoolId);
+    }
+    
+    // ============================================
+    // قواعد الطلاب
+    // ============================================
+    match /students/{studentId} {
+      allow read: if request.auth != null && 
+                     isSameSchool(resource.data.schoolId);
+      allow write: if request.auth != null && 
+                      isSameSchool(request.resource.data.schoolId);
+    }
+    
+    // ============================================
+    // قاعدة افتراضية (رفض كل شيء آخر)
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

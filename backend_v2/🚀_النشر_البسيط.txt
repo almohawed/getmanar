@@ -1,0 +1,31 @@
+========================================
+  الحل البسيط (بدون Dockerfile)
+========================================
+
+✅ تم إنشاء main.py في الجذر
+✅ تم حذف Dockerfile (Cloud Run سيكتشف FastAPI تلقائياً)
+✅ requirements.txt محدث
+
+========================================
+  انسخ هذا الأمر:
+========================================
+
+cd C:\Users\asus\my\almadrasah\backend_v2
+
+gcloud config set project etisak-784d6
+
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated
+
+========================================
+  هذا كل شيء!
+========================================
+
+Cloud Run سيكتشف:
+- main.py مع app = FastAPI()
+- requirements.txt
+- سيبني الحاوية تلقائياً
+
+بعد النشر (3-5 دقائق):
+https://schedule-solver-979291699789.us-central1.run.app/health
+
+========================================

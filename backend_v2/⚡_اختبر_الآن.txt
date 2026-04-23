@@ -1,0 +1,32 @@
+========================================
+  اختبار Generate
+========================================
+
+افتح PowerShell جديد (اترك الخادم يعمل):
+
+cd C:\Users\asus\my\almadrasah\backend_v2
+
+powershell -ExecutionPolicy Bypass -File test_generate.ps1
+
+========================================
+
+أو استخدم curl:
+
+curl -X POST http://127.0.0.1:8080/api/v2/generate -H "Content-Type: application/json" -d @test_request.json
+
+========================================
+
+يجب أن ترى:
+- success: true
+- totalLessonsPlaced: 35
+- solverStatus: OPTIMAL أو FEASIBLE
+
+========================================
+
+إذا نجح، انتقل للنشر:
+
+gcloud config set project etisak-784d6
+
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --set-build-env-vars GOOGLE_ENTRYPOINT="gunicorn -w 1 -k uvicorn.workers.UvicornWorker app.main:app --bind :8080"
+
+========================================

@@ -1,0 +1,1 @@
+cd C:\Users\asus\my\almadrasah\backend_v2 ; gcloud config set project etisak-784d6 ; gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --set-build-env-vars GOOGLE_ENTRYPOINT="gunicorn -w 1 -k uvicorn.workers.UvicornWorker main:app --bind :8080"

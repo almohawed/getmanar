@@ -1,0 +1,30 @@
+🚀 افتح Cloud Shell وانسخ هذا الأمر:
+=====================================
+
+cd ~/backend_v2 && gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --timeout 300 --memory 2Gi --cpu 2 --project etisak-784d6
+
+
+⚠️ ملاحظة مهمة:
+----------------
+قبل تنفيذ الأمر، تأكد من نسخ ملف solver_service.py المحدث إلى Cloud Shell!
+
+الملف الموجود في:
+backend_v2/app/services/solver_service.py
+
+
+📋 خطوات سريعة:
+-----------------
+1. افتح Cloud Shell
+2. cd ~/backend_v2/app/services
+3. nano solver_service.py
+4. احذف المحتوى القديم (Ctrl+K)
+5. انسخ المحتوى الجديد من الملف المحلي
+6. الصق (زر الماوس الأيمن)
+7. احفظ (Ctrl+O ثم Enter)
+8. اخرج (Ctrl+X)
+9. نفذ أمر النشر أعلاه
+
+
+✅ بعد النشر:
+--------------
+اختبر على: https://etisak-784d6.web.app

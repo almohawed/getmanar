@@ -1,0 +1,79 @@
+{
+  "version": "1.0.0",
+  "countryCode": "SA",
+  "defaults": {
+    "daysPerWeek": 5,
+    "periodsPerDay": 7
+  },
+  "trackCatalog": {
+    "health": { "labelAr": "صحي", "aliases": ["health", "صحي", "المسار الصحي"] },
+    "engineering": { "labelAr": "هندسي", "aliases": ["engineering", "هندسي", "المسار الهندسي"] },
+    "business": { "labelAr": "إدارة أعمال", "aliases": ["business", "ادارة", "إدارة", "إدارة أعمال", "المسار الإداري"] },
+    "computer": { "labelAr": "حوسبة", "aliases": ["computer", "computing", "تقنية", "حوسبة", "حاسب", "المسار الحاسوبي"] },
+    "humanities": { "labelAr": "إنساني", "aliases": ["humanities", "انساني", "إنساني", "أدبي", "ادبي", "المسار الإنساني"] }
+  },
+  "plans": {
+    "primary_lower": {
+      "grades": {
+        "1": { "Arabic": 8, "Math": 6, "Islamic": 6, "Science": 3, "Quran": 2, "Social": 2, "English": 2, "Computer": 2, "PE": 2, "Art": 2 },
+        "2": { "Arabic": 8, "Math": 6, "Islamic": 6, "Science": 3, "Quran": 2, "Social": 2, "English": 2, "Computer": 2, "PE": 2, "Art": 2 },
+        "3": { "Arabic": 8, "Math": 6, "Islamic": 6, "Science": 3, "Quran": 2, "Social": 2, "English": 2, "Computer": 2, "PE": 2, "Art": 2 }
+      }
+    },
+    "primary_upper": {
+      "grades": {
+        "4": { "Arabic": 7, "Math": 6, "Islamic": 5, "Science": 4, "Quran": 2, "Social": 3, "English": 4, "Computer": 2, "PE": 1, "Art": 1 },
+        "5": { "Arabic": 7, "Math": 6, "Islamic": 5, "Science": 4, "Quran": 2, "Social": 3, "English": 4, "Computer": 2, "PE": 1, "Art": 1 },
+        "6": { "Arabic": 7, "Math": 6, "Islamic": 5, "Science": 4, "Quran": 2, "Social": 3, "English": 4, "Computer": 2, "PE": 1, "Art": 1 }
+      }
+    },
+    "middle": {
+      "grades": {
+        "7": { "Arabic": 6, "Math": 5, "Science": 5, "English": 4, "Islamic": 4, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 },
+        "8": { "Arabic": 6, "Math": 5, "Science": 5, "English": 4, "Islamic": 4, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 },
+        "9": { "Arabic": 6, "Math": 5, "Science": 5, "English": 4, "Islamic": 4, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 }
+      }
+    },
+    "secondary_general": {
+      "grades": {
+        "10": { "Arabic": 5, "Math": 5, "Science": 6, "English": 5, "Islamic": 3, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 },
+        "11": { "Arabic": 5, "Math": 5, "Science": 6, "English": 5, "Islamic": 3, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 },
+        "12": { "Arabic": 5, "Math": 5, "Science": 6, "English": 5, "Islamic": 3, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 }
+      }
+    },
+    "secondary_masarat": {
+      "grades": {
+        "10": {
+          "common": { "Arabic": 5, "Math": 5, "Science": 6, "English": 5, "Islamic": 3, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 },
+          "tracks": {
+            "health": { "Science": 1, "Art": -1 },
+            "engineering": { "Math": 1, "Social": -1 },
+            "business": { "Social": 1, "Science": -1 },
+            "computer": { "Computer": 1, "Art": -1 },
+            "humanities": { "Arabic": 1, "Math": -1 }
+          }
+        },
+        "11": {
+          "common": { "Arabic": 5, "Math": 5, "Science": 6, "English": 5, "Islamic": 3, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 },
+          "tracks": {
+            "health": { "Science": 1, "Art": -1 },
+            "engineering": { "Math": 1, "Social": -1 },
+            "business": { "Social": 1, "Science": -1 },
+            "computer": { "Computer": 1, "Art": -1 },
+            "humanities": { "Arabic": 1, "Math": -1 }
+          }
+        },
+        "12": {
+          "common": { "Arabic": 5, "Math": 5, "Science": 6, "English": 5, "Islamic": 3, "Social": 3, "Computer": 3, "PE": 3, "Art": 2 },
+          "tracks": {
+            "health": { "Science": 1, "Art": -1 },
+            "engineering": { "Math": 1, "Social": -1 },
+            "business": { "Social": 1, "Science": -1 },
+            "computer": { "Computer": 1, "Art": -1 },
+            "humanities": { "Arabic": 1, "Math": -1 }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حذف الرسائل المعلقة</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ حذف الرسائل المعلقة</h1>
+        <p class="subtitle">حذف جميع رسائل SMS التي في حالة "انتظار"</p>
+        
+        <div class="warning">
+            <strong>⚠️ تحذير:</strong>
+            هذا الإجراء سيحذف جميع الرسائل التي في حالة "pending" ولا يمكن التراجع عنه!
+        </div>
+        
+        <div class="input-group">
+            <label for="schoolId">معرف المدرسة (School ID):</label>
+            <input type="text" id="schoolId" placeholder="أدخل معرف المدرسة" />
+        </div>
+        
+        <button onclick="deletePendingMessages()">حذف الرسائل المعلقة</button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">جاري الحذف...</p>
+        </div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDxH8Qn3jP9vK2LmN4oP5qR6sT7uV8wX9y",
+            authDomain: "etisak-784d6.firebaseapp.com",
+            projectId: "etisak-784d6",
+            storageBucket: "etisak-784d6.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const functions = getFunctions(app);
+        const auth = getAuth(app);
+
+        // Sign in anonymously
+        signInAnonymously(auth).catch(error => {
+            console.error('Auth error:', error);
+        });
+
+        window.deletePendingMessages = async function() {
+            const schoolId = document.getElementById('schoolId').value.trim();
+            const resultDiv = document.getElementById('result');
+            const loadingDiv = document.getElementById('loading');
+            const button = document.querySelector('button');
+            
+            if (!schoolId) {
+                showResult('error', 'يرجى إدخال معرف المدرسة');
+                return;
+            }
+            
+            if (!confirm(`هل أنت متأكد من حذف جميع الرسائل المعلقة للمدرسة: ${schoolId}؟\n\nهذا الإجراء لا يمكن التراجع عنه!`)) {
+                return;
+            }
+            
+            button.disabled = true;
+            loadingDiv.style.display = 'block';
+            resultDiv.style.display = 'none';
+            
+            try {
+                const deletePending = httpsCallable(functions, 'deletePendingSmsMessages');
+                const result = await deletePending({ schoolId });
+                
+                if (result.data.success) {
+                    showResult('success', `✓ ${result.data.message}\n\nتم حذف ${result.data.deletedCount} رسالة`);
+                } else {
+                    showResult('error', 'فشل الحذف: ' + (result.data.message || 'خطأ غير معروف'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showResult('error', 'خطأ: ' + (error.message || 'فشل الاتصال بالخادم'));
+            } finally {
+                button.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        };
+        
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result ' + type;
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

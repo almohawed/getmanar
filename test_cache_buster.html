@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار التحديث</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .success {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+        }
+        .warning {
+            background: rgba(255, 152, 0, 0.3);
+            border: 2px solid #FF9800;
+        }
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 10px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: scale(1.05);
+        }
+        .features {
+            list-style: none;
+            padding: 0;
+        }
+        .features li {
+            padding: 10px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        .features li:before {
+            content: "✅ ";
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 التحديث النهائي جاهز!</h1>
+        
+        <div class="status success">
+            <h2>✅ تم النشر بنجاح</h2>
+            <p><strong>الرابط:</strong> <a href="https://etisak-784d6.web.app" target="_blank" style="color: white;">https://etisak-784d6.web.app</a></p>
+            <p><strong>التاريخ:</strong> 2026-04-18 الساعة 22:30</p>
+        </div>
+
+        <div class="status warning">
+            <h2>⚠️ مهم جداً: امسح الكاش أولاً!</h2>
+            <p>لرؤية التحديثات الجديدة، يجب مسح كاش المتصفح:</p>
+            <ol style="text-align: right;">
+                <li>اضغط <strong>Ctrl + Shift + Delete</strong></li>
+                <li>اختر "Cached images and files"</li>
+                <li>اضغط "Clear data"</li>
+                <li>أعد تحميل الصفحة بـ <strong>Ctrl + Shift + R</strong></li>
+            </ol>
+        </div>
+
+        <div class="status">
+            <h2>✨ التحديثات الجديدة:</h2>
+            <ul class="features">
+                <li><strong>القسم 0:</strong> زر "بلاغ جديد" 🟣 بنفسجي</li>
+                <li><strong>القسم 1:</strong> زر "تحديث حالة" 🔵 أزرق</li>
+                <li><strong>القسم 2:</strong> زر "تسجيل عطل" 🟠 برتقالي</li>
+                <li><strong>القسم 3:</strong> زر "تقييم جاهزية" 🟢 أخضر</li>
+                <li><strong>القسم 4:</strong> زر "جدولة صيانة" 🔵 نيلي</li>
+                <li>النقر على البلاغات يفتح تفاصيل كاملة</li>
+                <li>إمكانية تحديث حالة البلاغات</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="https://etisak-784d6.web.app" target="_blank" class="button">
+                🚀 افتح التطبيق الآن
+            </a>
+            <a href="https://etisak-784d6.web.app?v=20260418223000" target="_blank" class="button">
+                🔄 افتح مع كسر الكاش
+            </a>
+        </div>
+
+        <div class="status" style="margin-top: 30px;">
+            <h3>🧪 للتأكد من التحديث:</h3>
+            <p>1. افتح Developer Console (F12)</p>
+            <p>2. ابحث عن: <code>Cache Buster: 2026-04-18-22:30:00</code></p>
+            <p>3. إذا ظهرت، التحديث تم بنجاح! ✅</p>
+        </div>
+    </div>
+
+    <script>
+        // Auto-redirect after 3 seconds
+        setTimeout(() => {
+            if (confirm('هل تريد فتح التطبيق الآن؟')) {
+                window.open('https://etisak-784d6.web.app?v=20260418223000', '_blank');
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

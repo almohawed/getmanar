@@ -1,0 +1,43 @@
+========================================
+إصلاح مشكلة "فشل الفحص الأولي"
+========================================
+
+المشكلة:
+Backend V2 كان يرفض البيانات إذا لم يكن مجموع الحصص = 35 بالضبط
+
+الحل:
+تم تعديل precheck_service.py ليقبل أي عدد حصص أقل من 35
+
+========================================
+خطوات النشر
+========================================
+
+1. افتح Cloud Shell:
+   https://console.cloud.google.com/cloudshell
+
+2. نفذ هذا الأمر:
+
+cd ~/almadrasah/backend_v2
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --timeout 300 --memory 2Gi --cpu 2
+
+3. انتظر حتى يكتمل النشر (2-3 دقائق)
+
+4. اختبر:
+   https://schedule-solver-979291699789.us-central1.run.app/api/v2/health
+
+5. جرب التطبيق:
+   https://etisak-784d6.web.app
+
+========================================
+ملاحظات
+========================================
+
+- إذا لم يكن المشروع موجود في Cloud Shell، ارفع ملف:
+  backend_v2/app/services/precheck_service.py
+  
+- الملف المحدث موجود في:
+  backend_v2/UPDATED_precheck_service.py
+  
+- بعد النشر، Flutter سيعمل تلقائياً
+
+========================================

@@ -1,0 +1,45 @@
+🚀 نسخ وتنفيذ في Cloud Shell
+================================
+
+الخطوة 1: افتح Cloud Shell
+---------------------------
+اذهب إلى: https://console.cloud.google.com
+اضغط على أيقونة Cloud Shell في الأعلى
+
+
+الخطوة 2: انسخ الملف المحدث
+-----------------------------
+في Cloud Shell، نفذ:
+
+cd ~/backend_v2/app/services
+nano solver_service.py
+
+ثم:
+1. احذف كل المحتوى (Ctrl+K عدة مرات)
+2. انسخ محتوى الملف من: backend_v2/app/services/solver_service.py
+3. الصق في nano (زر الماوس الأيمن)
+4. احفظ: Ctrl+O ثم Enter
+5. اخرج: Ctrl+X
+
+
+الخطوة 3: نشر التحديثات
+-------------------------
+cd ~/backend_v2
+
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --timeout 300 --memory 2Gi --cpu 2 --project etisak-784d6
+
+
+الخطوة 4: اختبر
+----------------
+بعد النشر، اذهب إلى:
+https://etisak-784d6.web.app
+
+وجرب توليد الجدول
+
+
+✅ ما تم إصلاحه:
+-----------------
+1. منع تكرار نفس الجدول عبر الأيام
+2. ضمان توزيع عادل للمواد
+3. ضمان اكتمال جداول المعلمين
+4. تحسين التنوع في الجدولة

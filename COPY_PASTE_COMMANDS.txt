@@ -1,0 +1,61 @@
+========================================
+أوامر جاهزة للنسخ واللصق
+Copy & Paste Commands
+========================================
+
+=== في Cloud Shell ===
+
+الأمر 1: غير المشروع
+--------------------------------------
+gcloud config set project etisak-784d6
+
+
+الأمر 2: أنشئ المجلد
+--------------------------------------
+mkdir -p ~/backend_v2
+cd ~/backend_v2
+
+
+الأمر 3: بعد رفع الملفات، تحقق منها
+--------------------------------------
+ls -la
+
+
+الأمر 4: انشر Backend
+--------------------------------------
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated
+
+
+الأمر 5: اختبر Backend
+--------------------------------------
+curl https://schedule-solver-979291699789.us-central1.run.app/api/v2/health
+
+
+الأمر 6: افحص السجلات (إذا حدث خطأ)
+--------------------------------------
+gcloud run services logs read schedule-solver --region us-central1 --limit 30
+
+
+========================================
+ملاحظات مهمة
+========================================
+
+1. بين الأمر 2 والأمر 3:
+   - اضغط أيقونة ⋮ في Cloud Shell
+   - اختر Upload
+   - ارفع جميع ملفات backend_v2
+
+2. الملفات المطلوبة:
+   - مجلد app/ (بالكامل)
+   - Dockerfile
+   - requirements.txt
+   - firebase_credentials.json
+
+3. بعد الأمر 4:
+   - انتظر 2-3 دقائق
+   - يجب أن ترى: "Deploy complete!"
+
+4. الأمر 5 يجب أن يعرض:
+   {"status": "healthy", "version": "2.0-simple"}
+
+========================================

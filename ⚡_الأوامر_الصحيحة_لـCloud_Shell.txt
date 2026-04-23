@@ -1,0 +1,52 @@
+========================================
+الأوامر الصحيحة لـ Cloud Shell
+========================================
+
+نفذ هذه الأوامر بالترتيب:
+
+1. تعيين المشروع أولاً:
+----------------------------------------
+gcloud config set project etisak-784d6
+
+
+2. إنشاء المجلد:
+----------------------------------------
+mkdir -p backend_v2
+cd backend_v2
+
+
+3. الآن ارفع مجلد backend_v2 من جهازك:
+----------------------------------------
+- اضغط على أيقونة "⋮" في Cloud Shell
+- اختر "Upload"
+- ارفع جميع ملفات backend_v2
+
+أو استخدم Cloud Shell Editor:
+https://console.cloud.google.com/cloudshell/editor
+
+
+4. بعد رفع الملفات، نفذ:
+----------------------------------------
+cd ~/backend_v2
+gcloud run deploy schedule-solver --source . --region us-central1 --allow-unauthenticated --timeout 300 --memory 2Gi --cpu 2
+
+
+5. اختبار بعد النشر:
+----------------------------------------
+curl https://schedule-solver-979291699789.us-central1.run.app/api/v2/health
+
+
+========================================
+ملاحظة مهمة
+========================================
+
+الملف المحدث الوحيد هو:
+backend_v2/app/services/precheck_service.py
+
+إذا كان Backend V2 موجود مسبقاً، فقط:
+1. افتح Cloud Shell Editor
+2. اذهب إلى: backend_v2/app/services/precheck_service.py
+3. استبدل المحتوى بالملف من: backend_v2/UPDATED_precheck_service.py
+4. نفذ الأمر 4 أعلاه
+
+========================================

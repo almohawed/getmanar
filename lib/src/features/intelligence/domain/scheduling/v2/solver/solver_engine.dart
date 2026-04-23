@@ -1,0 +1,1667 @@
+import 'package:flutter/services.dart';
+import 'dart:convert';
+import '../models/assignment.dart';
+import '../models/demand.dart';
+import '../models/policy.dart';
+import '../models/snapshot.dart';
+import '../utils/subject_normalizer.dart';
+import '../../../../../schedule/domain/saudi_subject_plans.dart';
+
+class SolverEngine {
+  const SolverEngine();
+
+  static const int _maxSolverPasses = 5;
+
+  Future<DemandModel> solve(
+    SchoolSnapshot snapshot,
+    PolicyProfile policy,
+    AssignmentModel assignment, {
+    void Function({
+      required int demandedLessons,
+      required int placedLessons,
+      required int unplacedLessons,
+      required int solverPass,
+      required String label,
+    })?
+    onProgress,
+  }) async {
+    final isPrimaryOnly = snapshot.stage == 'primary_only';
+    final days = _daysFromPolicy(policy);
+    final periods =
+        (policy.raw['periodsPerDay'] as num?)?.toInt() ??
+        snapshot.periodsPerDay;
+
+    final teacherSubjects = <String, List<String>>{};
+    for (final t in assignment.teachers) {
+      if (t.isAdministrative) continue;
+      
+      // ✅ توحيد أسماء المواد المسندة
+      final subjects = t.assignedSubjects
+          .map((e) => SubjectNormalizer.normalize(e.trim()))
+          .where((e) => e.isNotEmpty)
+          .toList();
+      if (subjects.isNotEmpty) {
+        teacherSubjects[t.teacherId] = subjects..sort();
+        continue;
+      }
+      
+      // ✅ إصلاح: إذا لم يكن لديه مواد مسندة، استخدم المادة الأساسية
+      if ((t.primarySubject ?? '').trim().isNotEmpty) {
+        final normalized = SubjectNormalizer.normalize(t.primarySubject!.trim());
+        if (normalized.isNotEmpty) {
+          teacherSubjects[t.teacherId] = [normalized];
+          continue;
+        }
+      }
+      
+      // ✅ إصلاح: إذا كان ابتدائي، استخدم general
+      if (isPrimaryOnly) {
+        teacherSubjects[t.teacherId] = const <String>['general'];
+        continue;
+      }
+      
+      // ✅ إصلاح: كحل أخير، استخدم التخصص من snapshot
+      final st = snapshot.teachers.where((s) => s.id == t.teacherId).firstOrNull;
+      if (st != null && (st.specialization ?? '').trim().isNotEmpty) {
+        final normalized = SubjectNormalizer.normalize(st.specialization!.trim());
+        if (normalized.isNotEmpty) {
+          teacherSubjects[t.teacherId] = [normalized];
+          continue;
+        }
+      }
+      
+      // ✅ إصلاح: إذا لم يكن هناك أي شيء، استخدم قائمة فارغة لكن أضفه
+      // هذا يسمح للمعلم بالظهور في التقارير على الأقل
+      teacherSubjects[t.teacherId] = const <String>[];
+    }
+
+    final classIdSet = <String>{
+      for (final c in snapshot.classes)
+        if (!isPrimaryOnly || (c.gradeLevel >= 1 && c.gradeLevel <= 6))
+          c.id.trim(),
+    }..removeWhere((e) => e.isEmpty);
+
+    final gradeByClassId = <String, int>{
+      for (final c in snapshot.classes)
+        if (classIdSet.contains(c.id.trim())) c.id.trim(): c.gradeLevel,
+    };
+    final lowerClassIds = <String>{
+      for (final entry in gradeByClassId.entries)
+        if (entry.value >= 1 && entry.value <= 3) entry.key,
+    };
+    final upperClassIds = <String>{
+      for (final entry in gradeByClassId.entries)
+        if (entry.value >= 4 && entry.value <= 6) entry.key,
+    };
+
+    final assignmentByTeacherId = <String, TeacherAssignment>{
+      for (final t in assignment.teachers) t.teacherId: t,
+    };
+
+    final snapshotTeacherById = <String, SnapshotTeacher>{
+      for (final t in snapshot.teachers) t.id: t,
+    };
+
+    final teacherAllowedClasses = <String, Set<String>>{};
+    for (final tid in teacherSubjects.keys) {
+      final st = snapshotTeacherById[tid];
+      if (st == null) {
+        teacherAllowedClasses[tid] = classIdSet;
+        continue;
+      }
+
+      final isBundleTeacher =
+          isPrimaryOnly &&
+          assignmentByTeacherId[tid]?.classification == 'bundle';
+
+      if (isPrimaryOnly) {
+        teacherAllowedClasses[tid] = isBundleTeacher
+            ? lowerClassIds
+            : upperClassIds;
+        continue;
+      }
+
+      if (snapshot.stage == 'secondary_only' &&
+          snapshot.secondaryProgramType == 'masarat') {
+        final hasFilters =
+            (st.masaratAssignmentType ?? '').trim().isNotEmpty ||
+            st.masaratGradeLevel != null ||
+            st.masaratTracks.isNotEmpty;
+        if (!hasFilters) {
+          teacherAllowedClasses[tid] = classIdSet;
+          continue;
+        }
+
+        final gradeFilter = st.masaratGradeLevel;
+        final type = (st.masaratAssignmentType ?? '').trim();
+        final allowedGrades = gradeFilter != null
+            ? <int>{gradeFilter}
+            : (type == 'shared'
+                  ? <int>{10}
+                  : (type == 'specialized'
+                        ? <int>{11, 12}
+                        : <int>{10, 11, 12}));
+        final tracks = st.masaratTracks.toSet();
+        final allowed2 = <String>{};
+        for (final c in snapshot.classes) {
+          final cid = c.id.trim();
+          if (cid.isEmpty) continue;
+          if (!classIdSet.contains(cid)) continue;
+          if (!allowedGrades.contains(c.gradeLevel)) continue;
+          if (c.gradeLevel == 10) {
+            allowed2.add(cid);
+            continue;
+          }
+          if (tracks.isNotEmpty) {
+            final ct = (c.secondaryTrack ?? '').trim();
+            if (tracks.contains(ct)) allowed2.add(cid);
+            continue;
+          }
+          allowed2.add(cid);
+        }
+        teacherAllowedClasses[tid] = allowed2.isNotEmpty ? allowed2 : classIdSet;
+        continue;
+      }
+
+      // Default: allow all classes
+      teacherAllowedClasses[tid] = classIdSet;
+    }
+
+    final candidateTeachersBySubject = <String, List<String>>{};
+    for (final entry in teacherSubjects.entries) {
+      for (final s in entry.value) {
+        candidateTeachersBySubject.putIfAbsent(s, () => <String>[]);
+        candidateTeachersBySubject[s]!.add(entry.key);
+      }
+    }
+    for (final entry in candidateTeachersBySubject.entries) {
+      entry.value.sort();
+    }
+    final subjectRarity = <String, int>{
+      for (final e in candidateTeachersBySubject.entries) e.key: e.value.length,
+    };
+
+    final classIds = classIdSet.toList();
+    if (snapshot.stage == 'secondary_only' &&
+        snapshot.secondaryProgramType == 'masarat' &&
+        snapshot.secondaryStructure == 'shared_year_then_tracks') {
+      classIds.sort((a, b) {
+        final ga = gradeByClassId[a] ?? 0;
+        final gb = gradeByClassId[b] ?? 0;
+        if (ga != gb) return gb.compareTo(ga);
+        return a.compareTo(b);
+      });
+    } else {
+      classIds.sort();
+    }
+
+    // ✅ حساب دقيق للحصص المطلوبة بناءً على الخطة الدراسية
+    int demandedLessons = 0;
+    SaudiSubjectPlans? saudiPlans;
+    try {
+      final text = await rootBundle.loadString('assets/config/saudi_subject_plans.json');
+      final decoded = json.decode(text);
+      if (decoded is Map) {
+        saudiPlans = SaudiSubjectPlans(decoded.cast<String, dynamic>());
+      }
+    } catch (_) {
+      // Fallback to old calculation if plans not available
+      demandedLessons = classIds.length * days.length * periods;
+    }
+    
+    if (saudiPlans != null) {
+      // Calculate actual demanded lessons based on curriculum
+      for (final cid in classIds) {
+        final classData = snapshot.classes.where((c) => c.id.trim() == cid).firstOrNull;
+        if (classData == null) continue;
+        
+        final weeklyDemand = saudiPlans.weeklyDemandForGrade(
+          gradeLevel: classData.gradeLevel,
+          secondaryProgramType: snapshot.secondaryProgramType,
+          secondaryTrack: classData.secondaryTrack,
+        );
+        
+        final totalForClass = weeklyDemand.values.fold(0, (int sum, int count) => sum + count);
+        demandedLessons += totalForClass;
+      }
+    }
+    
+    int solverPasses = 0;
+    int retryCount = 0;
+    int swapCount = 0;
+    var placedSoFar = 0;
+    var yieldCounter = 0;
+    Future<void> maybeYield(String label) async {
+      yieldCounter++;
+      if (yieldCounter % 2500 != 0) return;
+      await Future<void>.delayed(Duration.zero);
+      onProgress?.call(
+        demandedLessons: demandedLessons,
+        placedLessons: placedSoFar,
+        unplacedLessons: demandedLessons - placedSoFar,
+        solverPass: solverPasses,
+        label: label,
+      );
+    }
+
+    final lessonByClass = <String, Map<String, Map<int, _Lesson>>>{};
+    for (final cid in classIds) {
+      lessonByClass[cid] = {for (final d in days) d: <int, _Lesson>{}};
+    }
+
+    final teacherBusy = <String, Map<String, Map<int, int>>>{};
+    final classBusy = <String, Map<String, Map<int, int>>>{};
+    final teachingLoad = <String, int>{
+      for (final id in teacherSubjects.keys) id: 0,
+    };
+    final maxWeeklyLoadByTeacherId = <String, int>{};
+    for (final tid in teacherSubjects.keys) {
+      final a = assignmentByTeacherId[tid];
+      final st = snapshotTeacherById[tid];
+      final fromAssignment = a?.maxWeeklyLoad ?? 0;
+      final fromSnapshot = st?.maxWeeklyLoad ?? 0;
+      final fromTarget = a?.targetWeeklyLoad ?? 0;
+      var max = fromAssignment > 0
+          ? fromAssignment
+          : (fromSnapshot > 0 ? fromSnapshot : fromTarget);
+      if (max <= 0) max = 24;
+      maxWeeklyLoadByTeacherId[tid] = max;
+    }
+    final eligibleTeachersByClassId = <String, List<String>>{
+      for (final cid in classIds) cid: <String>[],
+    };
+    for (final tid in teacherSubjects.keys) {
+      final allowed = teacherAllowedClasses[tid];
+      if (allowed != null && allowed.isNotEmpty) {
+        for (final cid in allowed) {
+          final list = eligibleTeachersByClassId[cid];
+          if (list != null) list.add(tid);
+        }
+      } else {
+        for (final cid in classIds) {
+          eligibleTeachersByClassId[cid]!.add(tid);
+        }
+      }
+    }
+    for (final entry in eligibleTeachersByClassId.entries) {
+      entry.value.sort();
+    }
+
+    for (final cid in classIds) {
+      classBusy[cid] = {for (final d in days) d: <int, int>{}};
+    }
+
+    final englishDayToArabic = <String, String>{
+      'sunday': 'الأحد',
+      'monday': 'الاثنين',
+      'tuesday': 'الثلاثاء',
+      'wednesday': 'الأربعاء',
+      'thursday': 'الخميس',
+      'friday': 'الجمعة',
+      'saturday': 'السبت',
+    };
+    for (final t in snapshot.teachers) {
+      for (final raw in t.blockedTimeSlots) {
+        final s = raw.toString().trim();
+        final idx = s.indexOf(':');
+        if (idx <= 0) continue;
+        final dayRaw = s.substring(0, idx).trim();
+        final periodRaw = s.substring(idx + 1).trim();
+        final period = int.tryParse(periodRaw);
+        if (period == null || period <= 0) continue;
+        final dayLower = dayRaw.toLowerCase().trim();
+        final day = englishDayToArabic[dayLower] ?? dayRaw;
+        if (!days.contains(day)) continue;
+        _incBusy(teacherBusy, t.id, day, period);
+      }
+    }
+
+    final availableSubjectIds = candidateTeachersBySubject.keys.toList()
+      ..sort();
+    final coreSubjectIds = _detectCoreSubjectIds(
+      candidateTeachersBySubject,
+      maxCount: snapshot.stage == 'secondary_only' ? 12 : 6,
+    );
+    final coreSubjectSet = coreSubjectIds.toSet();
+    final usageByClass = <String, Map<String, int>>{
+      for (final cid in classIds) cid: <String, int>{},
+    };
+
+    solverPasses++;
+    
+    for (final day in days) {
+      for (int period = 1; period <= periods; period++) {
+        final usedTeachers = <String>{};
+
+        for (final cid in classIds) {
+          if (lessonByClass[cid]![day]!.containsKey(period)) continue;
+
+          final chosenTeacher = _pickFreeTeacherFromEligible(
+            eligibleTeachers:
+                eligibleTeachersByClassId[cid] ?? const <String>[],
+            usedTeachers: usedTeachers,
+            teacherBusy: teacherBusy,
+            day: day,
+            period: period,
+            teachingLoad: teachingLoad,
+            maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+          );
+          if (chosenTeacher == null) continue;
+
+          final subjectId = _pickSubjectForClass(
+            cid: cid,
+            teacherId: chosenTeacher,
+            teacherSubjects: teacherSubjects,
+            usageByClass: usageByClass,
+            coreSubjectSet: coreSubjectSet,
+            fallbackSubjectIds: availableSubjectIds,
+            subjectRarity: subjectRarity,
+            currentDay: day,
+            maxSubjectPerDay: 1,
+            lessonByClass: lessonByClass,
+          );
+          if (subjectId == null) continue;
+
+          lessonByClass[cid]![day]![period] = _Lesson(
+            teacherId: chosenTeacher,
+            subjectId: subjectId,
+          );
+          _incBusy(teacherBusy, chosenTeacher, day, period);
+          _incBusy(classBusy, cid, day, period);
+          teachingLoad[chosenTeacher] = (teachingLoad[chosenTeacher] ?? 0) + 1;
+          final maxWeekly = maxWeeklyLoadByTeacherId[chosenTeacher] ?? 0;
+          if (maxWeekly > 0 && (teachingLoad[chosenTeacher] ?? 0) > maxWeekly) {
+            lessonByClass[cid]![day]!.remove(period);
+            _decBusy(teacherBusy, chosenTeacher, day, period);
+            _decBusy(classBusy, cid, day, period);
+            teachingLoad[chosenTeacher] =
+                (teachingLoad[chosenTeacher] ?? 0) - 1;
+            continue;
+          }
+          usedTeachers.add(chosenTeacher);
+          usageByClass[cid]![subjectId] =
+              (usageByClass[cid]![subjectId] ?? 0) + 1;
+          placedSoFar++;
+          if (placedSoFar % 1500 == 0) {
+            onProgress?.call(
+              demandedLessons: demandedLessons,
+              placedLessons: placedSoFar,
+              unplacedLessons: demandedLessons - placedSoFar,
+              solverPass: solverPasses,
+              label: 'ملء الفراغات',
+            );
+            await Future<void>.delayed(Duration.zero);
+          } else {
+            await maybeYield('ملء الفراغات');
+          }
+        }
+      }
+    }
+
+    final unfilled = _collectUnfilled(
+      classIds: classIds,
+      days: days,
+      periods: periods,
+      lessonByClass: lessonByClass,
+    );
+
+    if (unfilled.isNotEmpty) {
+      solverPasses++;
+      retryCount += _retryFill(
+        unfilled: unfilled,
+        lessonByClass: lessonByClass,
+        teacherBusy: teacherBusy,
+        classBusy: classBusy,
+        teachingLoad: teachingLoad,
+        maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+        teacherSubjects: teacherSubjects,
+        availableSubjectIds: availableSubjectIds,
+        usageByClass: usageByClass,
+        coreSubjectSet: coreSubjectSet,
+        teacherAllowedClasses: teacherAllowedClasses,
+        subjectRarity: subjectRarity,
+        onProgress: (placedDelta) {
+          placedSoFar += placedDelta;
+          if (placedSoFar % 1000 == 0) {
+            onProgress?.call(
+              demandedLessons: demandedLessons,
+              placedLessons: placedSoFar,
+              unplacedLessons: demandedLessons - placedSoFar,
+              solverPass: solverPasses,
+              label: 'Solver/Retry',
+            );
+          }
+        },
+      );
+    }
+
+    final unfilled2 = _collectUnfilled(
+      classIds: classIds,
+      days: days,
+      periods: periods,
+      lessonByClass: lessonByClass,
+    );
+    if (unfilled2.isNotEmpty) {
+      solverPasses++;
+      retryCount += _retryFill(
+        unfilled: unfilled2,
+        lessonByClass: lessonByClass,
+        teacherBusy: teacherBusy,
+        classBusy: classBusy,
+        teachingLoad: teachingLoad,
+        maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+        teacherSubjects: teacherSubjects,
+        availableSubjectIds: availableSubjectIds.reversed.toList(),
+        usageByClass: usageByClass,
+        coreSubjectSet: coreSubjectSet,
+        teacherAllowedClasses: teacherAllowedClasses,
+        subjectRarity: subjectRarity,
+        onProgress: (placedDelta) {
+          placedSoFar += placedDelta;
+          if (placedSoFar % 1000 == 0) {
+            onProgress?.call(
+              demandedLessons: demandedLessons,
+              placedLessons: placedSoFar,
+              unplacedLessons: demandedLessons - placedSoFar,
+              solverPass: solverPasses,
+              label: 'Solver/Retry2',
+            );
+          }
+        },
+      );
+    }
+
+    final unfilled3 = _collectUnfilled(
+      classIds: classIds,
+      days: days,
+      periods: periods,
+      lessonByClass: lessonByClass,
+    );
+    if (unfilled3.isNotEmpty) {
+      solverPasses++;
+      swapCount += _swapWithinClass(
+        unfilled: unfilled3,
+        lessonByClass: lessonByClass,
+        teacherBusy: teacherBusy,
+        classBusy: classBusy,
+        teachingLoad: teachingLoad,
+        maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+        teacherSubjects: teacherSubjects,
+        availableSubjectIds: availableSubjectIds,
+        usageByClass: usageByClass,
+        coreSubjectSet: coreSubjectSet,
+        subjectRarity: subjectRarity,
+        teacherAllowedClasses: teacherAllowedClasses,
+      );
+    }
+
+    final unfilled4 = _collectUnfilled(
+      classIds: classIds,
+      days: days,
+      periods: periods,
+      lessonByClass: lessonByClass,
+    );
+    if (unfilled4.isNotEmpty) {
+      solverPasses++;
+      swapCount += _swapAcrossSameGrade(
+        unfilled: unfilled4,
+        snapshot: snapshot,
+        days: days,
+        periods: periods,
+        lessonByClass: lessonByClass,
+        teacherBusy: teacherBusy,
+        classBusy: classBusy,
+        teachingLoad: teachingLoad,
+        maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+        teacherSubjects: teacherSubjects,
+        availableSubjectIds: availableSubjectIds,
+        usageByClass: usageByClass,
+        coreSubjectSet: coreSubjectSet,
+        subjectRarity: subjectRarity,
+        teacherAllowedClasses: teacherAllowedClasses,
+      );
+    }
+
+    if (solverPasses > _maxSolverPasses) solverPasses = _maxSolverPasses;
+
+    final unfilled5 = _collectUnfilled(
+      classIds: classIds,
+      days: days,
+      periods: periods,
+      lessonByClass: lessonByClass,
+    );
+    if (unfilled5.isNotEmpty) {
+      solverPasses++;
+      placedSoFar += _quotaReliefFill(
+        unfilled: unfilled5,
+        lessonByClass: lessonByClass,
+        teacherBusy: teacherBusy,
+        classBusy: classBusy,
+        teachingLoad: teachingLoad,
+        maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+        eligibleTeachersByClassId: eligibleTeachersByClassId,
+        teacherSubjects: teacherSubjects,
+        availableSubjectIds: availableSubjectIds,
+        usageByClass: usageByClass,
+        coreSubjectSet: coreSubjectSet,
+        subjectRarity: subjectRarity,
+      );
+    }
+
+    final finalUnfilled = _collectUnfilled(
+      classIds: classIds,
+      days: days,
+      periods: periods,
+      lessonByClass: lessonByClass,
+    );
+    final unfilledByGrade = <String, int>{};
+    final unfilledByTrack = <String, int>{};
+    final reasons = <String, int>{};
+    final eligibleTeachersCache = <String, List<String>>{};
+    for (final slot in finalUnfilled) {
+      final g = gradeByClassId[slot.classId] ?? 0;
+      if (g > 0) {
+        final key = '$g';
+        unfilledByGrade[key] = (unfilledByGrade[key] ?? 0) + 1;
+      }
+      String trackKey = '';
+      if (g == 10) {
+        trackKey = 'shared';
+      } else {
+        for (final c in snapshot.classes) {
+          final cid = c.id.trim();
+          if (cid == slot.classId) {
+            trackKey = (c.secondaryTrack ?? '').toString().trim();
+            break;
+          }
+        }
+      }
+      if (trackKey.trim().isNotEmpty) {
+        unfilledByTrack[trackKey] = (unfilledByTrack[trackKey] ?? 0) + 1;
+      }
+
+      eligibleTeachersCache.putIfAbsent(slot.classId, () {
+        final out = <String>[];
+        for (final tid in teacherSubjects.keys) {
+          final allowed = teacherAllowedClasses[tid];
+          if (allowed != null &&
+              allowed.isNotEmpty &&
+              !allowed.contains(slot.classId)) {
+            continue;
+          }
+          out.add(tid);
+        }
+        return out;
+      });
+
+      final eligible = eligibleTeachersCache[slot.classId] ?? const <String>[];
+      if (eligible.isEmpty) {
+        reasons['noEligibleTeachersForClass'] =
+            (reasons['noEligibleTeachersForClass'] ?? 0) + 1;
+        continue;
+      }
+      var freeEligible = 0;
+      var freeEligibleWithSubjects = 0;
+      for (final tid in eligible) {
+        if (_isBusy(teacherBusy, tid, slot.day, slot.period)) continue;
+        freeEligible++;
+        final subj = teacherSubjects[tid];
+        if (subj != null && subj.isNotEmpty) freeEligibleWithSubjects++;
+      }
+      if (freeEligible <= 0) {
+        reasons['noFreeTeacherAtSlot'] =
+            (reasons['noFreeTeacherAtSlot'] ?? 0) + 1;
+        continue;
+      }
+      if (freeEligibleWithSubjects <= 0) {
+        reasons['noSubjectForFreeTeachers'] =
+            (reasons['noSubjectForFreeTeachers'] ?? 0) + 1;
+        continue;
+      }
+      reasons['other'] = (reasons['other'] ?? 0) + 1;
+    }
+
+    final placedLessons = _countPlaced(lessonByClass);
+    final unplacedLessons = demandedLessons - placedLessons;
+
+    final teacherConflicts = _countConflicts(teacherBusy);
+    final classConflicts = _countConflicts(classBusy);
+
+    final lessons = <Map<String, dynamic>>[];
+    for (final cid in classIds) {
+      for (final day in days) {
+        final byPeriod = lessonByClass[cid]![day]!;
+        for (final entry in byPeriod.entries) {
+          lessons.add(<String, dynamic>{
+            'classId': cid,
+            'day': day,
+            'period': entry.key,
+            'teacherId': entry.value.teacherId,
+            'subjectId': entry.value.subjectId,
+          });
+        }
+      }
+    }
+
+    final teacherNameById = <String, String>{
+      for (final t in snapshot.teachers) t.id.trim(): t.name,
+    };
+    int freeSlotsForTeacher(String tid) {
+      var free = 0;
+      for (final day in days) {
+        for (int p = 1; p <= periods; p++) {
+          if (_isBusy(teacherBusy, tid, day, p)) continue;
+          free++;
+        }
+      }
+      return free;
+    }
+
+    final overloadedTeachers = <Map<String, dynamic>>[];
+    for (final tid in teachingLoad.keys) {
+      final load = teachingLoad[tid] ?? 0;
+      final maxWeekly = maxWeeklyLoadByTeacherId[tid] ?? 0;
+      if (maxWeekly > 0 && load > maxWeekly) {
+        overloadedTeachers.add(<String, dynamic>{
+          'teacherId': tid,
+          'teacherName': teacherNameById[tid] ?? tid,
+          'load': load,
+          'maxWeeklyLoad': maxWeekly,
+        });
+      }
+    }
+
+    final subjectUsedTeachers = <String, Set<String>>{};
+    for (final l in lessons) {
+      final sid = (l['subjectId'] ?? '').toString().trim();
+      final tid = (l['teacherId'] ?? '').toString().trim();
+      if (sid.isEmpty || tid.isEmpty) continue;
+      subjectUsedTeachers.putIfAbsent(sid, () => <String>{});
+      subjectUsedTeachers[sid]!.add(tid);
+    }
+
+    final subjectEligibilityReport = <Map<String, dynamic>>[];
+    final subjectIds = candidateTeachersBySubject.keys.toList()..sort();
+    for (final sid in subjectIds) {
+      final eligible = candidateTeachersBySubject[sid] ?? const <String>[];
+      final usedSet = subjectUsedTeachers[sid] ?? const <String>{};
+      final unused = <Map<String, dynamic>>[];
+      for (final tid in eligible) {
+        if (usedSet.contains(tid)) continue;
+        final load = teachingLoad[tid] ?? 0;
+        final maxWeekly = maxWeeklyLoadByTeacherId[tid] ?? 0;
+        final allowed = teacherAllowedClasses[tid];
+        String reason = 'not_selected';
+        if (allowed != null && allowed.isEmpty && !isPrimaryOnly) {
+          reason = 'no_eligible_classes';
+        } else if (maxWeekly > 0 && load >= maxWeekly) {
+          reason = 'quota_reached';
+        } else {
+          final free = freeSlotsForTeacher(tid);
+          if (free <= 0) reason = 'no_teacher_time';
+        }
+        unused.add(<String, dynamic>{
+          'teacherId': tid,
+          'teacherName': teacherNameById[tid] ?? tid,
+          'load': load,
+          'maxWeeklyLoad': maxWeekly,
+          'freeSlots': freeSlotsForTeacher(tid),
+          'reason': reason,
+        });
+      }
+      unused.sort((a, b) {
+        final ra = (a['reason'] ?? '').toString();
+        final rb = (b['reason'] ?? '').toString();
+        final c = ra.compareTo(rb);
+        if (c != 0) return c;
+        final la =
+            (a['load'] as num?)?.toInt() ?? int.tryParse('${a['load']}') ?? 0;
+        final lb =
+            (b['load'] as num?)?.toInt() ?? int.tryParse('${b['load']}') ?? 0;
+        if (la != lb) return la.compareTo(lb);
+        return (a['teacherName'] ?? '').toString().compareTo(
+          (b['teacherName'] ?? '').toString(),
+        );
+      });
+      subjectEligibilityReport.add(<String, dynamic>{
+        'subjectId': sid,
+        'eligibleTeachers': eligible.length,
+        'usedTeachers': usedSet.length,
+        'unusedTeachers': unused.length,
+        'unusedTeachersSample': unused.take(20).toList(),
+      });
+    }
+
+    return DemandModel(
+      demandedLessons: demandedLessons,
+      placedLessons: placedLessons,
+      unplacedLessons: unplacedLessons,
+      teacherConflicts: teacherConflicts,
+      classConflicts: classConflicts,
+      solverPasses: solverPasses,
+      retryCount: retryCount,
+      swapCount: swapCount,
+      data: <String, dynamic>{
+        'days': days,
+        'periodsPerDay': periods,
+        'classIds': classIds,
+        'lessons': lessons,
+        'availableSubjectIds': availableSubjectIds.length,
+        'candidateTeachersBySubject': candidateTeachersBySubject.map(
+          (k, v) => MapEntry(k, v.length),
+        ),
+        'coreSubjectIds': coreSubjectIds,
+        'subjectRarity': subjectRarity,
+        'quotaSummary': <String, dynamic>{
+          'overloadedTeachersCount': overloadedTeachers.length,
+          'overloadedTeachers': overloadedTeachers,
+        },
+        'subjectEligibilityReport': subjectEligibilityReport,
+        'unplacedBreakdown': <String, dynamic>{
+          'unfilledSlots': finalUnfilled.length,
+          'byGrade': unfilledByGrade,
+          'byTrack': unfilledByTrack,
+          'reasons': reasons,
+        },
+      },
+    );
+  }
+
+  List<String> _detectCoreSubjectIds(
+    Map<String, List<String>> candidateTeachersBySubject, {
+    int maxCount = 6,
+  }) {
+    final entries = candidateTeachersBySubject.entries.toList()
+      ..sort((a, b) {
+        final da = a.value.length;
+        final db = b.value.length;
+        if (da != db) return da.compareTo(db);
+        return a.key.compareTo(b.key);
+      });
+    final out = <String>[];
+    for (final e in entries) {
+      out.add(e.key);
+      if (out.length >= maxCount) break;
+    }
+    return out;
+  }
+
+  String? _pickFreeTeacher({
+    required List<String> teacherPool,
+    required Set<String> usedTeachers,
+    required Map<String, Map<String, Map<int, int>>> teacherBusy,
+    required String day,
+    required int period,
+    String? classId,
+    Map<String, Set<String>>? teacherAllowedClasses,
+    Map<String, int>? maxWeeklyLoadByTeacherId,
+    Map<String, int>? teachingLoad,
+  }) {
+    for (final tid in teacherPool) {
+      if (usedTeachers.contains(tid)) continue;
+      if (_isBusy(teacherBusy, tid, day, period)) continue;
+      if (maxWeeklyLoadByTeacherId != null && teachingLoad != null) {
+        final maxWeekly = maxWeeklyLoadByTeacherId[tid] ?? 0;
+        final load = teachingLoad[tid] ?? 0;
+        if (maxWeekly > 0 && load >= maxWeekly) continue;
+      }
+      if (classId != null && teacherAllowedClasses != null) {
+        final allowed = teacherAllowedClasses[tid];
+        if (allowed != null &&
+            allowed.isNotEmpty &&
+            !allowed.contains(classId)) {
+          continue;
+        }
+      }
+      return tid;
+    }
+    return null;
+  }
+
+  String? _pickFreeTeacherFromEligible({
+    required List<String> eligibleTeachers,
+    required Set<String> usedTeachers,
+    required Map<String, Map<String, Map<int, int>>> teacherBusy,
+    required String day,
+    required int period,
+    required Map<String, int> teachingLoad,
+    required Map<String, int> maxWeeklyLoadByTeacherId,
+  }) {
+    String? best;
+    var bestRatio = 1e9;
+    var bestLoad = 1 << 30;
+    for (final tid in eligibleTeachers) {
+      if (usedTeachers.contains(tid)) continue;
+      if (_isBusy(teacherBusy, tid, day, period)) continue;
+      final maxWeekly = maxWeeklyLoadByTeacherId[tid] ?? 0;
+      final load = teachingLoad[tid] ?? 0;
+      if (maxWeekly > 0 && load >= maxWeekly) continue;
+      final ratio = maxWeekly > 0 ? (load / maxWeekly) : load.toDouble();
+      if (ratio < bestRatio || (ratio == bestRatio && load < bestLoad)) {
+        bestRatio = ratio;
+        bestLoad = load;
+        best = tid;
+      }
+    }
+    return best;
+  }
+
+  String? _pickSubjectForClass({
+    required String cid,
+    required String teacherId,
+    required Map<String, List<String>> teacherSubjects,
+    required Map<String, Map<String, int>> usageByClass,
+    required Set<String> coreSubjectSet,
+    required List<String> fallbackSubjectIds,
+    required Map<String, int> subjectRarity,
+    required String currentDay,
+    required int maxSubjectPerDay,
+    Map<String, Map<String, Map<int, _Lesson>>>? lessonByClass,
+  }) {
+    final subjects = teacherSubjects[teacherId] ?? const <String>[];
+    if (subjects.isEmpty) return null;
+
+    // ✅ حساب عدد مرات كل مادة في هذا اليوم
+    final subjectCountToday = <String, int>{};
+    if (lessonByClass != null && lessonByClass.containsKey(cid)) {
+      final daySchedule = lessonByClass[cid]![currentDay];
+      if (daySchedule != null) {
+        for (final lesson in daySchedule.values) {
+          final subj = lesson.subjectId;
+          subjectCountToday[subj] = (subjectCountToday[subj] ?? 0) + 1;
+        }
+      }
+    }
+
+    final preferred = <String>[];
+    for (final s in subjects) {
+      if (coreSubjectSet.contains(s)) preferred.add(s);
+    }
+    for (final s in subjects) {
+      if (!coreSubjectSet.contains(s)) preferred.add(s);
+    }
+    if (preferred.isEmpty) {
+      for (final s in fallbackSubjectIds) {
+        if (subjects.contains(s)) preferred.add(s);
+      }
+    }
+    if (preferred.isEmpty) return subjects.first;
+
+    String? best;
+    var bestCount = 1 << 30;
+    var bestRarity = 1 << 30;
+    final usage = usageByClass[cid] ?? const <String, int>{};
+    
+    for (final s in preferred) {
+      // ✅ تحقق من عدد مرات المادة اليوم
+      final usedTodayCount = subjectCountToday[s] ?? 0;
+      if (usedTodayCount >= maxSubjectPerDay) continue; // تخطي المواد التي وصلت للحد الأقصى
+      
+      final c = usage[s] ?? 0;
+      final r = subjectRarity[s] ?? (1 << 20);
+      
+      // ✅ إعطاء أولوية عالية جداً للمواد غير المستخدمة اليوم
+      final todayPenalty = usedTodayCount * 10000;
+      final adjustedCount = c + todayPenalty;
+      
+      if (adjustedCount < bestCount || (adjustedCount == bestCount && r < bestRarity)) {
+        bestCount = adjustedCount;
+        bestRarity = r;
+        best = s;
+      }
+    }
+    return best ?? preferred.first;
+  }
+
+  List<_Slot> _collectUnfilled({
+    required List<String> classIds,
+    required List<String> days,
+    required int periods,
+    required Map<String, Map<String, Map<int, _Lesson>>> lessonByClass,
+  }) {
+    final out = <_Slot>[];
+    for (final cid in classIds) {
+      for (final day in days) {
+        for (int period = 1; period <= periods; period++) {
+          if (!lessonByClass[cid]![day]!.containsKey(period)) {
+            out.add(_Slot(classId: cid, day: day, period: period));
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  int _retryFill({
+    required List<_Slot> unfilled,
+    required Map<String, Map<String, Map<int, _Lesson>>> lessonByClass,
+    required Map<String, Map<String, Map<int, int>>> teacherBusy,
+    required Map<String, Map<String, Map<int, int>>> classBusy,
+    required Map<String, int> teachingLoad,
+    required Map<String, int> maxWeeklyLoadByTeacherId,
+    required Map<String, List<String>> teacherSubjects,
+    required List<String> availableSubjectIds,
+    required Map<String, Map<String, int>> usageByClass,
+    required Set<String> coreSubjectSet,
+    required Map<String, int> subjectRarity,
+    void Function(int placedDelta)? onProgress,
+    Map<String, Set<String>>? teacherAllowedClasses,
+  }) {
+    var placed = 0;
+    final teachers = teachingLoad.keys.toList()
+      ..sort((a, b) {
+        final la = teachingLoad[a] ?? 0;
+        final lb = teachingLoad[b] ?? 0;
+        if (la != lb) return la.compareTo(lb);
+        return a.compareTo(b);
+      });
+
+    for (final slot in unfilled) {
+      final usedTeachers = _teachersBusyAt(
+        teacherBusy: teacherBusy,
+        day: slot.day,
+        period: slot.period,
+      );
+      final chosenTeacher = _pickFreeTeacher(
+        teacherPool: teachers,
+        usedTeachers: usedTeachers,
+        teacherBusy: teacherBusy,
+        day: slot.day,
+        period: slot.period,
+        classId: slot.classId,
+        teacherAllowedClasses: teacherAllowedClasses,
+        maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+        teachingLoad: teachingLoad,
+      );
+      if (chosenTeacher == null) continue;
+      if (_isBusy(classBusy, slot.classId, slot.day, slot.period)) continue;
+
+      final subjectId = _pickSubjectForClass(
+        cid: slot.classId,
+        teacherId: chosenTeacher,
+        teacherSubjects: teacherSubjects,
+        usageByClass: usageByClass,
+        coreSubjectSet: coreSubjectSet,
+        fallbackSubjectIds: availableSubjectIds,
+        subjectRarity: subjectRarity,
+        currentDay: slot.day,
+        maxSubjectPerDay: 1,
+        lessonByClass: lessonByClass,
+      );
+      if (subjectId == null) continue;
+
+      lessonByClass[slot.classId]![slot.day]![slot.period] = _Lesson(
+        teacherId: chosenTeacher,
+        subjectId: subjectId,
+      );
+      _incBusy(teacherBusy, chosenTeacher, slot.day, slot.period);
+      _incBusy(classBusy, slot.classId, slot.day, slot.period);
+      teachingLoad[chosenTeacher] = (teachingLoad[chosenTeacher] ?? 0) + 1;
+      final maxWeekly = maxWeeklyLoadByTeacherId[chosenTeacher] ?? 0;
+      if (maxWeekly > 0 && (teachingLoad[chosenTeacher] ?? 0) > maxWeekly) {
+        lessonByClass[slot.classId]![slot.day]!.remove(slot.period);
+        _decBusy(teacherBusy, chosenTeacher, slot.day, slot.period);
+        _decBusy(classBusy, slot.classId, slot.day, slot.period);
+        teachingLoad[chosenTeacher] = (teachingLoad[chosenTeacher] ?? 0) - 1;
+        continue;
+      }
+      usageByClass[slot.classId]![subjectId] =
+          (usageByClass[slot.classId]![subjectId] ?? 0) + 1;
+      placed++;
+      onProgress?.call(1);
+    }
+    return placed;
+  }
+
+  int _swapWithinClass({
+    required List<_Slot> unfilled,
+    required Map<String, Map<String, Map<int, _Lesson>>> lessonByClass,
+    required Map<String, Map<String, Map<int, int>>> teacherBusy,
+    required Map<String, Map<String, Map<int, int>>> classBusy,
+    required Map<String, int> teachingLoad,
+    required Map<String, int> maxWeeklyLoadByTeacherId,
+    required Map<String, List<String>> teacherSubjects,
+    required List<String> availableSubjectIds,
+    required Map<String, Map<String, int>> usageByClass,
+    required Set<String> coreSubjectSet,
+    required Map<String, int> subjectRarity,
+    Map<String, Set<String>>? teacherAllowedClasses,
+  }) {
+    var swaps = 0;
+    for (final slot in unfilled) {
+      final cid = slot.classId;
+      final byDay = lessonByClass[cid] ?? const <String, Map<int, _Lesson>>{};
+      bool swapped = false;
+      for (final dayEntry in byDay.entries.toList()) {
+        for (final pEntry in dayEntry.value.entries.toList()) {
+          final fromDay = dayEntry.key;
+          final fromPeriod = pEntry.key;
+          final lesson = pEntry.value;
+          if (_isBusy(teacherBusy, lesson.teacherId, slot.day, slot.period))
+            continue;
+          if (_isBusy(classBusy, cid, slot.day, slot.period)) continue;
+
+          dayEntry.value.remove(fromPeriod);
+          _decBusy(teacherBusy, lesson.teacherId, fromDay, fromPeriod);
+          _decBusy(classBusy, cid, fromDay, fromPeriod);
+
+          lessonByClass[cid]![slot.day]![slot.period] = lesson;
+          _incBusy(teacherBusy, lesson.teacherId, slot.day, slot.period);
+          _incBusy(classBusy, cid, slot.day, slot.period);
+          final refillOk = _tryPlaceInSlot(
+            cid: cid,
+            day: fromDay,
+            period: fromPeriod,
+            lessonByClass: lessonByClass,
+            teacherBusy: teacherBusy,
+            classBusy: classBusy,
+            teachingLoad: teachingLoad,
+            maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+            teacherSubjects: teacherSubjects,
+            availableSubjectIds: availableSubjectIds,
+            usageByClass: usageByClass,
+            coreSubjectSet: coreSubjectSet,
+            subjectRarity: subjectRarity,
+            teacherAllowedClasses: teacherAllowedClasses,
+          );
+          if (!refillOk) {
+            _decBusy(teacherBusy, lesson.teacherId, slot.day, slot.period);
+            _decBusy(classBusy, cid, slot.day, slot.period);
+            lessonByClass[cid]![slot.day]!.remove(slot.period);
+
+            dayEntry.value[fromPeriod] = lesson;
+            _incBusy(teacherBusy, lesson.teacherId, fromDay, fromPeriod);
+            _incBusy(classBusy, cid, fromDay, fromPeriod);
+            continue;
+          }
+
+          swapped = true;
+          swaps++;
+          break;
+        }
+        if (swapped) break;
+      }
+      if (!swapped) continue;
+    }
+    return swaps;
+  }
+
+  int _swapAcrossSameGrade({
+    required List<_Slot> unfilled,
+    required SchoolSnapshot snapshot,
+    required List<String> days,
+    required int periods,
+    required Map<String, Map<String, Map<int, _Lesson>>> lessonByClass,
+    required Map<String, Map<String, Map<int, int>>> teacherBusy,
+    required Map<String, Map<String, Map<int, int>>> classBusy,
+    required Map<String, int> teachingLoad,
+    required Map<String, int> maxWeeklyLoadByTeacherId,
+    required Map<String, List<String>> teacherSubjects,
+    required List<String> availableSubjectIds,
+    required Map<String, Map<String, int>> usageByClass,
+    required Set<String> coreSubjectSet,
+    required Map<String, int> subjectRarity,
+    Map<String, Set<String>>? teacherAllowedClasses,
+  }) {
+    final gradeByClassId = <String, int>{
+      for (final c in snapshot.classes) c.id: c.gradeLevel,
+    };
+    final classesByGrade = <int, List<String>>{};
+    for (final entry in gradeByClassId.entries) {
+      classesByGrade.putIfAbsent(entry.value, () => <String>[]);
+      classesByGrade[entry.value]!.add(entry.key);
+    }
+    for (final list in classesByGrade.values) {
+      list.sort();
+    }
+
+    var swaps = 0;
+    for (final slot in unfilled) {
+      if (lessonByClass[slot.classId]![slot.day]!.containsKey(slot.period)) {
+        continue;
+      }
+      final g = gradeByClassId[slot.classId];
+      if (g == null) continue;
+      final siblings = classesByGrade[g] ?? const <String>[];
+      bool swapped = false;
+      for (final otherCid in siblings) {
+        if (otherCid == slot.classId) continue;
+        final otherByDay =
+            lessonByClass[otherCid] ?? const <String, Map<int, _Lesson>>{};
+        for (final dayEntry in otherByDay.entries.toList()) {
+          for (final pEntry in dayEntry.value.entries.toList()) {
+            final fromDay = dayEntry.key;
+            final fromPeriod = pEntry.key;
+            final lesson = pEntry.value;
+            if (_isBusy(teacherBusy, lesson.teacherId, slot.day, slot.period)) {
+              continue;
+            }
+            if (_isBusy(classBusy, slot.classId, slot.day, slot.period)) {
+              continue;
+            }
+            final teacherSubj = teacherSubjects[lesson.teacherId];
+            if (teacherSubj == null || teacherSubj.isEmpty) continue;
+            if (!teacherSubj.contains(lesson.subjectId)) continue;
+            if (teacherAllowedClasses != null) {
+              final allowed = teacherAllowedClasses[lesson.teacherId];
+              if (allowed != null &&
+                  allowed.isNotEmpty &&
+                  !allowed.contains(slot.classId)) {
+                continue;
+              }
+            }
+            dayEntry.value.remove(fromPeriod);
+            _decBusy(teacherBusy, lesson.teacherId, fromDay, fromPeriod);
+            _decBusy(classBusy, otherCid, fromDay, fromPeriod);
+
+            lessonByClass[slot.classId]![slot.day]![slot.period] = lesson;
+            _incBusy(teacherBusy, lesson.teacherId, slot.day, slot.period);
+            _incBusy(classBusy, slot.classId, slot.day, slot.period);
+
+            usageByClass[otherCid]![lesson.subjectId] =
+                (usageByClass[otherCid]![lesson.subjectId] ?? 0) - 1;
+            if ((usageByClass[otherCid]![lesson.subjectId] ?? 0) <= 0) {
+              usageByClass[otherCid]!.remove(lesson.subjectId);
+            }
+            usageByClass[slot.classId]![lesson.subjectId] =
+                (usageByClass[slot.classId]![lesson.subjectId] ?? 0) + 1;
+
+            final refillOk = _tryPlaceInSlot(
+              cid: otherCid,
+              day: fromDay,
+              period: fromPeriod,
+              lessonByClass: lessonByClass,
+              teacherBusy: teacherBusy,
+              classBusy: classBusy,
+              teachingLoad: teachingLoad,
+              maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+              teacherSubjects: teacherSubjects,
+              availableSubjectIds: availableSubjectIds,
+              usageByClass: usageByClass,
+              coreSubjectSet: coreSubjectSet,
+              subjectRarity: subjectRarity,
+              teacherAllowedClasses: teacherAllowedClasses,
+            );
+            if (!refillOk) {
+              _decBusy(teacherBusy, lesson.teacherId, slot.day, slot.period);
+              _decBusy(classBusy, slot.classId, slot.day, slot.period);
+              lessonByClass[slot.classId]![slot.day]!.remove(slot.period);
+
+              usageByClass[slot.classId]![lesson.subjectId] =
+                  (usageByClass[slot.classId]![lesson.subjectId] ?? 0) - 1;
+              if ((usageByClass[slot.classId]![lesson.subjectId] ?? 0) <= 0) {
+                usageByClass[slot.classId]!.remove(lesson.subjectId);
+              }
+              usageByClass[otherCid]![lesson.subjectId] =
+                  (usageByClass[otherCid]![lesson.subjectId] ?? 0) + 1;
+
+              dayEntry.value[fromPeriod] = lesson;
+              _incBusy(teacherBusy, lesson.teacherId, fromDay, fromPeriod);
+              _incBusy(classBusy, otherCid, fromDay, fromPeriod);
+              continue;
+            }
+
+            swapped = true;
+            swaps++;
+            break;
+          }
+          if (swapped) break;
+        }
+        if (swapped) break;
+      }
+    }
+    return swaps;
+  }
+
+  int _quotaReliefFill({
+    required List<_Slot> unfilled,
+    required Map<String, Map<String, Map<int, _Lesson>>> lessonByClass,
+    required Map<String, Map<String, Map<int, int>>> teacherBusy,
+    required Map<String, Map<String, Map<int, int>>> classBusy,
+    required Map<String, int> teachingLoad,
+    required Map<String, int> maxWeeklyLoadByTeacherId,
+    required Map<String, List<String>> eligibleTeachersByClassId,
+    required Map<String, List<String>> teacherSubjects,
+    required List<String> availableSubjectIds,
+    required Map<String, Map<String, int>> usageByClass,
+    required Set<String> coreSubjectSet,
+    required Map<String, int> subjectRarity,
+  }) {
+    final lessonsByTeacher = <String, List<_TeacherLesson>>{};
+    for (final cEntry in lessonByClass.entries) {
+      final cid = cEntry.key;
+      for (final dEntry in cEntry.value.entries) {
+        final day = dEntry.key;
+        for (final pEntry in dEntry.value.entries) {
+          final period = pEntry.key;
+          final l = pEntry.value;
+          lessonsByTeacher.putIfAbsent(l.teacherId, () => <_TeacherLesson>[]);
+          lessonsByTeacher[l.teacherId]!.add(
+            _TeacherLesson(
+              classId: cid,
+              day: day,
+              period: period,
+              subjectId: l.subjectId,
+            ),
+          );
+        }
+      }
+    }
+    for (final entry in lessonsByTeacher.entries) {
+      entry.value.sort((a, b) {
+        final c = a.day.compareTo(b.day);
+        if (c != 0) return c;
+        return a.period.compareTo(b.period);
+      });
+    }
+
+    var placed = 0;
+    final toTry = unfilled.length <= 600
+        ? unfilled
+        : unfilled.take(600).toList();
+    for (final slot in toTry) {
+      if (lessonByClass[slot.classId]![slot.day]!.containsKey(slot.period))
+        continue;
+      if (_isBusy(classBusy, slot.classId, slot.day, slot.period)) continue;
+
+      final eligible =
+          eligibleTeachersByClassId[slot.classId] ?? const <String>[];
+      if (eligible.isEmpty) continue;
+
+      final usedTeachers = _teachersBusyAt(
+        teacherBusy: teacherBusy,
+        day: slot.day,
+        period: slot.period,
+      );
+      final direct = _pickFreeTeacherFromEligible(
+        eligibleTeachers: eligible,
+        usedTeachers: usedTeachers,
+        teacherBusy: teacherBusy,
+        day: slot.day,
+        period: slot.period,
+        teachingLoad: teachingLoad,
+        maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+      );
+      if (direct != null) {
+        final subjectId = _pickSubjectForClass(
+          cid: slot.classId,
+          teacherId: direct,
+          teacherSubjects: teacherSubjects,
+          usageByClass: usageByClass,
+          coreSubjectSet: coreSubjectSet,
+          fallbackSubjectIds: availableSubjectIds,
+          subjectRarity: subjectRarity,
+          currentDay: slot.day,
+          maxSubjectPerDay: 1,
+          lessonByClass: lessonByClass,
+        );
+        if (subjectId == null) continue;
+        lessonByClass[slot.classId]![slot.day]![slot.period] = _Lesson(
+          teacherId: direct,
+          subjectId: subjectId,
+        );
+        _incBusy(teacherBusy, direct, slot.day, slot.period);
+        _incBusy(classBusy, slot.classId, slot.day, slot.period);
+        teachingLoad[direct] = (teachingLoad[direct] ?? 0) + 1;
+        final maxWeekly = maxWeeklyLoadByTeacherId[direct] ?? 0;
+        if (maxWeekly > 0 && (teachingLoad[direct] ?? 0) > maxWeekly) {
+          lessonByClass[slot.classId]![slot.day]!.remove(slot.period);
+          _decBusy(teacherBusy, direct, slot.day, slot.period);
+          _decBusy(classBusy, slot.classId, slot.day, slot.period);
+          teachingLoad[direct] = (teachingLoad[direct] ?? 0) - 1;
+          continue;
+        }
+        usageByClass[slot.classId]![subjectId] =
+            (usageByClass[slot.classId]![subjectId] ?? 0) + 1;
+        placed++;
+        continue;
+      }
+
+      final quotaTeachers = <String>[];
+      for (final tid in eligible) {
+        final maxWeekly = maxWeeklyLoadByTeacherId[tid] ?? 0;
+        if (maxWeekly > 0 && (teachingLoad[tid] ?? 0) >= maxWeekly) {
+          quotaTeachers.add(tid);
+        }
+      }
+      if (quotaTeachers.isEmpty) continue;
+
+      bool fixed = false;
+      for (final qt in quotaTeachers) {
+        if (_isBusy(teacherBusy, qt, slot.day, slot.period)) continue;
+        final tLessons = lessonsByTeacher[qt] ?? const <_TeacherLesson>[];
+        if (tLessons.isEmpty) continue;
+
+        for (final tl in tLessons) {
+          final replEligible =
+              eligibleTeachersByClassId[tl.classId] ?? const <String>[];
+          if (replEligible.isEmpty) continue;
+
+          String? repl;
+          var replBestRatio = 1e9;
+          var replBestLoad = 1 << 30;
+          for (final rt in replEligible) {
+            if (rt == qt) continue;
+            final subs = teacherSubjects[rt];
+            if (subs == null || subs.isEmpty) continue;
+            if (!subs.contains(tl.subjectId)) continue;
+            final maxWeekly = maxWeeklyLoadByTeacherId[rt] ?? 0;
+            final load = teachingLoad[rt] ?? 0;
+            if (maxWeekly > 0 && load >= maxWeekly) continue;
+            if (_isBusy(teacherBusy, rt, tl.day, tl.period)) continue;
+            final ratio = maxWeekly > 0 ? (load / maxWeekly) : load.toDouble();
+            if (ratio < replBestRatio ||
+                (ratio == replBestRatio && load < replBestLoad)) {
+              replBestRatio = ratio;
+              replBestLoad = load;
+              repl = rt;
+            }
+          }
+          if (repl == null) continue;
+
+          final oldLesson = lessonByClass[tl.classId]![tl.day]![tl.period]!;
+          if (oldLesson.teacherId != qt ||
+              oldLesson.subjectId != tl.subjectId) {
+            continue;
+          }
+
+          lessonByClass[tl.classId]![tl.day]![tl.period] = _Lesson(
+            teacherId: repl,
+            subjectId: tl.subjectId,
+          );
+          _decBusy(teacherBusy, qt, tl.day, tl.period);
+          _incBusy(teacherBusy, repl, tl.day, tl.period);
+          teachingLoad[qt] = (teachingLoad[qt] ?? 0) - 1;
+          teachingLoad[repl] = (teachingLoad[repl] ?? 0) + 1;
+
+          final maxRepl = maxWeeklyLoadByTeacherId[repl] ?? 0;
+          if (maxRepl > 0 && (teachingLoad[repl] ?? 0) > maxRepl) {
+            lessonByClass[tl.classId]![tl.day]![tl.period] = oldLesson;
+            _incBusy(teacherBusy, qt, tl.day, tl.period);
+            _decBusy(teacherBusy, repl, tl.day, tl.period);
+            teachingLoad[qt] = (teachingLoad[qt] ?? 0) + 1;
+            teachingLoad[repl] = (teachingLoad[repl] ?? 0) - 1;
+            continue;
+          }
+
+          final subjectId = _pickSubjectForClass(
+            cid: slot.classId,
+            teacherId: qt,
+            teacherSubjects: teacherSubjects,
+            usageByClass: usageByClass,
+            coreSubjectSet: coreSubjectSet,
+            fallbackSubjectIds: availableSubjectIds,
+            subjectRarity: subjectRarity,
+            currentDay: slot.day,
+            maxSubjectPerDay: 1,
+            lessonByClass: lessonByClass,
+          );
+          if (subjectId == null) {
+            lessonByClass[tl.classId]![tl.day]![tl.period] = oldLesson;
+            _incBusy(teacherBusy, qt, tl.day, tl.period);
+            _decBusy(teacherBusy, repl, tl.day, tl.period);
+            teachingLoad[qt] = (teachingLoad[qt] ?? 0) + 1;
+            teachingLoad[repl] = (teachingLoad[repl] ?? 0) - 1;
+            continue;
+          }
+          lessonByClass[slot.classId]![slot.day]![slot.period] = _Lesson(
+            teacherId: qt,
+            subjectId: subjectId,
+          );
+          _incBusy(teacherBusy, qt, slot.day, slot.period);
+          _incBusy(classBusy, slot.classId, slot.day, slot.period);
+          teachingLoad[qt] = (teachingLoad[qt] ?? 0) + 1;
+          final maxQt = maxWeeklyLoadByTeacherId[qt] ?? 0;
+          if (maxQt > 0 && (teachingLoad[qt] ?? 0) > maxQt) {
+            lessonByClass[slot.classId]![slot.day]!.remove(slot.period);
+            _decBusy(teacherBusy, qt, slot.day, slot.period);
+            _decBusy(classBusy, slot.classId, slot.day, slot.period);
+            teachingLoad[qt] = (teachingLoad[qt] ?? 0) - 1;
+
+            lessonByClass[tl.classId]![tl.day]![tl.period] = oldLesson;
+            _incBusy(teacherBusy, qt, tl.day, tl.period);
+            _decBusy(teacherBusy, repl, tl.day, tl.period);
+            teachingLoad[qt] = (teachingLoad[qt] ?? 0) + 1;
+            teachingLoad[repl] = (teachingLoad[repl] ?? 0) - 1;
+            continue;
+          }
+
+          usageByClass[slot.classId]![subjectId] =
+              (usageByClass[slot.classId]![subjectId] ?? 0) + 1;
+          placed++;
+          fixed = true;
+
+          lessonsByTeacher.putIfAbsent(repl, () => <_TeacherLesson>[]);
+          lessonsByTeacher[repl]!.add(
+            _TeacherLesson(
+              classId: tl.classId,
+              day: tl.day,
+              period: tl.period,
+              subjectId: tl.subjectId,
+            ),
+          );
+          final remaining = <_TeacherLesson>[];
+          for (final x in lessonsByTeacher[qt] ?? const <_TeacherLesson>[]) {
+            if (x.classId == tl.classId &&
+                x.day == tl.day &&
+                x.period == tl.period) {
+              continue;
+            }
+            remaining.add(x);
+          }
+          lessonsByTeacher[qt] = remaining;
+
+          break;
+        }
+        if (fixed) break;
+      }
+      if (fixed) continue;
+    }
+
+    return placed;
+  }
+
+  int _countPlaced(Map<String, Map<String, Map<int, _Lesson>>> lessonByClass) {
+    var n = 0;
+    for (final cEntry in lessonByClass.entries) {
+      for (final dEntry in cEntry.value.entries) {
+        n += dEntry.value.length;
+      }
+    }
+    return n;
+  }
+
+  List<String> _daysFromPolicy(PolicyProfile policy) {
+    final rawDays = policy.raw['days'];
+    if (rawDays is List) {
+      final out = rawDays
+          .map((e) => e.toString().trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (out.isNotEmpty) return out;
+    }
+    return const ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
+  }
+
+  bool _isBusy(
+    Map<String, Map<String, Map<int, int>>> busy,
+    String id,
+    String day,
+    int period,
+  ) {
+    final byDay = busy[id];
+    if (byDay == null) return false;
+    final byPeriod = byDay[day];
+    if (byPeriod == null) return false;
+    return (byPeriod[period] ?? 0) > 0;
+  }
+
+  void _incBusy(
+    Map<String, Map<String, Map<int, int>>> busy,
+    String id,
+    String day,
+    int period,
+  ) {
+    busy.putIfAbsent(id, () => <String, Map<int, int>>{});
+    busy[id]!.putIfAbsent(day, () => <int, int>{});
+    busy[id]![day]![period] = (busy[id]![day]![period] ?? 0) + 1;
+  }
+
+  void _decBusy(
+    Map<String, Map<String, Map<int, int>>> busy,
+    String id,
+    String day,
+    int period,
+  ) {
+    final byDay = busy[id];
+    if (byDay == null) return;
+    final byPeriod = byDay[day];
+    if (byPeriod == null) return;
+    final v = (byPeriod[period] ?? 0) - 1;
+    if (v <= 0) {
+      byPeriod.remove(period);
+    } else {
+      byPeriod[period] = v;
+    }
+    if (byPeriod.isEmpty) {
+      byDay.remove(day);
+    }
+    if (byDay.isEmpty) {
+      busy.remove(id);
+    }
+  }
+
+  Set<String> _teachersBusyAt({
+    required Map<String, Map<String, Map<int, int>>> teacherBusy,
+    required String day,
+    required int period,
+  }) {
+    final out = <String>{};
+    for (final entry in teacherBusy.entries) {
+      final byDay = entry.value[day];
+      if (byDay == null) continue;
+      if ((byDay[period] ?? 0) > 0) out.add(entry.key);
+    }
+    return out;
+  }
+
+  bool _tryPlaceInSlot({
+    required String cid,
+    required String day,
+    required int period,
+    required Map<String, Map<String, Map<int, _Lesson>>> lessonByClass,
+    required Map<String, Map<String, Map<int, int>>> teacherBusy,
+    required Map<String, Map<String, Map<int, int>>> classBusy,
+    required Map<String, int> teachingLoad,
+    required Map<String, int> maxWeeklyLoadByTeacherId,
+    required Map<String, List<String>> teacherSubjects,
+    required List<String> availableSubjectIds,
+    required Map<String, Map<String, int>> usageByClass,
+    required Set<String> coreSubjectSet,
+    required Map<String, int> subjectRarity,
+    Set<String>? usedTeachersOverride,
+    Map<String, Set<String>>? teacherAllowedClasses,
+  }) {
+    if (lessonByClass[cid]![day]!.containsKey(period)) return true;
+    if (_isBusy(classBusy, cid, day, period)) return false;
+
+    final usedTeachers =
+        usedTeachersOverride ??
+        _teachersBusyAt(teacherBusy: teacherBusy, day: day, period: period);
+
+    final teacherPool = teachingLoad.keys.toList()
+      ..sort((a, b) {
+        final la = teachingLoad[a] ?? 0;
+        final lb = teachingLoad[b] ?? 0;
+        if (la != lb) return la.compareTo(lb);
+        return a.compareTo(b);
+      });
+
+    final chosenTeacher = _pickFreeTeacher(
+      teacherPool: teacherPool,
+      usedTeachers: usedTeachers,
+      teacherBusy: teacherBusy,
+      day: day,
+      period: period,
+      classId: cid,
+      teacherAllowedClasses: teacherAllowedClasses,
+      maxWeeklyLoadByTeacherId: maxWeeklyLoadByTeacherId,
+      teachingLoad: teachingLoad,
+    );
+    if (chosenTeacher == null) return false;
+
+    final subjectId = _pickSubjectForClass(
+      cid: cid,
+      teacherId: chosenTeacher,
+      teacherSubjects: teacherSubjects,
+      usageByClass: usageByClass,
+      coreSubjectSet: coreSubjectSet,
+      fallbackSubjectIds: availableSubjectIds,
+      subjectRarity: subjectRarity,
+      currentDay: day,
+      maxSubjectPerDay: 1,
+      lessonByClass: lessonByClass,
+    );
+    if (subjectId == null) return false;
+
+    lessonByClass[cid]![day]![period] = _Lesson(
+      teacherId: chosenTeacher,
+      subjectId: subjectId,
+    );
+    _incBusy(teacherBusy, chosenTeacher, day, period);
+    _incBusy(classBusy, cid, day, period);
+    teachingLoad[chosenTeacher] = (teachingLoad[chosenTeacher] ?? 0) + 1;
+    final maxWeekly = maxWeeklyLoadByTeacherId[chosenTeacher] ?? 0;
+    if (maxWeekly > 0 && (teachingLoad[chosenTeacher] ?? 0) > maxWeekly) {
+      lessonByClass[cid]![day]!.remove(period);
+      _decBusy(teacherBusy, chosenTeacher, day, period);
+      _decBusy(classBusy, cid, day, period);
+      teachingLoad[chosenTeacher] = (teachingLoad[chosenTeacher] ?? 0) - 1;
+      return false;
+    }
+    usageByClass[cid]![subjectId] = (usageByClass[cid]![subjectId] ?? 0) + 1;
+    return true;
+  }
+
+  int _countConflicts(Map<String, Map<String, Map<int, int>>> busy) {
+    var conflicts = 0;
+    for (final entry in busy.entries) {
+      for (final dayEntry in entry.value.entries) {
+        for (final pEntry in dayEntry.value.entries) {
+          final c = pEntry.value;
+          if (c > 1) conflicts += (c - 1);
+        }
+      }
+    }
+    return conflicts;
+  }
+}
+
+class _Slot {
+  final String classId;
+  final String day;
+  final int period;
+
+  const _Slot({required this.classId, required this.day, required this.period});
+}
+
+class _TeacherLesson {
+  final String classId;
+  final String day;
+  final int period;
+  final String subjectId;
+
+  const _TeacherLesson({
+    required this.classId,
+    required this.day,
+    required this.period,
+    required this.subjectId,
+  });
+}
+
+class _Lesson {
+  final String teacherId;
+  final String subjectId;
+
+  const _Lesson({required this.teacherId, required this.subjectId});
+}

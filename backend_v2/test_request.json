@@ -1,0 +1,27 @@
+{
+  "schoolId": "test_school",
+  "schoolType": "middle",
+  "classes": [
+    {"id": "c1", "name": "1/1"}
+  ],
+  "teachers": [
+    {"id": "t1", "name": "أحمد", "subjects": ["math"], "maxWeeklyLoad": 24},
+    {"id": "t2", "name": "محمد", "subjects": ["arabic"], "maxWeeklyLoad": 24},
+    {"id": "t3", "name": "خالد", "subjects": ["science"], "maxWeeklyLoad": 24},
+    {"id": "t4", "name": "سعد", "subjects": ["english"], "maxWeeklyLoad": 24},
+    {"id": "t5", "name": "ماجد", "subjects": ["social"], "maxWeeklyLoad": 24},
+    {"id": "t6", "name": "ناصر", "subjects": ["islamic"], "maxWeeklyLoad": 24},
+    {"id": "t7", "name": "فهد", "subjects": ["computer"], "maxWeeklyLoad": 24}
+  ],
+  "assignments": [
+    {"classId": "c1", "teacherId": "t1", "subjectId": "math", "weeklyHours": 5},
+    {"classId": "c1", "teacherId": "t2", "subjectId": "arabic", "weeklyHours": 5},
+    {"classId": "c1", "teacherId": "t3", "subjectId": "science", "weeklyHours": 5},
+    {"classId": "c1", "teacherId": "t4", "subjectId": "english", "weeklyHours": 5},
+    {"classId": "c1", "teacherId": "t5", "subjectId": "social", "weeklyHours": 5},
+    {"classId": "c1", "teacherId": "t6", "subjectId": "islamic", "weeklyHours": 5},
+    {"classId": "c1", "teacherId": "t7", "subjectId": "computer", "weeklyHours": 5}
+  ],
+  "manualConstraints": [],
+  "saveToFirebase": false
+}
