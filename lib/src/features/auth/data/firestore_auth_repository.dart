@@ -326,7 +326,21 @@ class FirestoreAuthRepository implements AuthRepository {
       final uid = userCredential.user?.uid;
       if (uid == null) return null;
 
-      // Re-use the logic from getCurrentUser or login to fetch the full User model
+      return await getCurrentUser();
+    } catch (e) {
+      if (e is auth.FirebaseAuthException) {
+        throw Exception(_mapAuthError(e));
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<User?> signInWithCustomToken(String customToken) async {
+    try {
+      final userCredential = await _firebaseAuth.signInWithCustomToken(customToken);
+      final uid = userCredential.user?.uid;
+      if (uid == null) return null;
       return await getCurrentUser();
     } catch (e) {
       if (e is auth.FirebaseAuthException) {

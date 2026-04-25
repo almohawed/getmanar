@@ -1,6 +1,6 @@
 {
   "projects": {
-    "etisak": "etisak-784d6"
+    "default": "etisak-784d6"
   },
   "targets": {},
   "etags": {}

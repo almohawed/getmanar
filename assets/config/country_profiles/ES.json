@@ -1,0 +1,48 @@
+{
+  "countryCode": "ES",
+  "nameAr": "إسبانيا",
+  "nameEn": "Spain",
+  "flag": "🇪🇸",
+  "region": "europe",
+  "primaryLanguage": "es",
+  "textDirection": "ltr",
+  "currency": "EUR",
+  "timezone": "Europe/Madrid",
+  "behaviorSystem": "warnings",
+  "gradingSystem": "scale10",
+  "calendarSystem": "threeTerms",
+  "tracksEnabled": true,
+  "defaultTracks": ["Ciencias", "Humanidades", "Artes", "FP"],
+  "stages": [
+    { "key": "primaria", "nameAr": "الابتدائية", "nameEn": "Primary", "fromGrade": 1, "toGrade": 6, "fromAge": 6, "toAge": 12 },
+    { "key": "eso", "nameAr": "الإعدادية", "nameEn": "ESO", "fromGrade": 7, "toGrade": 10, "fromAge": 12, "toAge": 16 },
+    { "key": "bachillerato", "nameAr": "الثانوية", "nameEn": "Bachillerato", "fromGrade": 11, "toGrade": 12, "fromAge": 16, "toAge": 18 }
+  ],
+  "smsImportant": false,
+  "emailPrimary": true,
+  "messagingAppsCommon": true,
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": true,
+    "parentCommunication": true,
+    "parentSms": false,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": false,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "gradingScale": "0-10",
+    "passingGrade": 5,
+    "weekDays": ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"],
+    "weekend": ["Sábado", "Domingo"]
+  }
+}

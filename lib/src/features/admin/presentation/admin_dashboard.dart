@@ -981,6 +981,7 @@ class AdminDashboard extends ConsumerWidget {
         ]),
         _buildSectionGroup(context, 'الإعدادات', [
           _NavItem('إعدادات المدرسة', Icons.settings, Colors.grey, '/settings'),
+          _NavItem('موقع المدرسة', Icons.location_on, const Color(0xFF00897B), '/school-location'),
           _NavItem(
             'الصلاحيات',
             Icons.lock_person,
@@ -1117,6 +1118,7 @@ class AdminDashboard extends ConsumerWidget {
           '/parents', '/maintenance-requests', '/school-guide',
           '/activity-dashboard', '/counselor-dashboard', '/health-dashboard',
           '/safety-dashboard', '/attendance', '/behavior', '/settings',
+          '/school-location',
           '/code-management', '/governance-framework', '/incoming-mail',
           '/circulars', '/circulars/create', '/school-attendance-dashboard',
           '/development-plans', '/permissions-dashboard', '/subscription-plans',

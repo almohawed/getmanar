@@ -19,4 +19,6 @@ abstract class AuthRepository {
     String verificationId,
     String smsCode,
   );
+
+  Future<User?> signInWithCustomToken(String customToken);
 }

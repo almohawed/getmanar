@@ -26,8 +26,25 @@ class _SchoolRequestScreenState extends ConsumerState<SchoolRequestScreen> {
   String _selectedSchoolType = 'government'; // Default
   String _selectedSchoolStage = 'الابتدائية'; // Default
   bool _hasSpecialEducation = false;
+  String _selectedCountryCode = 'SA'; // Default: السعودية
   String _selectedAdminRegion =
       'الإدارة العامة للتعليم بمنطقة الرياض'; // Default
+  String _customRegion = ''; // للدول الأخرى
+
+  // الدول المدعومة
+  static const List<Map<String, String>> _countries = [
+    {'code': 'SA', 'nameAr': 'المملكة العربية السعودية', 'flag': '🇸🇦'},
+    {'code': 'AE', 'nameAr': 'الإمارات العربية المتحدة', 'flag': '🇦🇪'},
+    {'code': 'QA', 'nameAr': 'قطر', 'flag': '🇶🇦'},
+    {'code': 'KW', 'nameAr': 'الكويت', 'flag': '🇰🇼'},
+    {'code': 'BH', 'nameAr': 'البحرين', 'flag': '🇧🇭'},
+    {'code': 'OM', 'nameAr': 'سلطنة عُمان', 'flag': '🇴🇲'},
+    {'code': 'US', 'nameAr': 'الولايات المتحدة', 'flag': '🇺🇸'},
+    {'code': 'GB', 'nameAr': 'المملكة المتحدة', 'flag': '🇬🇧'},
+    {'code': 'FR', 'nameAr': 'فرنسا', 'flag': '🇫🇷'},
+    {'code': 'ES', 'nameAr': 'إسبانيا', 'flag': '🇪🇸'},
+    {'code': 'OTHER', 'nameAr': 'دولة أخرى', 'flag': '🌍'},
+  ];
 
   static const List<String> _adminRegions = [
     'الإدارة العامة للتعليم بمنطقة الرياض',
@@ -72,8 +89,11 @@ class _SchoolRequestScreenState extends ConsumerState<SchoolRequestScreen> {
             'schoolName': _schoolNameController.text.trim(),
             'schoolType': _selectedSchoolType,
             'schoolStage': _selectedSchoolStage,
-            'adminRegion': _selectedAdminRegion,
+            'adminRegion': _selectedCountryCode == 'SA'
+                ? _selectedAdminRegion
+                : _customRegion.trim(),
             'city': _cityController.text.trim(),
+            'countryCode': _selectedCountryCode == 'OTHER' ? 'OTHER' : _selectedCountryCode,
             'principalName': _adminNameController.text.trim(), // Admin Name
             'mobile': _mobileController.text.trim(),
             'email': _emailController.text.trim(), // Optional Email
@@ -182,19 +202,33 @@ class _SchoolRequestScreenState extends ConsumerState<SchoolRequestScreen> {
               ),
               SizedBox(height: 16.h),
 
-              DropdownButtonFormField<String>(
-                value: _selectedAdminRegion,
-                decoration: _inputDecoration('الإدارة التعليمية'),
-                items: _adminRegions
-                    .map(
-                      (region) =>
-                          DropdownMenuItem(value: region, child: Text(region)),
-                    )
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => _selectedAdminRegion = value!),
-              ),
+              // ─── اختيار الدولة ────────────────────────────────────────
+              _buildCountrySelector(),
               SizedBox(height: 16.h),
+
+              // ─── الإدارة التعليمية (للسعودية فقط) ────────────────────
+              if (_selectedCountryCode == 'SA') ...[
+                DropdownButtonFormField<String>(
+                  value: _selectedAdminRegion,
+                  decoration: _inputDecoration('الإدارة التعليمية'),
+                  items: _adminRegions
+                      .map(
+                        (region) =>
+                            DropdownMenuItem(value: region, child: Text(region)),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => _selectedAdminRegion = value!),
+                ),
+                SizedBox(height: 16.h),
+              ] else ...[
+                // للدول الأخرى: حقل نصي للمنطقة/المحافظة
+                TextFormField(
+                  decoration: _inputDecoration('المنطقة / المحافظة (اختياري)'),
+                  onChanged: (v) => setState(() => _customRegion = v),
+                ),
+                SizedBox(height: 16.h),
+              ],
 
               TextFormField(
                 controller: _cityController,
@@ -368,8 +402,104 @@ class _SchoolRequestScreenState extends ConsumerState<SchoolRequestScreen> {
     );
   }
 
-  InputDecoration _inputDecoration(String label) {
-    return InputDecoration(
+  Widget _buildCountrySelector() {
+    final selected = _countries.firstWhere(
+      (c) => c['code'] == _selectedCountryCode,
+      orElse: () => _countries.first,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label
+        Padding(
+          padding: EdgeInsets.only(bottom: 8.h),
+          child: Row(children: [
+            Icon(Icons.public, color: Colors.indigo.shade700, size: 16.sp),
+            SizedBox(width: 6.w),
+            Text('الدولة',
+                style: TextStyle(
+                    color: Colors.indigo.shade800,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.sp)),
+          ]),
+        ),
+        // Country Grid
+        Wrap(
+          spacing: 8.w,
+          runSpacing: 8.h,
+          children: _countries.map((c) {
+            final isSelected = _selectedCountryCode == c['code'];
+            return GestureDetector(
+              onTap: () => setState(() {
+                _selectedCountryCode = c['code']!;
+                // Reset region when country changes
+                if (c['code'] != 'SA') _customRegion = '';
+              }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.indigo.shade700
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(
+                    color: isSelected
+                        ? Colors.indigo.shade700
+                        : Colors.grey.shade300,
+                    width: isSelected ? 2 : 1,
+                  ),
+                  boxShadow: isSelected
+                      ? [BoxShadow(
+                          color: Colors.indigo.withValues(alpha: 0.3),
+                          blurRadius: 6, offset: const Offset(0, 2))]
+                      : [],
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(c['flag']!, style: TextStyle(fontSize: 16.sp)),
+                  SizedBox(width: 6.w),
+                  Text(c['nameAr']!,
+                      style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.grey.shade800,
+                          fontSize: 11.sp,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal)),
+                ]),
+              ),
+            );
+          }).toList(),
+        ),
+        // Info badge للدولة المختارة
+        if (_selectedCountryCode != 'SA' && _selectedCountryCode != 'OTHER') ...[
+          SizedBox(height: 10.h),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16.sp),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  'سيتم تطبيق نظام ${selected['nameAr']} التعليمي تلقائياً عند تفعيل المدرسة',
+                  style: TextStyle(
+                      color: Colors.blue.shade800,
+                      fontSize: 11.sp),
+                ),
+              ),
+            ]),
+          ),
+        ],
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {    return InputDecoration(
       labelText: label,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),

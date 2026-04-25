@@ -1,0 +1,49 @@
+{
+  "countryCode": "FR",
+  "nameAr": "فرنسا",
+  "nameEn": "France",
+  "flag": "🇫🇷",
+  "region": "europe",
+  "primaryLanguage": "fr",
+  "textDirection": "ltr",
+  "currency": "EUR",
+  "timezone": "Europe/Paris",
+  "behaviorSystem": "warnings",
+  "gradingSystem": "french20",
+  "calendarSystem": "threeTerms",
+  "tracksEnabled": true,
+  "defaultTracks": ["Général", "Technologique", "Professionnel"],
+  "stages": [
+    { "key": "primaire", "nameAr": "الابتدائية", "nameEn": "Primary", "fromGrade": 1, "toGrade": 5, "fromAge": 6, "toAge": 11 },
+    { "key": "college", "nameAr": "الإعدادية", "nameEn": "Collège", "fromGrade": 6, "toGrade": 9, "fromAge": 11, "toAge": 15 },
+    { "key": "lycee", "nameAr": "الثانوية", "nameEn": "Lycée", "fromGrade": 10, "toGrade": 12, "fromAge": 15, "toAge": 18 }
+  ],
+  "smsImportant": false,
+  "emailPrimary": true,
+  "messagingAppsCommon": false,
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": true,
+    "parentCommunication": true,
+    "parentSms": false,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": false,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "gradingScale": "0-20",
+    "passingGrade": 10,
+    "weekDays": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"],
+    "weekend": ["Samedi", "Dimanche"],
+    "baccalaureat": true
+  }
+}

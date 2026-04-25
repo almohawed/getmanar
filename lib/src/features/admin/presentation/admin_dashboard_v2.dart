@@ -68,6 +68,14 @@ class AdminDashboardV2 extends ConsumerWidget {
     final schoolStatus = ref.watch(schoolStatusProvider).value ?? SchoolStatusMetrics();
     final actionNeeded = ref.watch(actionNeededProvider).value ?? [];
     final liveCounts = ref.watch(_adminLiveCountsProvider(schoolId)).value ?? {};
+    // Read showSubscriptionSection from school data
+    final showSubscriptionSection = ref.watch(
+      schoolProvider(schoolId).select((v) => v.value?.showSubscriptionSection ?? true),
+    );
+    // Check if secondary school (show masarat management for all secondary schools)
+    final isSecondary = ref.watch(
+      schoolProvider(schoolId).select((v) => v.value?.stage == 'الثانوية'),
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -171,9 +179,13 @@ class AdminDashboardV2 extends ConsumerWidget {
               _buildSectionHeader(context, 'الإعدادات'),
               _buildActionGrid(context, ref, [
                 _ActionItem(icon: Icons.settings, label: 'إعدادات المدرسة', color: Colors.grey, route: '/settings'),
+                _ActionItem(icon: Icons.location_on, label: 'موقع المدرسة', color: const Color(0xFF00897B), route: '/school-location'),
                 _ActionItem(icon: Icons.lock_person, label: liveCounts['permissions'] != null && liveCounts['permissions']! > 0 ? 'الصلاحيات (${liveCounts['permissions']})' : 'الصلاحيات', color: Colors.blueGrey, route: '/permissions-dashboard'),
-                _ActionItem(icon: Icons.card_membership, label: 'الاشتراك', color: Colors.amber, route: '/subscription-plans'),
+                if (showSubscriptionSection)
+                  _ActionItem(icon: Icons.card_membership, label: 'الاشتراك', color: Colors.amber, route: '/subscription-plans'),
                 _ActionItem(icon: Icons.mic, label: 'مسؤول الإذاعة', color: const Color(0xFF1A237E), route: '/assign-broadcast-supervisor'),
+                if (isSecondary)
+                  _ActionItem(icon: Icons.route, label: 'إدارة المسارات', color: const Color(0xFF6A1B9A), route: '/masarat-tracks'),
               ]),
 
               SizedBox(height: 32.h),
@@ -349,7 +361,7 @@ class AdminDashboardV2 extends ConsumerWidget {
           itemBuilder: (context, i) {
             final item = items[i];
             return _buildActionCard(context, icon: item.icon, label: item.label, color: item.color, onTap: () {
-              final implemented = ['/students-list','/teachers-list','/classes-list','/schedule-management','/smart-schedule','/assign-subjects','/admin-tasks','/staff-list','/admin-assignments','/smart-exams','/parents','/maintenance-requests','/school-guide','/activity-dashboard','/counselor-dashboard','/health-dashboard','/safety-dashboard','/attendance','/behavior','/settings','/code-management','/governance-framework','/incoming-mail','/circulars','/circulars/create','/school-attendance-dashboard','/development-plans','/permissions-dashboard','/subscription-plans','/student-barcodes','/admin/sms-settings','/deputy-sms','/assign-broadcast-supervisor'];
+              final implemented = ['/students-list','/teachers-list','/classes-list','/schedule-management','/smart-schedule','/assign-subjects','/admin-tasks','/staff-list','/admin-assignments','/smart-exams','/parents','/maintenance-requests','/school-guide','/activity-dashboard','/counselor-dashboard','/health-dashboard','/safety-dashboard','/attendance','/behavior','/settings','/school-location','/code-management','/governance-framework','/incoming-mail','/circulars','/circulars/create','/school-attendance-dashboard','/development-plans','/permissions-dashboard','/subscription-plans','/student-barcodes','/admin/sms-settings','/deputy-sms','/assign-broadcast-supervisor','/masarat-tracks'];
               if (implemented.contains(item.route)) {
                 context.push(item.route, extra: item.extra);
               } else {

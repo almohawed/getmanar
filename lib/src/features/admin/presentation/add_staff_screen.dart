@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
@@ -470,207 +470,179 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
+    final roleColors = {
+      UserRole.counselor:     [const Color(0xFF6A1B9A), const Color(0xFF8E24AA)],
+      UserRole.deputy:        [const Color(0xFF1565C0), const Color(0xFF1976D2)],
+      UserRole.administrative:[const Color(0xFF00695C), const Color(0xFF00897B)],
+    };
+    final roleIcons = {
+      UserRole.counselor:     Icons.psychology,
+      UserRole.deputy:        Icons.manage_accounts,
+      UserRole.administrative:Icons.badge,
+    };
+    final colors = roleColors[widget.role] ?? [const Color(0xFF1A237E), const Color(0xFF283593)];
+    final roleIcon = roleIcons[widget.role] ?? Icons.person_add;
+
     return Scaffold(
-      appBar: AppBar(title: Text('إضافة ${widget.title}')),
+      backgroundColor: const Color(0xFF0A1628),
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: colors,
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+          ),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('إضافة ${widget.title}',
+                style: const TextStyle(color: Colors.white,
+                    fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('تسجيل حساب جديد في المنصة',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+          ],
+        ),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Name
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'الاسم الرباعي',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    colors[0].withValues(alpha: 0.2),
+                    colors[0].withValues(alpha: 0.05),
+                  ]),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors[0].withValues(alpha: 0.3)),
                 ),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'يرجى إدخال الاسم' : null,
+                child: Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors[0].withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12)),
+                    child: Icon(roleIcon, color: colors[1], size: 28)),
+                  const SizedBox(width: 16),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(widget.title,
+                        style: TextStyle(color: colors[1], fontSize: 18,
+                            fontWeight: FontWeight.bold)),
+                    const Text('أدخل بيانات الحساب الجديد',
+                        style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  ]),
+                ]),
               ),
-              const SizedBox(height: 16),
-
-              // System ID / Username
-              TextFormField(
-                controller: _identityController,
-                decoration: const InputDecoration(
-                  labelText: 'كود الدخول (حرفين + 6 أرقام)',
-                  helperText: 'مثال: AD345694',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.badge),
-                ),
-                readOnly: widget.staffToEdit != null,
-                validator: (value) {
-                  final v = (value ?? '')
-                      .replaceAll(RegExp(r'[\u200E\u200F\u202A-\u202E]'), '')
-                      .trim()
-                      .toUpperCase();
-                  if (v.isEmpty) return 'يرجى إدخال كود الدخول';
-                  if (!RegExp(r'^[A-Z]{2}\d{6}$').hasMatch(v)) {
-                    return 'صيغة الكود غير صحيحة (حرفين + 6 أرقام)';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // National ID (Internal)
-              TextFormField(
-                controller: _nationalIdController,
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty && value.length != 10) {
-                    return 'رقم الهوية يجب أن يكون 10 أرقام';
-                  }
-                  return null;
-                },
-                decoration: const InputDecoration(
-                  labelText: 'رقم الهوية/الإقامة (اختياري - داخلي)',
-                  helperText: 'بيان داخلي مشفر لأغراض التحقق فقط',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.fingerprint),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Phone Number
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'رقم الجوال (للتحقق OTP)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.phone),
-                ),
-                validator: (value) => value == null || value.isEmpty
-                    ? 'يرجى إدخال رقم الجوال'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-
-              // Deputy Type Dropdown
-              if (widget.role == UserRole.deputy)
-                DropdownButtonFormField<String>(
-                  value: _selectedDeputyType,
-                  decoration: const InputDecoration(
-                    labelText: 'نوع الوكيل',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.category),
-                  ),
+              const SizedBox(height: 20),
+              _darkField(controller: _nameController, label: 'الاسم الرباعي',
+                  icon: Icons.person,
+                  validator: (v) => v == null || v.isEmpty ? 'يرجى إدخال الاسم' : null),
+              const SizedBox(height: 14),
+              _darkField(controller: _identityController,
+                  label: 'كود الدخول (حرفين + 6 أرقام)', hint: 'مثال: AD345694',
+                  icon: Icons.badge, readOnly: widget.staffToEdit != null,
+                  validator: (value) {
+                    final v = (value ?? '').replaceAll(RegExp(r'[\u200E\u200F\u202A-\u202E]'), '').trim().toUpperCase();
+                    if (v.isEmpty) return 'يرجى إدخال كود الدخول';
+                    if (!RegExp(r'^[A-Z]{2}\d{6}$').hasMatch(v)) return 'صيغة الكود غير صحيحة';
+                    return null;
+                  }),
+              const SizedBox(height: 14),
+              _darkField(controller: _nationalIdController,
+                  label: 'رقم الهوية/الإقامة (اختياري - داخلي)',
+                  hint: 'بيان داخلي مشفر لأغراض التحقق فقط',
+                  icon: Icons.fingerprint, keyboardType: TextInputType.number,
+                  validator: (v) {
+                    if (v != null && v.isNotEmpty && v.length != 10) return 'رقم الهوية يجب أن يكون 10 أرقام';
+                    return null;
+                  }),
+              const SizedBox(height: 14),
+              _darkField(controller: _phoneController,
+                  label: 'رقم الجوال (للتحقق OTP)',
+                  icon: Icons.phone, keyboardType: TextInputType.phone,
+                  validator: (v) => v == null || v.isEmpty ? 'يرجى إدخال رقم الجوال' : null),
+              const SizedBox(height: 14),
+              if (widget.role == UserRole.deputy) ...[
+                _darkDropdown(
+                  value: _selectedDeputyType, label: 'نوع الوكيل', icon: Icons.category,
                   items: const [
-                    DropdownMenuItem(
-                      value: 'student',
-                      child: Text('وكيل شؤون الطلاب'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'academic',
-                      child: Text('وكيل الشؤون التعليمية'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'school',
-                      child: Text('وكيل الشؤون المدرسية'),
-                    ),
+                    DropdownMenuItem(value: 'student', child: Text('وكيل شؤون الطلاب', style: TextStyle(color: Colors.white))),
+                    DropdownMenuItem(value: 'academic', child: Text('وكيل الشؤون التعليمية', style: TextStyle(color: Colors.white))),
+                    DropdownMenuItem(value: 'school', child: Text('وكيل الشؤون المدرسية', style: TextStyle(color: Colors.white))),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedDeputyType = value;
-                    });
-                  },
+                  onChanged: (v) => setState(() => _selectedDeputyType = v),
                 ),
-
-              // Delegation Section (for any Deputy type)
-              if (widget.role == UserRole.deputy &&
-                  _selectedDeputyType != null) ...[
-                const SizedBox(height: 24),
-                const Divider(thickness: 2),
-
-                SwitchListTile(
-                  title: const Text('منح صلاحيات إضافية (لوحة مدير المدرسة)'),
-                  subtitle: const Text(
-                    'تمكين الوكيل من الوصول إلى أقسام محددة في لوحة المدير',
-                  ),
-                  value: _enableDelegation,
-                  onChanged: (val) {
-                    setState(() {
-                      _enableDelegation = val;
-                      if (!val) {
-                        _selectedPermissions.clear();
-                        _showAll = false;
-                        _sensitiveMode = false;
-                      }
-                    });
-                  },
-                ),
-
-                if (_enableDelegation) ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    'تحديد الصلاحيات المفوضة:',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.auto_awesome),
-                      label: const Text('تطبيق الصلاحيات الافتراضية للوكيل'),
-                      onPressed: _applyDefaultPreset,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'سيتم تعبئة صلاحيات مقترحة حسب نوع الوكيل، ويمكنك تعديلها يدويًا بعد ذلك.',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 8),
-
-                  SwitchListTile(
-                    title: const Text('إظهار الكل (صلاحيات كاملة عدا الحساسة)'),
-                    value: _showAll,
-                    onChanged: _toggleAll,
-                  ),
-
-                  SwitchListTile(
-                    title: const Text('تفعيل صلاحيات حساسة (يتطلب تأكيد)'),
-                    subtitle: const Text(
-                      'مثل: الصلاحيات والأدوار، إعدادات المدرسة',
-                    ),
-                    value: _sensitiveMode,
-                    onChanged: (val) {
-                      setState(() {
-                        _sensitiveMode = val;
-                        if (!val) {
-                          // Remove sensitive permissions if toggled off
-                          _selectedPermissions.remove(AdminSection.roles.name);
-                          _selectedPermissions.remove(
-                            AdminSection.settings.name,
-                          );
-                        }
-                      });
-                    },
-                    activeColor: Colors.red,
-                  ),
-
-                  const SizedBox(height: 16),
-                  _buildPermissionsList(),
-                ],
+                const SizedBox(height: 14),
               ],
-
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 50,
+              if (widget.role == UserRole.deputy && _selectedDeputyType != null) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
+                  child: Column(children: [
+                    SwitchListTile(
+                      title: const Text('منح صلاحيات إضافية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('تمكين الوكيل من الوصول لأقسام محددة', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                      value: _enableDelegation, activeColor: colors[1],
+                      onChanged: (val) => setState(() {
+                        _enableDelegation = val;
+                        if (!val) { _selectedPermissions.clear(); _showAll = false; _sensitiveMode = false; }
+                      }),
+                    ),
+                    if (_enableDelegation) Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Column(children: [
+                        OutlinedButton.icon(
+                          icon: Icon(Icons.auto_awesome, color: colors[1]),
+                          label: Text('تطبيق الصلاحيات الافتراضية', style: TextStyle(color: colors[1])),
+                          style: OutlinedButton.styleFrom(side: BorderSide(color: colors[0].withValues(alpha: 0.4))),
+                          onPressed: _applyDefaultPreset),
+                        const SizedBox(height: 8),
+                        SwitchListTile(title: const Text('إظهار الكل', style: TextStyle(color: Colors.white70)),
+                            value: _showAll, activeColor: colors[1], onChanged: _toggleAll),
+                        SwitchListTile(title: const Text('صلاحيات حساسة', style: TextStyle(color: Colors.red)),
+                            value: _sensitiveMode, activeColor: Colors.red,
+                            onChanged: (val) => setState(() {
+                              _sensitiveMode = val;
+                              if (!val) { _selectedPermissions.remove(AdminSection.roles.name); _selectedPermissions.remove(AdminSection.settings.name); }
+                            })),
+                        _buildPermissionsList(),
+                      ]),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 14),
+              ],
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: colors),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: colors[0].withValues(alpha: 0.4), blurRadius: 12, offset: const Offset(0, 4))]),
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent, shadowColor: Colors.transparent,
+                    foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('إضافة'),
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text('إضافة ${widget.title}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
               ),
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -678,50 +650,90 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
     );
   }
 
+  Widget _darkField({required TextEditingController controller, required String label,
+      String? hint, required IconData icon, bool readOnly = false,
+      TextInputType? keyboardType, String? Function(String?)? validator}) {
+    return TextFormField(
+      controller: controller, readOnly: readOnly, keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.white), validator: validator,
+      decoration: InputDecoration(
+        labelText: label, hintText: hint,
+        labelStyle: const TextStyle(color: Colors.white54),
+        hintStyle: const TextStyle(color: Colors.white24),
+        prefixIcon: Icon(icon, color: Colors.white38, size: 20),
+        filled: true, fillColor: Colors.white.withValues(alpha: 0.07),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF3949AB), width: 1.5)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.red)),
+      ),
+    );
+  }
+
+  Widget _darkDropdown({required String? value, required String label, required IconData icon,
+      required List<DropdownMenuItem<String>> items, required void Function(String?) onChanged}) {
+    return DropdownButtonFormField<String>(
+      value: value, dropdownColor: const Color(0xFF1B2A4A),
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label, labelStyle: const TextStyle(color: Colors.white54),
+        prefixIcon: Icon(icon, color: Colors.white38, size: 20),
+        filled: true, fillColor: Colors.white.withValues(alpha: 0.07),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+      ),
+      items: items, onChanged: onChanged,
+    );
+  }
+
+
   Widget _buildPermissionsList() {
     return Column(
       children: AdminSection.values.map((section) {
-        // Skip sensitive sections if mode is off
         if (!_sensitiveMode &&
-            (section == AdminSection.roles ||
-                section == AdminSection.settings)) {
+            (section == AdminSection.roles || section == AdminSection.settings)) {
           return const SizedBox.shrink();
         }
-
         final sectionName = _getSectionName(section);
         final isSelected = _selectedPermissions.containsKey(section.name);
-
-        return Card(
+        return Container(
           margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08))),
           child: ExpansionTile(
-            title: Text(sectionName),
+            title: Text(sectionName,
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
             leading: Checkbox(
               value: isSelected,
-              onChanged: (val) {
-                setState(() {
-                  if (val == true) {
-                    // Default to View only when checking the section
-                    _togglePermission(section, AdminPermission.view, true);
-                  } else {
-                    _selectedPermissions.remove(section.name);
-                  }
-                });
-              },
+              fillColor: WidgetStateProperty.all(const Color(0xFF1565C0)),
+              onChanged: (val) => setState(() {
+                if (val == true) {
+                  _togglePermission(section, AdminPermission.view, true);
+                } else {
+                  _selectedPermissions.remove(section.name);
+                }
+              }),
             ),
             children: [
-              Wrap(
-                spacing: 8,
-                children: AdminPermission.values.map((perm) {
-                  final hasPerm =
-                      _selectedPermissions[section.name]?.contains(perm.name) ??
-                      false;
-                  return FilterChip(
-                    label: Text(_getPermissionName(perm)),
-                    selected: hasPerm,
-                    onSelected: (val) => _togglePermission(section, perm, val),
-                    visualDensity: VisualDensity.compact,
-                  );
-                }).toList(),
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Wrap(
+                  spacing: 8,
+                  children: AdminPermission.values.map((perm) {
+                    final hasPerm = _selectedPermissions[section.name]?.contains(perm.name) ?? false;
+                    return FilterChip(
+                      label: Text(_getPermissionName(perm),
+                          style: const TextStyle(color: Colors.white, fontSize: 11)),
+                      selected: hasPerm,
+                      selectedColor: const Color(0xFF1565C0).withValues(alpha: 0.3),
+                      backgroundColor: Colors.white.withValues(alpha: 0.05),
+                      onSelected: (val) => _togglePermission(section, perm, val),
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }).toList(),
+                ),
               ),
             ],
           ),
@@ -732,43 +744,27 @@ class _AddStaffScreenState extends ConsumerState<AddStaffScreen> {
 
   String _getSectionName(AdminSection section) {
     switch (section) {
-      case AdminSection.leadership:
-        return 'القيادة والمؤشرات';
-      case AdminSection.classes:
-        return 'الفصول والشُعب';
-      case AdminSection.students:
-        return 'الطلاب';
-      case AdminSection.teachers:
-        return 'المعلمين';
-      case AdminSection.administrative:
-        return 'التكليفات الإدارية';
-      case AdminSection.schedule:
-        return 'الجداول';
-      case AdminSection.exams:
-        return 'الاختبارات';
-      case AdminSection.roles:
-        return 'الصلاحيات والأدوار (حساس)';
-      case AdminSection.reports:
-        return 'التقارير';
-      case AdminSection.settings:
-        return 'إعدادات المدرسة (حساس)';
+      case AdminSection.leadership:    return 'القيادة والمؤشرات';
+      case AdminSection.classes:       return 'الفصول والشُعب';
+      case AdminSection.students:      return 'الطلاب';
+      case AdminSection.teachers:      return 'المعلمين';
+      case AdminSection.administrative:return 'التكليفات الإدارية';
+      case AdminSection.schedule:      return 'الجداول';
+      case AdminSection.exams:         return 'الاختبارات';
+      case AdminSection.roles:         return 'الصلاحيات والأدوار (حساس)';
+      case AdminSection.reports:       return 'التقارير';
+      case AdminSection.settings:      return 'إعدادات المدرسة (حساس)';
     }
   }
 
   String _getPermissionName(AdminPermission perm) {
     switch (perm) {
-      case AdminPermission.view:
-        return 'عرض';
-      case AdminPermission.create:
-        return 'إنشاء';
-      case AdminPermission.edit:
-        return 'تعديل';
-      case AdminPermission.delete:
-        return 'حذف';
-      case AdminPermission.approve:
-        return 'اعتماد';
-      case AdminPermission.export:
-        return 'تصدير';
+      case AdminPermission.view:   return 'عرض';
+      case AdminPermission.create: return 'إنشاء';
+      case AdminPermission.edit:   return 'تعديل';
+      case AdminPermission.delete: return 'حذف';
+      case AdminPermission.approve:return 'اعتماد';
+      case AdminPermission.export: return 'تصدير';
     }
   }
 }

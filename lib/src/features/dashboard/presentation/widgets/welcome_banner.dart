@@ -6,8 +6,15 @@ class WelcomeBanner extends StatefulWidget {
   final String userName;
   final Widget? trailing;
   final Gradient? gradient;
+  final String role; // 'teacher', 'parent', 'admin', etc.
 
-  const WelcomeBanner({super.key, required this.userName, this.trailing, this.gradient});
+  const WelcomeBanner({
+    super.key,
+    required this.userName,
+    this.trailing,
+    this.gradient,
+    this.role = 'teacher',
+  });
 
   @override
   State<WelcomeBanner> createState() => _WelcomeBannerState();
@@ -19,7 +26,7 @@ class _WelcomeBannerState extends State<WelcomeBanner> {
   @override
   void initState() {
     super.initState();
-    _quote = MotivationalQuotes.getRandomQuote();
+    _quote = MotivationalQuotes.getQuoteForRole(widget.role);
   }
 
   @override

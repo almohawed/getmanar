@@ -5,7 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:flutter/services.dart';
-import 'dart:html' as html;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 
 /// شاشة تقارير السلوك
@@ -965,17 +965,10 @@ class _BehaviorReportsScreenState extends State<BehaviorReportsScreen> {
 
       final bytes = await pdf.save();
       
-      print('✅ تم الحفظ (${bytes.length} bytes)');
-      print('🔄 جاري التحميل...');
-
-      final blob = html.Blob([bytes], 'application/pdf');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', 'كشف_التأخر_الصباحي_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.pdf')
-        ..click();
-      html.Url.revokeObjectUrl(url);
-
-      print('✅ تم التحميل بنجاح');
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => bytes,
+        name: 'كشف_التأخر_الصباحي_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.pdf',
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1095,14 +1088,7 @@ class _BehaviorReportsScreenState extends State<BehaviorReportsScreen> {
       // Convert to bytes with UTF-8 BOM for Excel compatibility
       final bytes = [0xEF, 0xBB, 0xBF, ...csv.toString().codeUnits];
       
-      // Create and download file
-      final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', 'تقرير_السلوك_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv')
-        ..click();
-      html.Url.revokeObjectUrl(url);
-
+      // على الموبايل: مشاركة الملف
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

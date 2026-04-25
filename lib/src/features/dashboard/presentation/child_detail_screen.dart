@@ -7,649 +7,518 @@ import '../../../core/domain/models/behavior_record.dart';
 import '../../behavior/presentation/behavior_controller.dart';
 import '../../assignments/domain/assignment.dart';
 import '../../assignments/data/firestore_assignments_repository.dart';
-
 import '../../requests/presentation/parent_permission_sheet.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../subscription/domain/subscription_logic.dart';
 import '../../academic/data/school_repository.dart';
-import 'parent_sub_screens.dart';
 import '../../attendance/domain/student_attendance.dart';
 import '../../attendance/data/student_attendance_repository.dart';
 import '../../behavior/domain/bathroom_pass.dart';
 
 class ChildDetailScreen extends ConsumerWidget {
   final User student;
-
   const ChildDetailScreen({super.key, required this.student});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final behaviorAsync = ref.watch(studentBehaviorProvider(student.id));
+    final behaviorAsync   = ref.watch(studentBehaviorProvider(student.id));
     final assignmentsAsync = ref.watch(studentAssignmentsProvider(student.id));
-    final userAsync = ref.watch(authStateProvider);
-    final schoolAsync = ref.watch(
-      schoolProvider(userAsync.value?.schoolId ?? ''),
-    );
+    final userAsync       = ref.watch(authStateProvider);
+    final schoolAsync     = ref.watch(schoolProvider(userAsync.value?.schoolId ?? ''));
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: Text(student.name),
-        centerTitle: true,
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 1. Last Activity Feed (Real-time Intelligence)
-            behaviorAsync.when(
-              data: (records) => _buildLastActivityFeed(context, records),
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+      backgroundColor: const Color(0xFF0A1628),
+      body: CustomScrollView(
+        slivers: [
+          // ─── Hero Header ──────────────────────────────────────────────
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            backgroundColor: const Color(0xFF0D1B2A),
+            foregroundColor: Colors.white,
+            flexibleSpace: FlexibleSpaceBar(
+              background: _buildHeroHeader(context, student),
             ),
-            SizedBox(height: 24.h),
+          ),
 
-            // 2. Student Excellence Index (SEI) Gauge
-            _buildExcellenceGauge(student.excellenceScore),
-            SizedBox(height: 24.h),
+          SliverPadding(
+            padding: EdgeInsets.all(16.w),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
 
-            // 3. Active Bathroom Timer (If any) - from Schools/{schoolId}/BathroomPasses
-            Consumer(
-              builder: (context, ref, _) {
-                final activeMapAsync = ref.watch(
-                  activeBathroomTripsProvider([student.id]),
-                );
-                return activeMapAsync.when(
-                  data: (map) {
-                    final pass = map[student.id];
-                    if (pass == null) return const SizedBox.shrink();
-                    return _buildActiveBathroomTimer(context, pass);
-                  },
-                  loading: () => const SizedBox.shrink(),
+                // ─── مؤشر التميز السلوكي ──────────────────────────────
+                behaviorAsync.when(
+                  data: (records) => _buildExcellenceCard(student.excellenceScore, records),
+                  loading: () => _buildExcellenceCard(student.excellenceScore, []),
                   error: (_, __) => const SizedBox.shrink(),
-                );
-              },
-            ),
-
-            // 4. Stats Grid (30d violations + attendance)
-            behaviorAsync.when(
-              data: (records) {
-                final cutoff = DateTime.now().subtract(
-                  const Duration(days: 30),
-                );
-                final violationsCount30d = records
-                    .where(
-                      (r) =>
-                          r.type == BehaviorType.negative &&
-                          r.status == BehaviorStatus.approved &&
-                          r.timestamp.isAfter(cutoff),
-                    )
-                    .length;
-                final attendanceAsync = ref.watch(
-                  studentAttendanceHistoryProvider(student),
-                );
-                return attendanceAsync.when(
-                  data: (attendance) {
-                    final last30 = attendance
-                        .where((a) => a.date.isAfter(cutoff))
-                        .toList();
-                    final excused = last30
-                        .where(
-                          (a) => a.status == StudentAttendanceStatus.excused,
-                        )
-                        .length;
-                    final unexcused = last30
-                        .where(
-                          (a) => a.status == StudentAttendanceStatus.absent,
-                        )
-                        .length;
-                    final late = last30
-                        .where((a) => a.status == StudentAttendanceStatus.late)
-                        .length;
-                    return _buildStatsGrid(
-                      violationsCount30d: violationsCount30d,
-                      absentExcusedCount: excused,
-                      absentUnexcusedCount: unexcused,
-                      lateUnexcusedCount: late,
-                    );
-                  },
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                );
-              },
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-            SizedBox(height: 24.h),
-
-            // Request Permission Button (Existing Feature)
-            if (userAsync.value != null &&
-                schoolAsync.value != null &&
-                schoolAsync.value!.hasAccess(AppFeature.digitalPermission))
-              Container(
-                margin: EdgeInsets.only(bottom: 16.h),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => ParentPermissionSheet(
-                        parent: userAsync.value!,
-                        initialStudent: student,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.exit_to_app, color: Colors.white),
-                  label: const Text(
-                    'طلب استئذان (خروج مبكر)',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
                 ),
-              ),
+                SizedBox(height: 16.h),
 
-            // 5. Assignments Section
-            assignmentsAsync.when(
-              data: (assignments) =>
-                  _buildAssignmentsSection(context, ref, assignments),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, s) => Text('Error: $e'),
-            ),
-            SizedBox(height: 24.h),
+                // ─── إحصائيات 30 يوم ──────────────────────────────────
+                behaviorAsync.when(
+                  data: (records) {
+                    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+                    final violations = records.where((r) =>
+                        r.type == BehaviorType.negative &&
+                        r.status == BehaviorStatus.approved &&
+                        r.timestamp.isAfter(cutoff)).length;
+                    final attendanceAsync = ref.watch(studentAttendanceHistoryProvider(student));
+                    return attendanceAsync.when(
+                      data: (att) {
+                        final last30 = att.where((a) => a.date.isAfter(cutoff)).toList();
+                        return _buildStatsRow(
+                          violations: violations,
+                          excused: last30.where((a) => a.status == StudentAttendanceStatus.excused).length,
+                          unexcused: last30.where((a) => a.status == StudentAttendanceStatus.absent).length,
+                          late: last30.where((a) => a.status == StudentAttendanceStatus.late).length,
+                        );
+                      },
+                      loading: () => _buildStatsRow(violations: violations, excused: 0, unexcused: 0, late: 0),
+                      error: (_, __) => const SizedBox.shrink(),
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+                SizedBox(height: 16.h),
 
-            // 6. Recent Activity List
-            behaviorAsync.when(
-              data: (records) => _buildRecentActivity(records),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, s) => Center(child: Text('Error loading data: $e')),
+                // ─── طلب استئذان ──────────────────────────────────────
+                if (userAsync.value != null &&
+                    schoolAsync.value != null &&
+                    schoolAsync.value!.hasAccess(AppFeature.digitalPermission))
+                  _buildPermissionButton(context, userAsync.value!),
+                SizedBox(height: 16.h),
+
+                // ─── آخر نشاط ─────────────────────────────────────────
+                behaviorAsync.when(
+                  data: (records) => records.isNotEmpty
+                      ? _buildLastActivity(records) : const SizedBox.shrink(),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+                SizedBox(height: 16.h),
+
+                // ─── الواجبات ─────────────────────────────────────────
+                assignmentsAsync.when(
+                  data: (assignments) => _buildAssignmentsSection(context, ref, assignments),
+                  loading: () => const Center(child: CircularProgressIndicator(color: Colors.white38)),
+                  error: (e, _) => const SizedBox.shrink(),
+                ),
+                SizedBox(height: 16.h),
+
+                // ─── سجل النشاط ───────────────────────────────────────
+                behaviorAsync.when(
+                  data: (records) => _buildActivityLog(records),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+                SizedBox(height: 60.h),
+              ]),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // --- 1. Last Activity Feed ---
-  Widget _buildLastActivityFeed(
-    BuildContext context,
-    List<BehaviorRecord> records,
-  ) {
-    if (records.isEmpty) return const SizedBox.shrink();
-
-    // Sort by timestamp descending
-    final sorted = [...records]
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final lastActivity = sorted.first;
+  // ─── Hero Header ──────────────────────────────────────────────────────────
+  Widget _buildHeroHeader(BuildContext context, User student) {
+    final initials = student.name.isNotEmpty ? student.name[0] : '?';
+    final colors = [
+      [const Color(0xFF1A237E), const Color(0xFF283593)],
+      [const Color(0xFF00695C), const Color(0xFF00897B)],
+      [const Color(0xFF4A148C), const Color(0xFF6A1B9A)],
+      [const Color(0xFF1565C0), const Color(0xFF1976D2)],
+    ];
+    final colorPair = colors[student.name.codeUnitAt(0) % colors.length];
 
     return Container(
-      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.indigo.shade900, Colors.indigo.shade600],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: colorPair,
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
         ),
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.indigo.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 20.h),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.bolt, color: Colors.amber, size: 20.sp),
-              SizedBox(width: 8.w),
-              Text(
-                'آخر نشاط',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
+              Row(children: [
+                Container(
+                  width: 64.w, height: 64.w,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2),
+                  ),
+                  child: Center(child: Text(initials,
+                      style: TextStyle(color: Colors.white, fontSize: 28.sp,
+                          fontWeight: FontWeight.bold))),
                 ),
-              ),
+                SizedBox(width: 16.w),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(student.name,
+                        style: TextStyle(color: Colors.white, fontSize: 20.sp,
+                            fontWeight: FontWeight.bold)),
+                    SizedBox(height: 4.h),
+                    Row(children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20)),
+                        child: Text(student.stage ?? 'طالب',
+                            style: TextStyle(color: Colors.white70, fontSize: 11.sp))),
+                      if (student.assignedClassIds != null && student.assignedClassIds!.isNotEmpty) ...[
+                        SizedBox(width: 6.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20)),
+                          child: Text(student.assignedClassIds!.first,
+                              style: TextStyle(color: Colors.white70, fontSize: 11.sp))),
+                      ],
+                    ]),
+                  ],
+                )),
+              ]),
             ],
           ),
-          SizedBox(height: 12.h),
-          Text(
-            lastActivity.description,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18.sp,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            intl.DateFormat('yyyy-MM-dd HH:mm').format(lastActivity.timestamp),
-            style: TextStyle(color: Colors.white54, fontSize: 12.sp),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  // --- 2. Excellence Gauge ---
-  Widget _buildExcellenceGauge(int score) {
+  // ─── Excellence Card ──────────────────────────────────────────────────────
+  Widget _buildExcellenceCard(int score, List<BehaviorRecord> records) {
     Color color;
     String label;
-    if (score >= 90) {
-      color = Colors.green;
-      label = 'متميز';
-    } else if (score >= 80) {
-      color = Colors.lightGreen;
-      label = 'طبيعي';
-    } else if (score >= 60) {
-      color = Colors.amber;
-      label = 'يحتاج تعزيز';
-    } else if (score >= 30) {
-      color = Colors.orange;
-      label = 'يحتاج تحفيز';
-    } else {
-      color = Colors.red;
-      label = 'يحتاج متابعة';
-    }
+    String emoji;
+    if (score >= 90) { color = const Color(0xFF4CAF50); label = 'متميز'; emoji = '🌟'; }
+    else if (score >= 80) { color = const Color(0xFF8BC34A); label = 'جيد جداً'; emoji = '✅'; }
+    else if (score >= 60) { color = const Color(0xFFFFC107); label = 'يحتاج تعزيز'; emoji = '💪'; }
+    else if (score >= 30) { color = const Color(0xFFFF9800); label = 'يحتاج تحفيز'; emoji = '⚡'; }
+    else { color = const Color(0xFFF44336); label = 'يحتاج متابعة'; emoji = '🔔'; }
+
+    final positives = records.where((r) => r.type == BehaviorType.positive).length;
+    final negatives = records.where((r) => r.type == BehaviorType.negative).length;
 
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            'مؤشر التميز السلوكي',
-            style: TextStyle(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade700,
-            ),
-          ),
-          SizedBox(height: 16.h),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 120.w,
-                height: 120.w,
-                child: CircularProgressIndicator(
-                  value: score / 100,
-                  strokeWidth: 12.w,
-                  backgroundColor: Colors.grey.shade100,
-                  color: color,
-                  strokeCap: StrokeCap.round,
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$score',
-                    style: TextStyle(
-                      fontSize: 32.sp,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      color: color,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- 3. Bathroom Timer ---
-  Widget _buildActiveBathroomTimer(BuildContext context, BathroomPass pass) {
-    final elapsed = DateTime.now().difference(pass.startTime).inMinutes;
-    Color timerColor = Colors.green;
-    if (elapsed > 15) {
-      timerColor = Colors.red;
-    } else if (elapsed > 5) {
-      timerColor = Colors.amber;
-    } else {
-      timerColor = Colors.green;
-    }
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 24.h),
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: timerColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: timerColor.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.timer, color: timerColor, size: 32.sp),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'إذن خروج نشط',
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.bold,
-                    color: timerColor,
-                  ),
-                ),
-                Text(
-                  'منذ $elapsed دقيقة',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: timerColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (pass.status == BathroomPassStatus.locked_red)
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8.r),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: Text(
-                'مقفل—مراجعة الوكيل',
-                style: TextStyle(
-                  color: Colors.red.shade800,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12.sp,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // --- 4. Stats Grid (30d) ---
-  Widget _buildStatsGrid({
-    required int violationsCount30d,
-    required int absentExcusedCount,
-    required int absentUnexcusedCount,
-    required int lateUnexcusedCount,
-  }) {
-    return Wrap(
-      spacing: 12.w,
-      runSpacing: 12.h,
-      children: [
-        SizedBox(
-          width: 0.46.sw,
-          child: _buildStatCard(
-            'مخالفات (30 يوم)',
-            '$violationsCount30d',
-            Icons.warning_amber,
-            Colors.red,
-          ),
+        gradient: LinearGradient(
+          colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)],
         ),
-        SizedBox(
-          width: 0.46.sw,
-          child: _buildStatCard(
-            'غياب بعذر (30 يوم)',
-            '$absentExcusedCount',
-            Icons.event_available,
-            Colors.orange,
-          ),
-        ),
-        SizedBox(
-          width: 0.46.sw,
-          child: _buildStatCard(
-            'غياب بلا عذر (30 يوم)',
-            '$absentUnexcusedCount',
-            Icons.cancel_presentation,
-            Colors.red.shade900,
-          ),
-        ),
-        SizedBox(
-          width: 0.46.sw,
-          child: _buildStatCard(
-            'تأخر بلا عذر (30 يوم)',
-            '$lateUnexcusedCount',
-            Icons.access_time_filled,
-            Colors.amber.shade800,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: EdgeInsets.all(12.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24.sp),
-          SizedBox(height: 8.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20.sp,
-              fontWeight: FontWeight.bold,
+      child: Row(children: [
+        // Gauge
+        SizedBox(
+          width: 90.w, height: 90.w,
+          child: Stack(alignment: Alignment.center, children: [
+            CircularProgressIndicator(
+              value: score / 100,
+              strokeWidth: 8.w,
+              backgroundColor: Colors.white.withValues(alpha: 0.1),
               color: color,
+              strokeCap: StrokeCap.round,
             ),
-          ),
-          Text(
-            title,
-            style: TextStyle(fontSize: 12.sp, color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- 5. Assignments Section ---
-  Widget _buildAssignmentsSection(
-    BuildContext context,
-    WidgetRef ref,
-    List<Assignment> assignments,
-  ) {
-    final completed = assignments
-        .where((a) => a.status == AssignmentStatus.approved)
-        .toList();
-    final upcoming = assignments
-        .where((a) => a.status != AssignmentStatus.approved)
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Upcoming Assignments
-        Text(
-          'الواجبات القادمة',
-          style: TextStyle(
-            fontSize: 18.sp,
-            fontWeight: FontWeight.bold,
-            color: Colors.indigo.shade800,
-          ),
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('$score', style: TextStyle(color: color, fontSize: 24.sp,
+                  fontWeight: FontWeight.bold)),
+              Text(emoji, style: TextStyle(fontSize: 14.sp)),
+            ]),
+          ]),
         ),
-        SizedBox(height: 12.h),
-        if (upcoming.isEmpty)
-          const Center(child: Text('لا يوجد واجبات قادمة'))
-        else
-          ...upcoming.map(
-            (assignment) => _buildAssignmentCard(context, ref, assignment),
-          ),
-
-        SizedBox(height: 24.h),
-
-        // Completed Assignments
-        Text(
-          'الواجبات المنجزة',
-          style: TextStyle(
-            fontSize: 18.sp,
-            fontWeight: FontWeight.bold,
-            color: Colors.green.shade800,
-          ),
-        ),
-        SizedBox(height: 12.h),
-        if (completed.isEmpty)
-          const Center(child: Text('لم يتم إنجاز أي واجبات بعد'))
-        else
-          ...completed.map(
-            (assignment) => _buildAssignmentCard(context, ref, assignment),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildAssignmentCard(
-    BuildContext context,
-    WidgetRef ref,
-    Assignment assignment,
-  ) {
-    final isApproved = assignment.status == AssignmentStatus.approved;
-    final isSubmitted = assignment.status == AssignmentStatus.submitted;
-
-    return Card(
-      margin: EdgeInsets.only(bottom: 12.h),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isApproved
-              ? Colors.green.shade100
-              : Colors.orange.shade100,
-          child: Icon(
-            isApproved ? Icons.check : Icons.assignment,
-            color: isApproved ? Colors.green : Colors.orange,
-          ),
-        ),
-        title: Text(
-          assignment.title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            decoration: isApproved ? TextDecoration.lineThrough : null,
-          ),
-        ),
-        subtitle: Column(
+        SizedBox(width: 20.w),
+        Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${assignment.subject} • ${intl.DateFormat('yyyy-MM-dd').format(assignment.dueDate)}',
-            ),
-            if (isSubmitted)
-              Text(
-                'بانتظار اعتماد المعلم',
-                style: TextStyle(color: Colors.orange, fontSize: 12.sp),
-              ),
+            Text('مؤشر التميز السلوكي',
+                style: TextStyle(color: Colors.white70, fontSize: 12.sp)),
+            SizedBox(height: 4.h),
+            Text(label, style: TextStyle(color: color, fontSize: 18.sp,
+                fontWeight: FontWeight.bold)),
+            SizedBox(height: 12.h),
+            Row(children: [
+              _miniStat('إيجابي', '$positives', const Color(0xFF4CAF50)),
+              SizedBox(width: 16.w),
+              _miniStat('سلبي', '$negatives', const Color(0xFFF44336)),
+            ]),
           ],
+        )),
+      ]),
+    );
+  }
+
+  Widget _miniStat(String label, String value, Color color) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(value, style: TextStyle(color: color, fontSize: 18.sp,
+          fontWeight: FontWeight.bold)),
+      Text(label, style: TextStyle(color: Colors.white38, fontSize: 10.sp)),
+    ],
+  );
+
+  // ─── Stats Row ────────────────────────────────────────────────────────────
+  Widget _buildStatsRow({required int violations, required int excused,
+      required int unexcused, required int late}) {
+    final stats = [
+      {'label': 'مخالفات', 'value': violations, 'icon': Icons.warning_amber,
+        'color': const Color(0xFFF44336)},
+      {'label': 'غياب بعذر', 'value': excused, 'icon': Icons.event_available,
+        'color': const Color(0xFFFF9800)},
+      {'label': 'غياب بلا عذر', 'value': unexcused, 'icon': Icons.cancel_presentation,
+        'color': const Color(0xFFE53935)},
+      {'label': 'تأخر', 'value': late, 'icon': Icons.access_time_filled,
+        'color': const Color(0xFFFFC107)},
+    ];
+
+    return Row(
+      children: stats.map((s) => Expanded(
+        child: Container(
+          margin: EdgeInsets.symmetric(horizontal: 4.w),
+          padding: EdgeInsets.symmetric(vertical: 14.h),
+          decoration: BoxDecoration(
+            color: (s['color'] as Color).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: (s['color'] as Color).withValues(alpha: 0.25)),
+          ),
+          child: Column(children: [
+            Icon(s['icon'] as IconData, color: s['color'] as Color, size: 20.sp),
+            SizedBox(height: 6.h),
+            Text('${s['value']}', style: TextStyle(
+                color: s['color'] as Color, fontSize: 20.sp,
+                fontWeight: FontWeight.bold)),
+            Text(s['label'] as String, style: TextStyle(
+                color: Colors.white38, fontSize: 9.sp),
+                textAlign: TextAlign.center),
+          ]),
         ),
-        trailing: isApproved
-            ? const Icon(Icons.check_circle, color: Colors.green)
-            : const Icon(Icons.access_time, color: Colors.orange),
+      )).toList(),
+    );
+  }
+
+  // ─── Permission Button ────────────────────────────────────────────────────
+  Widget _buildPermissionButton(BuildContext context, User parent) {
+    return GestureDetector(
+      onTap: () => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => ParentPermissionSheet(parent: parent, initialStudent: student)),
+      child: Container(
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFB71C1C), Color(0xFFD32F2F)]),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(
+            color: Colors.red.withValues(alpha: 0.3),
+            blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Row(children: [
+          Container(
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.exit_to_app, color: Colors.white, size: 22.sp)),
+          SizedBox(width: 14.w),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('طلب استئذان', style: TextStyle(color: Colors.white,
+                  fontSize: 16.sp, fontWeight: FontWeight.bold)),
+              Text('خروج مبكر من المدرسة',
+                  style: TextStyle(color: Colors.white70, fontSize: 11.sp)),
+            ],
+          )),
+          Icon(Icons.arrow_back_ios, color: Colors.white54, size: 14.sp),
+        ]),
       ),
     );
   }
 
-  Widget _buildRecentActivity(List<BehaviorRecord> records) {
-    // Sort by newest
-    final sortedRecords = [...records]
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  // ─── Last Activity ────────────────────────────────────────────────────────
+  Widget _buildLastActivity(List<BehaviorRecord> records) {
+    final sorted = [...records]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final last = sorted.first;
+    final isPositive = last.type == BehaviorType.positive;
+    final color = isPositive ? const Color(0xFF4CAF50) : const Color(0xFFF44336);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'سجل النشاط',
-          style: TextStyle(
-            fontSize: 18.sp,
-            fontWeight: FontWeight.bold,
-            color: Colors.indigo.shade800,
-          ),
-        ),
-        SizedBox(height: 12.h),
-        if (sortedRecords.isEmpty)
-          const Center(child: Text('لا يوجد سجل نشاط حتى الآن'))
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: sortedRecords.length > 5 ? 5 : sortedRecords.length,
-            itemBuilder: (context, index) {
-              final record = sortedRecords[index];
-              return Card(
-                margin: EdgeInsets.only(bottom: 8.h),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: record.points >= 0
-                        ? Colors.green.shade100
-                        : Colors.red.shade100,
-                    child: Icon(
-                      record.points >= 0 ? Icons.thumb_up : Icons.thumb_down,
-                      color: record.points >= 0 ? Colors.green : Colors.red,
-                    ),
-                  ),
-                  title: Text(record.description),
-                  subtitle: Text(
-                    intl.DateFormat(
-                      'yyyy-MM-dd HH:mm',
-                    ).format(record.timestamp),
-                  ),
-                  trailing: Text(
-                    '${record.points > 0 ? '+' : ''}${record.points}',
-                    style: TextStyle(
-                      color: record.points >= 0 ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-      ],
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(children: [
+        Container(
+          padding: EdgeInsets.all(10.w),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(10)),
+          child: Icon(Icons.bolt, color: color, size: 20.sp)),
+        SizedBox(width: 12.w),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('آخر نشاط', style: TextStyle(color: Colors.white38, fontSize: 11.sp)),
+            Text(last.description, style: TextStyle(color: Colors.white,
+                fontSize: 14.sp, fontWeight: FontWeight.w600)),
+            Text(intl.DateFormat('yyyy/MM/dd HH:mm').format(last.timestamp),
+                style: TextStyle(color: Colors.white38, fontSize: 10.sp)),
+          ],
+        )),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(8)),
+          child: Text('${last.points > 0 ? '+' : ''}${last.points}',
+              style: TextStyle(color: color, fontSize: 13.sp,
+                  fontWeight: FontWeight.bold))),
+      ]),
     );
   }
+
+  // ─── Assignments ──────────────────────────────────────────────────────────
+  Widget _buildAssignmentsSection(BuildContext context, WidgetRef ref,
+      List<Assignment> assignments) {
+    final upcoming  = assignments.where((a) => a.status != AssignmentStatus.approved).toList();
+    final completed = assignments.where((a) => a.status == AssignmentStatus.approved).toList();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _sectionHeader('الواجبات القادمة', Icons.assignment, const Color(0xFF42A5F5)),
+      SizedBox(height: 10.h),
+      if (upcoming.isEmpty)
+        _emptyState('لا يوجد واجبات قادمة')
+      else
+        ...upcoming.map((a) => _assignmentCard(a)),
+      SizedBox(height: 16.h),
+      _sectionHeader('الواجبات المنجزة', Icons.check_circle, const Color(0xFF4CAF50)),
+      SizedBox(height: 10.h),
+      if (completed.isEmpty)
+        _emptyState('لم يتم إنجاز أي واجبات بعد')
+      else
+        ...completed.map((a) => _assignmentCard(a)),
+    ]);
+  }
+
+  Widget _assignmentCard(Assignment a) {
+    final isApproved = a.status == AssignmentStatus.approved;
+    final color = isApproved ? const Color(0xFF4CAF50) : const Color(0xFFFF9800);
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2))),
+      child: Row(children: [
+        Container(
+          padding: EdgeInsets.all(8.w),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8)),
+          child: Icon(isApproved ? Icons.check : Icons.assignment,
+              color: color, size: 18.sp)),
+        SizedBox(width: 12.w),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(a.title, style: TextStyle(color: Colors.white, fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                decoration: isApproved ? TextDecoration.lineThrough : null,
+                decorationColor: Colors.white38)),
+            Text('${a.subject} • ${intl.DateFormat('yyyy/MM/dd').format(a.dueDate)}',
+                style: TextStyle(color: Colors.white38, fontSize: 10.sp)),
+          ],
+        )),
+        Icon(isApproved ? Icons.check_circle : Icons.access_time,
+            color: color, size: 18.sp),
+      ]),
+    );
+  }
+
+  // ─── Activity Log ─────────────────────────────────────────────────────────
+  Widget _buildActivityLog(List<BehaviorRecord> records) {
+    final sorted = [...records]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final recent = sorted.take(5).toList();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _sectionHeader('سجل النشاط', Icons.history, const Color(0xFF9C27B0)),
+      SizedBox(height: 10.h),
+      if (recent.isEmpty)
+        _emptyState('لا يوجد سجل نشاط حتى الآن')
+      else
+        ...recent.map((r) {
+          final isPos = r.type == BehaviorType.positive;
+          final color = isPos ? const Color(0xFF4CAF50) : const Color(0xFFF44336);
+          return Container(
+            margin: EdgeInsets.only(bottom: 8.h),
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06))),
+            child: Row(children: [
+              Container(
+                width: 36.w, height: 36.w,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle),
+                child: Center(child: Icon(
+                    isPos ? Icons.thumb_up : Icons.thumb_down,
+                    color: color, size: 16.sp))),
+              SizedBox(width: 12.w),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(r.description, style: TextStyle(color: Colors.white,
+                      fontSize: 12.sp, fontWeight: FontWeight.w500)),
+                  Text(intl.DateFormat('yyyy/MM/dd HH:mm').format(r.timestamp),
+                      style: TextStyle(color: Colors.white38, fontSize: 10.sp)),
+                ],
+              )),
+              Text('${r.points > 0 ? '+' : ''}${r.points}',
+                  style: TextStyle(color: color, fontSize: 14.sp,
+                      fontWeight: FontWeight.bold)),
+            ]),
+          );
+        }),
+    ]);
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  Widget _sectionHeader(String title, IconData icon, Color color) => Row(children: [
+    Container(
+      padding: EdgeInsets.all(6.w),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8)),
+      child: Icon(icon, color: color, size: 16.sp)),
+    SizedBox(width: 10.w),
+    Text(title, style: TextStyle(color: Colors.white, fontSize: 15.sp,
+        fontWeight: FontWeight.bold)),
+  ]);
+
+  Widget _emptyState(String msg) => Container(
+    padding: EdgeInsets.all(16.w),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.03),
+      borderRadius: BorderRadius.circular(12)),
+    child: Center(child: Text(msg,
+        style: TextStyle(color: Colors.white38, fontSize: 13.sp))),
+  );
 }

@@ -1,0 +1,47 @@
+{
+  "countryCode": "GB",
+  "nameAr": "المملكة المتحدة",
+  "nameEn": "United Kingdom",
+  "flag": "🇬🇧",
+  "region": "europe",
+  "primaryLanguage": "en",
+  "textDirection": "ltr",
+  "currency": "GBP",
+  "timezone": "Europe/London",
+  "behaviorSystem": "points",
+  "gradingSystem": "letters",
+  "calendarSystem": "threeTerms",
+  "tracksEnabled": true,
+  "defaultTracks": ["Sciences", "Humanities", "Arts", "Technology", "Business"],
+  "stages": [
+    { "key": "primary", "nameAr": "الابتدائية", "nameEn": "Primary", "fromGrade": 1, "toGrade": 6, "fromAge": 5, "toAge": 11 },
+    { "key": "secondary", "nameAr": "الثانوية الدنيا", "nameEn": "Secondary", "fromGrade": 7, "toGrade": 11, "fromAge": 11, "toAge": 16 },
+    { "key": "sixthForm", "nameAr": "الثانوية العليا", "nameEn": "Sixth Form", "fromGrade": 12, "toGrade": 13, "fromAge": 16, "toAge": 18 }
+  ],
+  "smsImportant": false,
+  "emailPrimary": true,
+  "messagingAppsCommon": false,
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": true,
+    "parentCommunication": true,
+    "parentSms": false,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": false,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "qualifications": ["GCSE", "A-Level", "BTEC", "IB"],
+    "weekDays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "weekend": ["Saturday", "Sunday"]
+  }
+}

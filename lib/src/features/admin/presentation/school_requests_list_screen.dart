@@ -63,15 +63,46 @@ class SchoolRequestsListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0D1B2A),
       appBar: AppBar(
-        title: const Text('طلبات تفعيل المدارس'),
-        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1A237E), Color(0xFF283593), Color(0xFF3949AB)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+          ),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('طلبات تفعيل المدارس',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16.sp)),
+            Text('مراجعة وقبول طلبات المدارس الجديدة',
+                style: TextStyle(color: Colors.white70, fontSize: 11.sp)),
+          ],
+        ),
+        centerTitle: false,
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
+            icon: Container(
+              padding: EdgeInsets.all(7.w),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Icon(Icons.picture_as_pdf, color: Colors.white, size: 18.sp),
+            ),
             onPressed: () => _showReportsBottomSheet(context),
             tooltip: 'التقارير',
           ),
+          SizedBox(width: 8.w),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -81,144 +112,357 @@ class SchoolRequestsListScreen extends ConsumerWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('حدث خطأ: ${snapshot.error}'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red, size: 48.sp),
+                  SizedBox(height: 12.h),
+                  Text('حدث خطأ: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.white70)),
+                ],
+              ),
+            );
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+                child: CircularProgressIndicator(color: Colors.white));
           }
 
           final docs = snapshot.data!.docs;
           if (docs.isEmpty) {
-            return const Center(child: Text('لا توجد طلبات حالياً'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(24.w),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.domain_add,
+                        color: Colors.white24, size: 56.sp),
+                  ),
+                  SizedBox(height: 16.h),
+                  Text('لا توجد طلبات حالياً',
+                      style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500)),
+                  SizedBox(height: 8.h),
+                  Text('ستظهر هنا طلبات المدارس الجديدة',
+                      style:
+                          TextStyle(color: Colors.white24, fontSize: 12.sp)),
+                ],
+              ),
+            );
           }
 
-          return ListView.builder(
-            padding: EdgeInsets.all(16.w),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final data = docs[index].data() as Map<String, dynamic>;
-              final request = SchoolRequest.fromMap(data, docs[index].id);
-              return _buildRequestCard(context, request);
-            },
+          // Stats bar
+          final pending = docs.where((d) =>
+              (d.data() as Map)['status'] == 'pending').length;
+          final approved = docs.where((d) =>
+              (d.data() as Map)['status'] == 'approved').length;
+          final rejected = docs.where((d) =>
+              (d.data() as Map)['status'] == 'rejected').length;
+
+          return Column(
+            children: [
+              // Stats bar
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.04),
+                  border: Border(
+                      bottom: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.06))),
+                ),
+                child: Row(
+                  children: [
+                    _statChip('الكل', docs.length.toString(), Colors.white54),
+                    SizedBox(width: 8.w),
+                    _statChip('بانتظار', pending.toString(), Colors.orange),
+                    SizedBox(width: 8.w),
+                    _statChip('مقبول', approved.toString(), Colors.green),
+                    SizedBox(width: 8.w),
+                    _statChip('مرفوض', rejected.toString(), Colors.red),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: EdgeInsets.all(16.w),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final request =
+                        SchoolRequest.fromMap(data, docs[index].id);
+                    return _buildRequestCard(context, request);
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
     );
   }
 
+  Widget _statChip(String label, String count, Color color) {
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 8.h),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          children: [
+            Text(count,
+                style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16.sp)),
+            Text(label,
+                style: TextStyle(
+                    color: color.withValues(alpha: 0.8), fontSize: 9.sp)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRequestCard(BuildContext context, SchoolRequest request) {
     final isPending = request.status == 'pending';
-    final color = isPending
+    final isApproved = request.status == 'approved';
+    final statusColor = isPending
         ? Colors.orange
-        : (request.status == 'approved' ? Colors.green : Colors.red);
+        : (isApproved ? Colors.green : Colors.red);
+    final statusLabel = isPending
+        ? 'بانتظار الموافقة'
+        : (isApproved ? 'تمت الموافقة' : 'مرفوض');
+    final statusIcon = isPending
+        ? Icons.hourglass_top
+        : (isApproved ? Icons.check_circle : Icons.cancel);
 
-    return Card(
-      margin: EdgeInsets.only(bottom: 16.h),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      margin: EdgeInsets.only(bottom: 14.h),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: isPending
+              ? Colors.orange.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.08),
+          width: isPending ? 1.5 : 1,
+        ),
+        boxShadow: isPending
+            ? [
+                BoxShadow(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                )
+              ]
+            : [],
+      ),
       child: Padding(
         padding: EdgeInsets.all(16.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header row
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Container(
+                  width: 44.w,
+                  height: 44.w,
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Icon(Icons.school, color: statusColor, size: 22.sp),
+                ),
+                SizedBox(width: 12.w),
                 Expanded(
-                  child: Text(
-                    request.schoolName,
-                    style: TextStyle(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        request.schoolName,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 3.h),
+                      Text(
+                        '${_getSchoolTypeArabic(request.schoolType)} • ${request.city}',
+                        style: TextStyle(
+                            color: Colors.white54, fontSize: 11.sp),
+                      ),
+                    ],
                   ),
                 ),
                 Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: 10.w,
-                    vertical: 6.h,
-                  ),
+                      horizontal: 10.w, vertical: 5.h),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: color.withValues(alpha: 0.5)),
+                    color: statusColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8.r),
+                    border: Border.all(
+                        color: statusColor.withValues(alpha: 0.4)),
                   ),
-                  child: Text(
-                    isPending
-                        ? 'بانتظار الموافقة'
-                        : (request.status == 'approved'
-                              ? 'تمت الموافقة'
-                              : 'مرفوض'),
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12.sp,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, color: statusColor, size: 12.sp),
+                      SizedBox(width: 4.w),
+                      Text(statusLabel,
+                          style: TextStyle(
+                              color: statusColor,
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.bold)),
+                    ],
                   ),
                 ),
               ],
             ),
+
+            SizedBox(height: 14.h),
+            Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
             SizedBox(height: 12.h),
-            _buildInfoRow(Icons.person, 'المدير: ${request.principalName}'),
-            _buildInfoRow(Icons.phone, 'الجوال: ${request.mobile}'),
-            _buildInfoRow(Icons.email, 'البريد: ${request.email}'),
-            _buildInfoRow(Icons.location_city, 'المدينة: ${request.city}'),
-            _buildInfoRow(
-              Icons.school,
-              'النوع: ${_getSchoolTypeArabic(request.schoolType)} - الطلاب: ${request.studentCount}',
+
+            // Info grid
+            Row(
+              children: [
+                Expanded(
+                  child: _infoItem(Icons.person_outline,
+                      request.principalName, 'المدير'),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: _infoItem(
+                      Icons.phone_outlined, request.mobile, 'الجوال'),
+                ),
+              ],
             ),
             SizedBox(height: 8.h),
-            Text(
-              'تاريخ الطلب: ${DateFormat('yyyy/MM/dd HH:mm').format(request.createdAt)}',
-              style: TextStyle(color: Colors.grey, fontSize: 12.sp),
+            Row(
+              children: [
+                Expanded(
+                  child: _infoItem(Icons.people_outline,
+                      '${request.studentCount} طالب', 'عدد الطلاب'),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: _infoItem(
+                      Icons.access_time,
+                      DateFormat('yyyy/MM/dd').format(request.createdAt),
+                      'تاريخ الطلب'),
+                ),
+              ],
             ),
 
+            SizedBox(height: 14.h),
+
+            // Actions
             if (isPending) ...[
-              Divider(height: 24.h),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton.icon(
-                    onPressed: () =>
-                        _updateStatus(context, request, 'rejected'),
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    label: const Text(
-                      'رفض',
-                      style: TextStyle(color: Colors.red),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          _updateStatus(context, request, 'rejected'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: BorderSide(
+                            color: Colors.red.withValues(alpha: 0.5)),
+                        padding: EdgeInsets.symmetric(vertical: 10.h),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.r)),
+                      ),
+                      icon: Icon(Icons.close, size: 16.sp),
+                      label: const Text('رفض'),
                     ),
                   ),
-                  SizedBox(width: 8.w),
-                  ElevatedButton.icon(
-                    onPressed: () => _approveRequest(context, request),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _approveRequest(context, request),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1565C0),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 10.h),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.r)),
+                        elevation: 4,
+                      ),
+                      icon: Icon(Icons.check_circle, size: 16.sp),
+                      label: const Text('موافقة وتفعيل',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-                    icon: const Icon(Icons.check),
-                    label: const Text('موافقة وتفعيل'),
                   ),
                 ],
               ),
-            ] else if (request.status == 'rejected' ||
-                request.status == 'approved') ...[
-              Divider(height: 24.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _deleteRequest(context, request.id),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
+            ] else ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _deleteRequest(context, request.id),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red.shade300,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 12.w, vertical: 6.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.r),
+                      side: BorderSide(
+                          color: Colors.red.withValues(alpha: 0.3)),
                     ),
-                    icon: const Icon(Icons.delete),
-                    label: const Text('حذف الطلب'),
                   ),
-                ],
+                  icon: Icon(Icons.delete_outline, size: 16.sp),
+                  label: const Text('حذف الطلب'),
+                ),
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _infoItem(IconData icon, String value, String label) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white38, size: 14.sp),
+          SizedBox(width: 6.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        color: Colors.white38, fontSize: 9.sp)),
+                Text(value,
+                    style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -364,6 +608,7 @@ class SchoolRequestsListScreen extends ConsumerWidget {
             'isLifetimeAccess': subscriptionConfig.isLifetimeAccess,
             'subscriptionEndsAt': subscriptionConfig.subscriptionEndsAt?.toIso8601String(),
             'trialEndsAt': subscriptionConfig.trialEndsAt?.toIso8601String(),
+            'countryCode': subscriptionConfig.countryCode,
           });
 
       if (provisionResult.data['success'] != true) {
@@ -427,6 +672,7 @@ class _SubscriptionConfig {
   final bool isLifetimeAccess;
   final DateTime? subscriptionEndsAt;
   final DateTime? trialEndsAt;
+  final String countryCode;
 
   _SubscriptionConfig({
     required this.plan,
@@ -434,6 +680,7 @@ class _SubscriptionConfig {
     required this.isLifetimeAccess,
     this.subscriptionEndsAt,
     this.trialEndsAt,
+    this.countryCode = 'SA',
   });
 }
 
@@ -453,6 +700,7 @@ class _SubscriptionConfigDialogState extends State<_SubscriptionConfigDialog> {
   String _durationType = 'trial'; // 'trial', 'monthly', 'yearly', 'lifetime'
   int _durationMonths = 1;
   bool _showSubscriptionSection = true;
+  String _selectedCountryCode = 'SA';
 
   static const _planColors = {
     'starter': Color(0xFF26A69A),
@@ -507,7 +755,7 @@ class _SubscriptionConfigDialogState extends State<_SubscriptionConfigDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
       child: Container(
-        constraints: BoxConstraints(maxWidth: 520.w, maxHeight: 680.h),
+        constraints: BoxConstraints(maxWidth: 520.w, maxHeight: 720.h),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: const LinearGradient(
@@ -575,14 +823,79 @@ class _SubscriptionConfigDialogState extends State<_SubscriptionConfigDialog> {
 
                     SizedBox(height: 20.h),
 
-                    // Show Subscription Section Toggle
-                    _buildToggleTile(
-                      icon: Icons.visibility,
-                      title: 'إظهار قسم الاشتراك لمدير المدرسة',
-                      subtitle: 'يتيح للمدير رؤية خيارات الترقية والاشتراك',
-                      value: _showSubscriptionSection,
-                      onChanged: (v) => setState(() => _showSubscriptionSection = v),
-                      activeColor: const Color(0xFF26A69A),
+                    // Country Selector
+                    Text('الدولة', style: TextStyle(color: Colors.white70, fontSize: 13.sp, fontWeight: FontWeight.w600)),
+                    SizedBox(height: 10.h),
+                    _buildCountrySelector(),
+
+                    SizedBox(height: 20.h),
+
+                    // Show Subscription Section Toggle - مميز وواضح
+                    Container(
+                      padding: EdgeInsets.all(14.w),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _showSubscriptionSection
+                              ? [const Color(0xFF26A69A).withValues(alpha: 0.2), const Color(0xFF26A69A).withValues(alpha: 0.05)]
+                              : [Colors.white.withValues(alpha: 0.05), Colors.white.withValues(alpha: 0.02)],
+                        ),
+                        borderRadius: BorderRadius.circular(14.r),
+                        border: Border.all(
+                          color: _showSubscriptionSection
+                              ? const Color(0xFF26A69A).withValues(alpha: 0.5)
+                              : Colors.white.withValues(alpha: 0.1),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(8.w),
+                            decoration: BoxDecoration(
+                              color: (_showSubscriptionSection ? const Color(0xFF26A69A) : Colors.white38).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10.r),
+                            ),
+                            child: Icon(
+                              _showSubscriptionSection ? Icons.visibility : Icons.visibility_off,
+                              color: _showSubscriptionSection ? const Color(0xFF26A69A) : Colors.white38,
+                              size: 20.sp,
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'قسم الاشتراك في لوحة المدير',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.sp,
+                                  ),
+                                ),
+                                SizedBox(height: 2.h),
+                                Text(
+                                  _showSubscriptionSection
+                                      ? 'ظاهر — يرى المدير خيارات الترقية'
+                                      : 'مخفي — لا يرى المدير قسم الاشتراك',
+                                  style: TextStyle(
+                                    color: _showSubscriptionSection ? const Color(0xFF26A69A) : Colors.white38,
+                                    fontSize: 11.sp,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _showSubscriptionSection,
+                            onChanged: (v) => setState(() => _showSubscriptionSection = v),
+                            activeColor: const Color(0xFF26A69A),
+                            inactiveThumbColor: Colors.white38,
+                            inactiveTrackColor: Colors.white12,
+                          ),
+                        ],
+                      ),
                     ),
 
                     SizedBox(height: 16.h),
@@ -622,6 +935,7 @@ class _SubscriptionConfigDialogState extends State<_SubscriptionConfigDialog> {
                           isLifetimeAccess: _durationType == 'lifetime',
                           subscriptionEndsAt: _getSubscriptionEndsAt(),
                           trialEndsAt: _getTrialEndsAt(),
+                          countryCode: _selectedCountryCode,
                         ));
                       },
                       style: ElevatedButton.styleFrom(
@@ -845,6 +1159,62 @@ class _SubscriptionConfigDialogState extends State<_SubscriptionConfigDialog> {
           _summaryRow('قسم الاشتراك', _showSubscriptionSection ? 'ظاهر للمدير' : 'مخفي', Colors.white70),
         ],
       ),
+    );
+  }
+
+  Widget _buildCountrySelector() {
+    final countries = [
+      {'code': 'SA', 'nameAr': 'السعودية', 'flag': '🇸🇦'},
+      {'code': 'AE', 'nameAr': 'الإمارات', 'flag': '🇦🇪'},
+      {'code': 'QA', 'nameAr': 'قطر', 'flag': '🇶🇦'},
+      {'code': 'KW', 'nameAr': 'الكويت', 'flag': '🇰🇼'},
+      {'code': 'BH', 'nameAr': 'البحرين', 'flag': '🇧🇭'},
+      {'code': 'OM', 'nameAr': 'عُمان', 'flag': '🇴🇲'},
+      {'code': 'US', 'nameAr': 'أمريكا', 'flag': '🇺🇸'},
+      {'code': 'GB', 'nameAr': 'بريطانيا', 'flag': '🇬🇧'},
+      {'code': 'FR', 'nameAr': 'فرنسا', 'flag': '🇫🇷'},
+      {'code': 'ES', 'nameAr': 'إسبانيا', 'flag': '🇪🇸'},
+    ];
+    return Wrap(
+      spacing: 8.w,
+      runSpacing: 8.h,
+      children: countries.map((c) {
+        final isSelected = _selectedCountryCode == c['code'];
+        return GestureDetector(
+          onTap: () => setState(() => _selectedCountryCode = c['code']!),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF1565C0).withValues(alpha: 0.25)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(10.r),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF42A5F5).withValues(alpha: 0.7)
+                    : Colors.white.withValues(alpha: 0.1),
+                width: isSelected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(c['flag']!, style: TextStyle(fontSize: 16.sp)),
+                SizedBox(width: 6.w),
+                Text(
+                  c['nameAr']!,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white54,
+                    fontSize: 11.sp,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

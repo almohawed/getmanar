@@ -1,0 +1,54 @@
+{
+  "countryCode": "AE",
+  "nameAr": "الإمارات العربية المتحدة",
+  "nameEn": "United Arab Emirates",
+  "flag": "🇦🇪",
+  "region": "gulf",
+  "primaryLanguage": "ar",
+  "textDirection": "rtl",
+  "currency": "AED",
+  "timezone": "Asia/Dubai",
+  "behaviorSystem": "guidance",
+  "gradingSystem": "percentage",
+  "calendarSystem": "twoSemesters",
+  "tracksEnabled": true,
+  "defaultTracks": [
+    "العلوم والتقنية",
+    "الإنسانيات",
+    "الأعمال",
+    "الفنون"
+  ],
+  "stages": [
+    { "key": "kindergarten", "nameAr": "رياض الأطفال", "nameEn": "Kindergarten", "fromGrade": 0, "toGrade": 0, "fromAge": 4, "toAge": 6 },
+    { "key": "primary", "nameAr": "الابتدائية", "nameEn": "Primary", "fromGrade": 1, "toGrade": 6, "fromAge": 6, "toAge": 12 },
+    { "key": "middle", "nameAr": "الإعدادية", "nameEn": "Preparatory", "fromGrade": 7, "toGrade": 9, "fromAge": 12, "toAge": 15 },
+    { "key": "secondary", "nameAr": "الثانوية", "nameEn": "Secondary", "fromGrade": 10, "toGrade": 12, "fromAge": 15, "toAge": 18 }
+  ],
+  "smsImportant": false,
+  "emailPrimary": true,
+  "messagingAppsCommon": true,
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": true,
+    "parentCommunication": true,
+    "parentSms": false,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": false,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "ministry": "وزارة التربية والتعليم",
+    "curriculumTypes": ["national", "british", "american", "ib"],
+    "weekDays": ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"],
+    "weekend": ["السبت", "الأحد"]
+  }
+}

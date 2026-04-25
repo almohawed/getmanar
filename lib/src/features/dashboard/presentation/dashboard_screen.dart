@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/domain/models/user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../admin/presentation/admin_dashboard_v2.dart';
+import '../../admin/presentation/smart_admin_dashboard.dart';
 import '../../admin/presentation/technical_support_dashboard.dart';
 import '../../super_admin/presentation/super_admin_dashboard.dart';
 import '../../academic/data/school_repository.dart';
@@ -17,6 +18,7 @@ import '../../deputy/presentation/student_affairs_dashboard.dart';
 import '../../requests/presentation/geofence_listener.dart';
 import '../../notifications/presentation/notifications_provider.dart';
 import '../../../core/domain/models/school.dart';
+import '../../../core/providers/locale_provider.dart';
 import 'package:masar_app/src/features/dashboard/presentation/teacher_dashboard_v2.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -234,7 +236,7 @@ class DashboardScreen extends ConsumerWidget {
 
     switch (user.role) {
       case UserRole.admin:
-        return const AdminDashboardV2();
+        return const SmartAdminDashboard();
       case UserRole.teacher:
         return const TeacherDashboardV2();
       case UserRole.student:

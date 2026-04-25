@@ -678,4 +678,13 @@ class AuthNotifier extends AsyncNotifier<User?> {
       return repo.getCurrentUser();
     });
   }
+
+  /// تسجيل الدخول بـ Custom Token (لولي الأمر عبر OTP)
+  Future<void> loginWithCustomToken(String customToken) async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(authRepositoryProvider);
+      return repo.signInWithCustomToken(customToken);
+    });
+  }
 }

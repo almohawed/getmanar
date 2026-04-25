@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import '../domain/ministry_pdf_template.dart';
 import '../../maintenance/domain/models/maintenance_report.dart';
 import '../../counselor/domain/models/student_case.dart';
@@ -488,3 +488,5 @@ class PdfReportsGenerator {
     return pdf.save();
   }
 }
+
+

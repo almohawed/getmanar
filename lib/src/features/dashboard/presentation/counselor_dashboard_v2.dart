@@ -270,6 +270,23 @@ class CounselorDashboardV2 extends ConsumerWidget {
                 ],
               ),
 
+              SizedBox(height: 16.h),
+
+              _buildSection(
+                context,
+                ref,
+                title: 'التقويم الدراسي',
+                color: const Color(0xFF00695C),
+                items: [
+                  {
+                    'icon': Icons.calendar_month,
+                    'title': 'إدارة التقويم الدراسي',
+                    'route': '/academic-calendar-manage',
+                    'count': 0,
+                  },
+                ],
+              ),
+
               SizedBox(height: 80.h),
             ],
           ),

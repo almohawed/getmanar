@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/domain/models/user.dart';
 import '../../academic/data/school_repository.dart';
 import '../../requests/presentation/parent_permission_sheet.dart';
@@ -70,10 +71,11 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Welcome Banner
+          // Welcome Banner — مخصص لولي الأمر
           WelcomeBanner(
             userName: widget.parent.name,
             gradient: DashboardPalette.bannerGradient('parent'),
+            role: 'parent',
           ),
           SizedBox(height: 12.h),
 
@@ -124,11 +126,28 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
           ),
 
           // Section 1: My Children
-          Text(
-            'ملخص الأسبوع',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.indigo.shade800,
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 8.h),
+            child: Row(
+              children: [
+                Container(
+                  width: 4.w,
+                  height: 22.h,
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade700,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Text(
+                  'ملخص الأسبوع',
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade900,
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(height: 12.h),
@@ -156,11 +175,28 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
           SizedBox(height: 32.h),
 
           // Section 2: Quick Services
-          Text(
-            'الخدمات والتواصل',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.indigo.shade800,
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 8.h),
+            child: Row(
+              children: [
+                Container(
+                  width: 4.w,
+                  height: 22.h,
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade600,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Text(
+                  'الخدمات والتواصل',
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade900,
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(height: 16.h),
@@ -357,6 +393,60 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
               );
             },
           ),
+
+          SizedBox(height: 32.h),
+
+          // ─── قسم الإعدادات ────────────────────────────────────────────
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 8.h),
+            child: Row(children: [
+              Container(width: 4.w, height: 22.h,
+                  decoration: BoxDecoration(color: Colors.grey.shade600,
+                      borderRadius: BorderRadius.circular(2))),
+              SizedBox(width: 10.w),
+              Text('الإعدادات', style: TextStyle(fontSize: 18.sp,
+                  fontWeight: FontWeight.bold, color: Colors.indigo.shade900)),
+            ]),
+          ),
+          SizedBox(height: 12.h),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8, offset: const Offset(0, 2))],
+            ),
+            child: Column(children: [
+              _buildSettingsTile(
+                context,
+                icon: Icons.lock_outline,
+                color: const Color(0xFF00695C),
+                title: 'تغيير الرقم السري',
+                subtitle: 'تعديل رقم الدخول السريع',
+                onTap: () => context.push('/parent-pin-setup'),
+              ),
+              Divider(height: 1, color: Colors.grey.shade100),
+              _buildSettingsTile(
+                context,
+                icon: Icons.notifications_outlined,
+                color: Colors.orange,
+                title: 'إعدادات الإشعارات',
+                subtitle: 'تفعيل أو إيقاف الإشعارات',
+                onTap: () => _showNotificationsSettings(context),
+              ),
+              Divider(height: 1, color: Colors.grey.shade100),
+              _buildSettingsTile(
+                context,
+                icon: Icons.info_outline,
+                color: Colors.blue,
+                title: 'عن التطبيق',
+                subtitle: 'منار — منصة تنظيم السلوك والتعليم',
+                onTap: () => _showAboutDialog(context),
+              ),
+            ]),
+          ),
+          SizedBox(height: 40.h),
         ],
       ),
     );
@@ -369,10 +459,20 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
   ) {
     final summaryAsync = ref.watch(parentWeeklySummaryProvider(child.id));
 
-    return Card(
-      margin: EdgeInsets.only(bottom: 16.h),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      margin: EdgeInsets.only(bottom: 14.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.indigo.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
@@ -390,15 +490,23 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 24.r,
-                    backgroundColor: Colors.indigo.shade100,
-                    child: Text(
-                      child.name.isNotEmpty ? child.name[0] : '?',
-                      style: TextStyle(
-                        fontSize: 20.sp,
-                        color: Colors.indigo.shade800,
-                        fontWeight: FontWeight.bold,
+                  Container(
+                    width: 48.w,
+                    height: 48.w,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.indigo.shade400, Colors.indigo.shade700],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        child.name.isNotEmpty ? child.name[0] : '?',
+                        style: TextStyle(
+                          fontSize: 20.sp,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -412,9 +520,10 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
                           style: TextStyle(
                             fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
+                            color: Colors.indigo.shade900,
                           ),
                         ),
-                        SizedBox(height: 4.h),
+                        SizedBox(height: 3.h),
                         Text(
                           'عرض التفاصيل >',
                           style: TextStyle(fontSize: 12.sp, color: Colors.grey),
@@ -574,4 +683,153 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
       ),
     );
   }
+
+  Widget _buildSettingsTile(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        padding: EdgeInsets.all(8.w),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: color, size: 20.sp),
+      ),
+      title: Text(title, style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 11.sp, color: Colors.grey)),
+      trailing: Icon(Icons.arrow_back_ios, size: 14.sp, color: Colors.grey.shade400),
+    );
+  }
+
+  void _showNotificationsSettings(BuildContext context) {
+    // المتغيرات خارج builder لتبقى محفوظة عند setState
+    bool violations = true;
+    bool attendance = true;
+    bool assignments = false;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(child: Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 20),
+              const Text('إعدادات الإشعارات',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              SwitchListTile(
+                value: violations,
+                onChanged: (v) => setS(() => violations = v),
+                title: const Text('إشعارات المخالفات السلوكية'),
+                subtitle: const Text('عند تسجيل مخالفة لأحد أبنائك'),
+                activeColor: Colors.orange,
+              ),
+              SwitchListTile(
+                value: attendance,
+                onChanged: (v) => setS(() => attendance = v),
+                title: const Text('إشعارات الغياب والتأخر'),
+                subtitle: const Text('عند تسجيل غياب أو تأخر'),
+                activeColor: Colors.red,
+              ),
+              SwitchListTile(
+                value: assignments,
+                onChanged: (v) => setS(() => assignments = v),
+                title: const Text('إشعارات الواجبات'),
+                subtitle: const Text('عند إضافة واجب جديد'),
+                activeColor: Colors.blue,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم حفظ إعدادات الإشعارات ✅'),
+                          backgroundColor: Colors.green));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: const Text('حفظ الإعدادات',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80, height: 80,
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade50,
+                shape: BoxShape.circle),
+              child: Icon(Icons.school, color: Colors.indigo, size: 40.sp)),
+            const SizedBox(height: 16),
+            const Text('منار', style: TextStyle(fontSize: 24,
+                fontWeight: FontWeight.bold, color: Colors.indigo)),
+            const SizedBox(height: 8),
+            Text('منصة تنظيم السلوك والتعليم',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12)),
+              child: Column(children: [
+                _aboutRow('الإصدار', '1.0.0'),
+                const Divider(height: 16),
+                _aboutRow('المطور', 'تصميم وبرمجة أحمد المهود'),
+                const Divider(height: 16),
+                _aboutRow('الدعم', 'almohawed@gmail.com'),
+              ]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق')),
+        ],
+      ),
+    );
+  }
+
+  Widget _aboutRow(String label, String value) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+      Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+    ],
+  );
 }

@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import '../../reports/domain/ministry_pdf_template.dart';
 import '../../attendance/domain/student_attendance.dart';
 import '../../behavior/domain/bathroom_pass.dart';
@@ -17,6 +17,7 @@ class StudentReportsGenerator {
     required DateTime dateFrom,
     required DateTime dateTo,
     String region = 'الرياض',
+    String countryCode = 'SA',
   }) async {
     final headers = [
       'م',
@@ -49,6 +50,7 @@ class StudentReportsGenerator {
       tableHeaders: _rtlHeaders(headers),
       tableData: _rtlRows(rows),
       footerText: "نظام منار - شؤون الطلاب",
+      countryCode: countryCode,
     );
     return pdf.save();
   }
@@ -60,6 +62,7 @@ class StudentReportsGenerator {
     required DateTime dateFrom,
     required DateTime dateTo,
     String region = 'الرياض',
+    String countryCode = 'SA',
   }) async {
     final headers = [
       'م',
@@ -92,6 +95,7 @@ class StudentReportsGenerator {
       tableHeaders: _rtlHeaders(headers),
       tableData: _rtlRows(rows),
       footerText: "نظام منار - شؤون الطلاب",
+      countryCode: countryCode,
     );
     return pdf.save();
   }
@@ -104,6 +108,7 @@ class StudentReportsGenerator {
     required DateTime dateFrom,
     required DateTime dateTo,
     String region = 'الرياض',
+    String countryCode = 'SA',
   }) async {
     final headers = [
       'م',
@@ -138,6 +143,7 @@ class StudentReportsGenerator {
       tableHeaders: _rtlHeaders(headers),
       tableData: _rtlRows(rows),
       footerText: "نظام منار - التوجيه الطلابي",
+      countryCode: countryCode,
     );
     return pdf.save();
   }
@@ -149,6 +155,7 @@ class StudentReportsGenerator {
     required DateTime dateFrom,
     required DateTime dateTo,
     String region = 'الرياض',
+    String countryCode = 'SA',
   }) async {
     final headers = [
       'م',
@@ -185,7 +192,9 @@ class StudentReportsGenerator {
       tableHeaders: _rtlHeaders(headers),
       tableData: _rtlRows(rows),
       footerText: "نظام منار - المتابعة اليومية",
+      countryCode: countryCode,
     );
     return pdf.save();
   }
 }
+

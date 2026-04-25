@@ -35,6 +35,14 @@ class StudentsListScreen extends ConsumerStatefulWidget {
   ConsumerState<StudentsListScreen> createState() => _StudentsListScreenState();
 }
 
+/// يستخرج اسم ولي الأمر من اسم الطالب (يحذف الاسم الأول)
+/// مثال: "محمد عبدالله سعد الغامدي" → "عبدالله سعد الغامدي"
+String _deriveParentName(String studentName) {
+  final parts = studentName.trim().split(RegExp(r'\s+'));
+  if (parts.length <= 1) return studentName.trim();
+  return parts.sublist(1).join(' ');
+}
+
 class _StudentsListScreenState extends ConsumerState<StudentsListScreen> {
   String _searchQuery = '';
   String? _selectedClassId;
@@ -1229,7 +1237,7 @@ class _StudentsListScreenState extends ConsumerState<StudentsListScreen> {
               // Create Parent
               final newParent = User(
                 id: const Uuid().v4(),
-                name: 'ولي أمر $name',
+                name: _deriveParentName(name),
                 email: EmailGenerator.generateEmail(
                   UserRole.parent,
                   phoneNumber: parentPhone,
@@ -2011,7 +2019,7 @@ class _AddStudentDialogState extends ConsumerState<_AddStudentDialog> {
                   final pEmail = 'p$pUsername@getmanar.com';
                   final newParent = User(
                     id: const Uuid().v4(),
-                    name: 'ولي أمر ${_nameController.text}',
+                    name: _deriveParentName(_nameController.text.trim()),
                     email: pEmail,
                     role: UserRole.parent,
                     phoneNumber: parentPhone,

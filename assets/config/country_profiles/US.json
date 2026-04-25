@@ -1,0 +1,50 @@
+{
+  "countryCode": "US",
+  "nameAr": "الولايات المتحدة الأمريكية",
+  "nameEn": "United States",
+  "flag": "🇺🇸",
+  "region": "americas",
+  "primaryLanguage": "en",
+  "textDirection": "ltr",
+  "currency": "USD",
+  "timezone": "America/New_York",
+  "behaviorSystem": "points",
+  "gradingSystem": "letters",
+  "calendarSystem": "fourQuarters",
+  "tracksEnabled": false,
+  "defaultTracks": ["STEM", "Arts", "Business", "Vocational"],
+  "stages": [
+    { "key": "elementary", "nameAr": "الابتدائية", "nameEn": "Elementary", "fromGrade": 1, "toGrade": 5, "fromAge": 6, "toAge": 11 },
+    { "key": "middle", "nameAr": "المتوسطة", "nameEn": "Middle School", "fromGrade": 6, "toGrade": 8, "fromAge": 11, "toAge": 14 },
+    { "key": "high", "nameAr": "الثانوية", "nameEn": "High School", "fromGrade": 9, "toGrade": 12, "fromAge": 14, "toAge": 18 }
+  ],
+  "smsImportant": false,
+  "emailPrimary": true,
+  "messagingAppsCommon": false,
+  "initialBehaviorPoints": 100,
+  "behaviorPointsThreshold": 60,
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": false,
+    "parentCommunication": true,
+    "parentSms": false,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": false,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "gradingScale": { "A": "90-100", "B": "80-89", "C": "70-79", "D": "60-69", "F": "0-59" },
+    "weekDays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "weekend": ["Saturday", "Sunday"],
+    "gpaScale": 4.0
+  }
+}

@@ -52,13 +52,37 @@ class ViolationPdfService {
   }
 
   Future<pw.Widget> _buildHeader(School school) async {
+    final countryCode = school.countryCode.isNotEmpty ? school.countryCode : 'SA';
+
+    // Country config
+    final countryNames = {
+      'SA': 'المملكة العربية السعودية',
+      'AE': 'دولة الإمارات العربية المتحدة',
+      'QA': 'دولة قطر',
+      'KW': 'دولة الكويت',
+      'BH': 'مملكة البحرين',
+      'OM': 'سلطنة عُمان',
+    };
+    final ministryNames = {
+      'SA': 'وزارة التعليم',
+      'AE': 'وزارة التربية والتعليم',
+      'QA': 'وزارة التعليم والتعليم العالي',
+      'KW': 'وزارة التربية',
+      'BH': 'وزارة التربية والتعليم',
+      'OM': 'وزارة التربية والتعليم',
+    };
+
+    final logoAsset = countryCode == 'AE' ? 'images/emlogo.png' : 'images/logokshuf.webp';
+
     pw.MemoryImage? logo;
-    // Try loading logo (placeholder logic similar to PdfExportService)
     try {
-      final data = await rootBundle.load('images/logokshuf.webp');
+      final data = await rootBundle.load(logoAsset);
       logo = pw.MemoryImage(data.buffer.asUint8List());
     } catch (_) {
-      // Fallback or no logo
+      try {
+        final fallback = await rootBundle.load('images/mylogo.png');
+        logo = pw.MemoryImage(fallback.buffer.asUint8List());
+      } catch (_) {}
     }
 
     return pw.Row(
@@ -67,17 +91,21 @@ class ViolationPdfService {
       children: [
         // Right: Ministry Info
         pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
             pw.Text(
-              'المملكة العربية السعودية',
+              countryNames[countryCode] ?? 'المملكة العربية السعودية',
               style: pw.TextStyle(fontSize: 12),
             ),
-            pw.Text('وزارة التعليم', style: pw.TextStyle(fontSize: 12)),
-            pw.Text(
-              'الإدارة العامة للتعليم بمنطقة .................',
-              style: pw.TextStyle(fontSize: 10),
-            ), // Placeholder
+            pw.Text(ministryNames[countryCode] ?? 'وزارة التعليم',
+                style: pw.TextStyle(fontSize: 12)),
+            if (countryCode == 'SA')
+              pw.Text(
+                school.adminRegion.isNotEmpty
+                    ? school.adminRegion
+                    : 'الإدارة العامة للتعليم',
+                style: pw.TextStyle(fontSize: 10),
+              ),
             pw.Text(
               'مدرسة: ${school.name}',
               style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
@@ -90,10 +118,14 @@ class ViolationPdfService {
         else
           pw.SizedBox(height: 70, width: 70),
 
-        // Left: Date/Number (Placeholder)
+        // Left: Date/Number
         pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.end,
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            pw.Text(
+              'الرقم: ____________',
+              style: pw.TextStyle(fontSize: 10),
+            ),
             pw.Text(
               'التاريخ: ${intl.DateFormat('yyyy/MM/dd').format(DateTime.now())}',
               style: pw.TextStyle(fontSize: 10),

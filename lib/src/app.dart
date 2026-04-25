@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/router.dart';
+import 'core/providers/locale_provider.dart';
 import 'features/notifications/presentation/notification_listener_widget.dart';
 import 'core/data/sync_service.dart';
 import 'core/presentation/session_timeout_manager.dart';
@@ -16,6 +17,9 @@ class ManarApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Initialize Sync Service
     ref.watch(syncServiceProvider);
+    // Watch locale
+    final locale = ref.watch(localeProvider);
+    final isAr = locale.languageCode == 'ar';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -76,16 +80,17 @@ class ManarApp extends ConsumerWidget {
                 ),
                 useMaterial3: true,
               ),
-              // RTL Support
+              // RTL/LTR Support
               localizationsDelegates: const [
                 GlobalMaterialLocalizations.delegate,
                 GlobalWidgetsLocalizations.delegate,
                 GlobalCupertinoLocalizations.delegate,
               ],
               supportedLocales: const [
-                Locale('ar', 'SA'), // Arabic (Saudi Arabia)
+                Locale('ar', 'SA'),
+                Locale('en', 'US'),
               ],
-              locale: const Locale('ar', 'SA'), // Force Arabic
+              locale: locale,
               routerConfig: router,
             );
           },

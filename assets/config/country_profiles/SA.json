@@ -1,0 +1,59 @@
+{
+  "countryCode": "SA",
+  "nameAr": "المملكة العربية السعودية",
+  "nameEn": "Saudi Arabia",
+  "flag": "🇸🇦",
+  "region": "gulf",
+  "primaryLanguage": "ar",
+  "textDirection": "rtl",
+  "currency": "SAR",
+  "timezone": "Asia/Riyadh",
+  "behaviorSystem": "levels",
+  "gradingSystem": "percentage",
+  "calendarSystem": "twoSemesters",
+  "tracksEnabled": true,
+  "defaultTracks": [
+    "عام",
+    "علوم الحاسب والهندسة",
+    "صحي",
+    "إدارة الأعمال",
+    "شرعي"
+  ],
+  "stages": [
+    { "key": "primary", "nameAr": "الابتدائية", "nameEn": "Primary", "fromGrade": 1, "toGrade": 6, "fromAge": 6, "toAge": 12 },
+    { "key": "middle", "nameAr": "المتوسطة", "nameEn": "Middle", "fromGrade": 7, "toGrade": 9, "fromAge": 12, "toAge": 15 },
+    { "key": "secondary", "nameAr": "الثانوية", "nameEn": "Secondary", "fromGrade": 10, "toGrade": 12, "fromAge": 15, "toAge": 18 }
+  ],
+  "smsImportant": true,
+  "emailPrimary": false,
+  "messagingAppsCommon": true,
+  "behaviorLevels": [
+    { "level": 1, "nameAr": "درجة أولى", "nameEn": "Level 1", "color": "#FFC107", "action": "تنبيه شفهي" },
+    { "level": 2, "nameAr": "درجة ثانية", "nameEn": "Level 2", "color": "#FF9800", "action": "إشعار ولي الأمر" },
+    { "level": 3, "nameAr": "درجة ثالثة", "nameEn": "Level 3", "color": "#F44336", "action": "إحالة للإدارة" }
+  ],
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": true,
+    "parentCommunication": true,
+    "parentSms": true,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": true,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "ministry": "وزارة التعليم",
+    "curriculumType": "national",
+    "weekDays": ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"],
+    "weekend": ["الجمعة", "السبت"]
+  }
+}

@@ -31,6 +31,7 @@ import '../features/counselor/presentation/cases_timeline_screen.dart';
 import '../features/counselor/presentation/print_reports_screen.dart';
 import '../features/counselor/presentation/counselor_sms_screen.dart';
 import '../features/admin/presentation/sms_settings_screen.dart';
+import '../features/admin/presentation/school_location_screen.dart';
 import '../features/sms/presentation/teacher_sms_screen.dart';
 import '../features/sms/presentation/teacher_sms_limits_screen.dart';
 // import '../features/counselor/presentation/progress_evaluation_screen.dart'; // Import progress evaluation screen
@@ -89,7 +90,14 @@ import '../features/schedule/presentation/teacher_campaign_response_screen.dart'
 import '../features/schedule/presentation/workload_analysis_screen.dart';
 import '../features/schedule/presentation/modifications_log_screen.dart';
 import '../features/super_admin/presentation/global_accounts_screen.dart'; // Import this
+import '../features/super_admin/presentation/seed_omar_screen.dart';
 import '../features/settings/presentation/settings_screen.dart'; // Import SettingsScreen
+import '../features/settings/presentation/masarat_tracks_screen.dart';
+import '../features/setup/presentation/school_setup_wizard.dart';
+import '../features/admin/presentation/smart_admin_dashboard.dart';
+import '../features/admin/presentation/admin_dashboard_v2.dart';
+import '../features/parent/presentation/parent_pin_setup_screen.dart';
+import '../features/academic_calendar/presentation/academic_calendar_manage_screen.dart';
 import '../features/auth/presentation/change_password_screen.dart'; // Import ChangePasswordScreen
 import '../features/distinguished_students/presentation/distinguished_review_screen.dart';
 import '../features/intelligence/presentation/school_intelligence_dashboard.dart';
@@ -642,6 +650,41 @@ final router = GoRouter(
     GoRoute(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: '/school-location',
+      builder: (context, state) => const SchoolLocationScreen(),
+    ),
+    GoRoute(
+      path: '/seed-omar-school',
+      builder: (context, state) => const SeedOmarSchoolScreen(),
+    ),
+    GoRoute(
+      path: '/masarat-tracks',
+      builder: (context, state) => const MasaratTracksScreen(),
+    ),
+    GoRoute(
+      path: '/setup-wizard',
+      builder: (context, state) {
+        final schoolId = state.extra as String? ?? '';
+        return SchoolSetupWizard(schoolId: schoolId);
+      },
+    ),
+    GoRoute(
+      path: '/smart-admin-dashboard',
+      builder: (context, state) => const SmartAdminDashboard(),
+    ),
+    GoRoute(
+      path: '/admin-full-dashboard',
+      builder: (context, state) => const AdminDashboardV2(),
+    ),
+    GoRoute(
+      path: '/parent-pin-setup',
+      builder: (context, state) => const ParentPinSetupScreen(),
+    ),
+    GoRoute(
+      path: '/academic-calendar-manage',
+      builder: (context, state) => const AcademicCalendarManageScreen(),
     ),
 
     // ==========================================

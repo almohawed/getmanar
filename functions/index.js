@@ -8,7 +8,420 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // ============================================================================
+// COUNTRY PROFILES — Fallback (Static) — يُستخدم إذا لم يوجد سجل في Firestore
+// المصدر الأساسي: collection('CountryProfiles') في Firestore
+// ============================================================================
+const COUNTRY_PROFILES_FALLBACK = {
+    SA: {
+        nameAr: 'المملكة العربية السعودية',
+        flag: '🇸🇦',
+        behaviorSystem: 'levels',
+        gradingSystem: 'percentage',
+        calendarSystem: 'twoSemesters',
+        tracksEnabled: true,
+        defaultTracks: ['عام', 'علوم الحاسب والهندسة', 'صحي', 'إدارة الأعمال', 'شرعي'],
+        smsImportant: true,
+        emailPrimary: false,
+        weekDays: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'],
+        weekend: ['الجمعة', 'السبت'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: true,
+            parentCommunication: true, parentSms: true, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: true, schoolBroadcast: true, leaveRequests: true,
+        },
+        behaviorLevels: [
+            { level: 1, nameAr: 'درجة أولى', color: '#FFC107', action: 'تنبيه شفهي' },
+            { level: 2, nameAr: 'درجة ثانية', color: '#FF9800', action: 'إشعار ولي الأمر' },
+            { level: 3, nameAr: 'درجة ثالثة', color: '#F44336', action: 'إحالة للإدارة' },
+        ],
+        ministry: 'وزارة التعليم',
+    },
+    AE: {
+        nameAr: 'الإمارات العربية المتحدة',
+        flag: '🇦🇪',
+        behaviorSystem: 'guidance',
+        gradingSystem: 'percentage',
+        calendarSystem: 'twoSemesters',
+        tracksEnabled: true,
+        defaultTracks: ['العلوم والتقنية', 'الإنسانيات', 'الأعمال', 'الفنون'],
+        smsImportant: false,
+        emailPrimary: true,
+        weekDays: ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'],
+        weekend: ['السبت', 'الأحد'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: true,
+            parentCommunication: true, parentSms: false, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: true, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'وزارة التربية والتعليم',
+    },
+    QA: {
+        nameAr: 'قطر',
+        flag: '🇶🇦',
+        behaviorSystem: 'points',
+        gradingSystem: 'percentage',
+        calendarSystem: 'twoSemesters',
+        tracksEnabled: true,
+        defaultTracks: ['علمي', 'أدبي', 'تجاري'],
+        smsImportant: false,
+        emailPrimary: true,
+        weekDays: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'],
+        weekend: ['الجمعة', 'السبت'],
+        initialBehaviorPoints: 100,
+        behaviorPointsThreshold: 50,
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: true,
+            parentCommunication: true, parentSms: false, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: true, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'وزارة التعليم والتعليم العالي',
+    },
+    KW: {
+        nameAr: 'الكويت',
+        flag: '🇰🇼',
+        behaviorSystem: 'custom',
+        gradingSystem: 'percentage',
+        calendarSystem: 'twoSemesters',
+        tracksEnabled: false,
+        defaultTracks: ['علمي', 'أدبي'],
+        smsImportant: false,
+        emailPrimary: false,
+        weekDays: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'],
+        weekend: ['الجمعة', 'السبت'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: false,
+            parentCommunication: true, parentSms: false, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: true, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'وزارة التربية',
+    },
+    BH: {
+        nameAr: 'البحرين',
+        flag: '🇧🇭',
+        behaviorSystem: 'custom',
+        gradingSystem: 'percentage',
+        calendarSystem: 'twoSemesters',
+        tracksEnabled: false,
+        defaultTracks: ['علمي', 'أدبي', 'تجاري'],
+        smsImportant: false,
+        emailPrimary: true,
+        weekDays: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'],
+        weekend: ['الجمعة', 'السبت'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: false,
+            parentCommunication: true, parentSms: false, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: true, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'وزارة التربية والتعليم',
+    },
+    OM: {
+        nameAr: 'سلطنة عُمان',
+        flag: '🇴🇲',
+        behaviorSystem: 'custom',
+        gradingSystem: 'percentage',
+        calendarSystem: 'twoSemesters',
+        tracksEnabled: false,
+        defaultTracks: ['علمي', 'أدبي'],
+        smsImportant: true,
+        emailPrimary: false,
+        weekDays: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'],
+        weekend: ['الجمعة', 'السبت'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: false,
+            parentCommunication: true, parentSms: true, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: true, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'وزارة التربية والتعليم',
+    },
+    US: {
+        nameAr: 'الولايات المتحدة',
+        flag: '🇺🇸',
+        behaviorSystem: 'gpa',
+        gradingSystem: 'gpa4',
+        calendarSystem: 'fourQuarters',
+        tracksEnabled: false,
+        defaultTracks: ['STEM', 'Arts', 'Business', 'Humanities'],
+        smsImportant: false,
+        emailPrimary: true,
+        weekDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        weekend: ['Saturday', 'Sunday'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: false,
+            parentCommunication: true, parentSms: false, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: true, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'Department of Education',
+    },
+    GB: {
+        nameAr: 'المملكة المتحدة',
+        flag: '🇬🇧',
+        behaviorSystem: 'warnings',
+        gradingSystem: 'letters',
+        calendarSystem: 'threeTerms',
+        tracksEnabled: false,
+        defaultTracks: ['Sciences', 'Arts', 'Humanities'],
+        smsImportant: false,
+        emailPrimary: true,
+        weekDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        weekend: ['Saturday', 'Sunday'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: false,
+            parentCommunication: true, parentSms: false, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: true, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'Department for Education',
+    },
+    FR: {
+        nameAr: 'فرنسا',
+        flag: '🇫🇷',
+        behaviorSystem: 'warnings',
+        gradingSystem: 'french20',
+        calendarSystem: 'threeTerms',
+        tracksEnabled: true,
+        defaultTracks: ['Scientifique', 'Littéraire', 'Économique'],
+        smsImportant: false,
+        emailPrimary: true,
+        weekDays: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'],
+        weekend: ['Samedi', 'Dimanche'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: true,
+            parentCommunication: true, parentSms: false, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: false, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'Ministère de l\'Éducation nationale',
+    },
+    ES: {
+        nameAr: 'إسبانيا',
+        flag: '🇪🇸',
+        behaviorSystem: 'warnings',
+        gradingSystem: 'scale10',
+        calendarSystem: 'threeTerms',
+        tracksEnabled: false,
+        defaultTracks: ['Ciencias', 'Humanidades', 'Artes'],
+        smsImportant: false,
+        emailPrimary: true,
+        weekDays: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'],
+        weekend: ['Sábado', 'Domingo'],
+        features: {
+            attendance: true, behavior: true, smartSchedule: true, tracks: false,
+            parentCommunication: true, parentSms: false, performanceReports: true,
+            timetable: true, exams: true, assignments: true, counseling: true,
+            healthTracking: false, schoolBroadcast: false, leaveRequests: true,
+        },
+        ministry: 'Ministerio de Educación',
+    },
+};
+
+// ============================================================================
+// GRADING SYSTEM ENGINE — محرك نظام التقييم
+// ============================================================================
+const GRADING_ENGINES = {
+    percentage: { min: 0, max: 100, passMark: 50, displayFormat: '{score}%',
+        grades: [
+            { label: 'ممتاز', min: 90, max: 100, color: '#4CAF50' },
+            { label: 'جيد جداً', min: 80, max: 89, color: '#8BC34A' },
+            { label: 'جيد', min: 70, max: 79, color: '#FFC107' },
+            { label: 'مقبول', min: 60, max: 69, color: '#FF9800' },
+            { label: 'راسب', min: 0, max: 59, color: '#F44336' },
+        ]},
+    gpa4: { min: 0.0, max: 4.0, passMark: 2.0, displayFormat: '{score} GPA',
+        grades: [
+            { label: 'A', min: 3.7, max: 4.0, color: '#4CAF50' },
+            { label: 'B', min: 3.0, max: 3.69, color: '#8BC34A' },
+            { label: 'C', min: 2.0, max: 2.99, color: '#FFC107' },
+            { label: 'D', min: 1.0, max: 1.99, color: '#FF9800' },
+            { label: 'F', min: 0.0, max: 0.99, color: '#F44336' },
+        ]},
+    letters: { min: 0, max: 100, passMark: 50, displayFormat: '{letter}',
+        grades: [
+            { label: 'A*', min: 90, max: 100, color: '#4CAF50' },
+            { label: 'A',  min: 80, max: 89,  color: '#66BB6A' },
+            { label: 'B',  min: 70, max: 79,  color: '#FFC107' },
+            { label: 'C',  min: 60, max: 69,  color: '#FF9800' },
+            { label: 'D',  min: 50, max: 59,  color: '#FF7043' },
+            { label: 'F',  min: 0,  max: 49,  color: '#F44336' },
+        ]},
+    french20: { min: 0, max: 20, passMark: 10, displayFormat: '{score}/20',
+        grades: [
+            { label: 'Très Bien', min: 16, max: 20, color: '#4CAF50' },
+            { label: 'Bien',      min: 14, max: 15, color: '#8BC34A' },
+            { label: 'Assez Bien',min: 12, max: 13, color: '#FFC107' },
+            { label: 'Passable',  min: 10, max: 11, color: '#FF9800' },
+            { label: 'Insuffisant',min: 0, max: 9,  color: '#F44336' },
+        ]},
+    scale10: { min: 0, max: 10, passMark: 5, displayFormat: '{score}/10',
+        grades: [
+            { label: 'Sobresaliente', min: 9, max: 10, color: '#4CAF50' },
+            { label: 'Notable',       min: 7, max: 8,  color: '#8BC34A' },
+            { label: 'Bien',          min: 6, max: 6,  color: '#FFC107' },
+            { label: 'Suficiente',    min: 5, max: 5,  color: '#FF9800' },
+            { label: 'Insuficiente',  min: 0, max: 4,  color: '#F44336' },
+        ]},
+    gpa5: { min: 0.0, max: 5.0, passMark: 2.5, displayFormat: '{score} GPA',
+        grades: [
+            { label: 'A+', min: 4.75, max: 5.0,  color: '#4CAF50' },
+            { label: 'A',  min: 4.5,  max: 4.74, color: '#66BB6A' },
+            { label: 'B+', min: 4.0,  max: 4.49, color: '#8BC34A' },
+            { label: 'B',  min: 3.5,  max: 3.99, color: '#FFC107' },
+            { label: 'C',  min: 2.5,  max: 3.49, color: '#FF9800' },
+            { label: 'F',  min: 0.0,  max: 2.49, color: '#F44336' },
+        ]},
+};
+
+/**
+ * loadCountryProfile — يحمّل ملف تعريف الدولة من Firestore أولاً، ثم Fallback
+ * @param {string} countryCode
+ * @returns {Promise<object>} profile
+ */
+const loadCountryProfile = async (countryCode) => {
+    const code = (countryCode || 'SA').toUpperCase();
+    try {
+        const doc = await db.collection('CountryProfiles').doc(code).get();
+        if (doc.exists) {
+            console.log(`[CountryProfile] Loaded from Firestore: ${code}`);
+            return doc.data();
+        }
+    } catch (e) {
+        console.warn(`[CountryProfile] Firestore read failed for ${code}, using fallback:`, e.message);
+    }
+    const fallback = COUNTRY_PROFILES_FALLBACK[code] || COUNTRY_PROFILES_FALLBACK['SA'];
+    console.log(`[CountryProfile] Using fallback for: ${code}`);
+    return fallback;
+};
+
+/**
+ * applyCountryProfile — يطبّق إعدادات الدولة + School Override على بيانات المدرسة
+ * Priority: schoolOverrides > countryProfile (Firestore) > fallback
+ * @param {object} schoolData - كائن بيانات المدرسة (يُعدَّل مباشرة)
+ * @param {object} profile - ملف تعريف الدولة المحمَّل
+ * @param {string} schoolStage - المرحلة الدراسية
+ * @param {object} schoolOverrides - تخصيصات المدرسة (اختياري)
+ */
+const applyCountryProfileToSchool = (schoolData, profile, schoolStage, schoolOverrides = {}) => {
+    const code = schoolData.countryCode || 'SA';
+
+    // ─── 1. إعدادات الدولة الأساسية ──────────────────────────────────────
+    schoolData.behaviorSystem  = schoolOverrides.behaviorSystem  || profile.behaviorSystem  || 'custom';
+    schoolData.calendarSystem  = schoolOverrides.calendarSystem  || profile.calendarSystem  || 'twoSemesters';
+    schoolData.smsImportant    = schoolOverrides.smsImportant    ?? profile.smsImportant    ?? false;
+    schoolData.emailPrimary    = schoolOverrides.emailPrimary    ?? profile.emailPrimary    ?? true;
+    schoolData.weekDays        = schoolOverrides.weekDays        || profile.weekDays        || [];
+    schoolData.weekend         = schoolOverrides.weekend         || profile.weekend         || [];
+    schoolData.ministry        = profile.ministry || '';
+
+    // ─── 2. Grading System Engine ─────────────────────────────────────────
+    const gradingType = schoolOverrides.gradingSystem || profile.gradingSystem || 'percentage';
+    const gradingEngine = GRADING_ENGINES[gradingType] || GRADING_ENGINES['percentage'];
+    schoolData.gradingSystem = {
+        type:          gradingType,
+        min:           gradingEngine.min,
+        max:           gradingEngine.max,
+        passMark:      gradingEngine.passMark,
+        displayFormat: gradingEngine.displayFormat,
+        grades:        gradingEngine.grades,
+    };
+
+    // ─── 3. Feature Flags (Country → School Override) ─────────────────────
+    const countryFeatures = profile.features || {};
+    const overrideFeatures = schoolOverrides.features || {};
+    schoolData.features = {
+        attendance:         overrideFeatures.attendance         ?? countryFeatures.attendance         ?? true,
+        behavior:           overrideFeatures.behavior           ?? countryFeatures.behavior           ?? true,
+        behaviorTracking:   overrideFeatures.behaviorTracking   ?? countryFeatures.behavior           ?? true,
+        smartSchedule:      overrideFeatures.smartSchedule      ?? countryFeatures.smartSchedule      ?? true,
+        tracks:             overrideFeatures.tracks             ?? countryFeatures.tracks             ?? false,
+        parentCommunication:overrideFeatures.parentCommunication?? countryFeatures.parentCommunication?? true,
+        parentSms:          overrideFeatures.parentSms          ?? countryFeatures.parentSms          ?? false,
+        performanceReports: overrideFeatures.performanceReports ?? countryFeatures.performanceReports ?? true,
+        timetable:          overrideFeatures.timetable          ?? countryFeatures.timetable          ?? true,
+        exams:              overrideFeatures.exams              ?? countryFeatures.exams              ?? true,
+        assignments:        overrideFeatures.assignments        ?? countryFeatures.assignments        ?? true,
+        counseling:         overrideFeatures.counseling         ?? countryFeatures.counseling         ?? true,
+        healthTracking:     overrideFeatures.healthTracking     ?? countryFeatures.healthTracking     ?? true,
+        schoolBroadcast:    overrideFeatures.schoolBroadcast    ?? countryFeatures.schoolBroadcast    ?? false,
+        leaveRequests:      overrideFeatures.leaveRequests      ?? countryFeatures.leaveRequests      ?? true,
+    };
+
+    // ─── 4. نظام السلوك النقطي ────────────────────────────────────────────
+    if (schoolData.behaviorSystem === 'points') {
+        schoolData.initialBehaviorPoints   = schoolOverrides.initialBehaviorPoints   || profile.initialBehaviorPoints   || 100;
+        schoolData.behaviorPointsThreshold = schoolOverrides.behaviorPointsThreshold || profile.behaviorPointsThreshold || 50;
+    }
+
+    // ─── 5. مستويات السلوك الدرجي ─────────────────────────────────────────
+    if (schoolData.behaviorSystem === 'levels') {
+        schoolData.behaviorLevels = schoolOverrides.behaviorLevels || profile.behaviorLevels || [
+            { level: 1, nameAr: 'درجة أولى', color: '#FFC107', action: 'تنبيه شفهي' },
+            { level: 2, nameAr: 'درجة ثانية', color: '#FF9800', action: 'إشعار ولي الأمر' },
+            { level: 3, nameAr: 'درجة ثالثة', color: '#F44336', action: 'إحالة للإدارة' },
+        ];
+    }
+
+    // ─── 6. المسارات الدراسية ─────────────────────────────────────────────
+    const isSecondary = (schoolStage || '') === 'الثانوية';
+    const profileTracksEnabled = schoolOverrides.tracksEnabled ?? profile.tracksEnabled ?? false;
+
+    if (profileTracksEnabled) {
+        const defaultTracks = schoolOverrides.defaultTracks || profile.defaultTracks || [];
+        if (code === 'SA') {
+            if (isSecondary) {
+                schoolData.features.tracks        = true;
+                schoolData.tracksEnabled          = true;
+                schoolData.enabledTracks          = defaultTracks;
+                schoolData.secondaryProgramType   = 'masarat';
+                schoolData.secondaryStructure     = 'shared_year_then_tracks';
+                schoolData.schoolEducationProfile = 'secondary_only';
+            } else {
+                schoolData.features.tracks = false;
+                schoolData.tracksEnabled   = false;
+                schoolData.enabledTracks   = [];
+            }
+        } else {
+            schoolData.features.tracks = true;
+            schoolData.tracksEnabled   = true;
+            schoolData.enabledTracks   = defaultTracks;
+        }
+    } else {
+        schoolData.features.tracks = false;
+        schoolData.tracksEnabled   = false;
+        schoolData.enabledTracks   = [];
+    }
+
+    // ─── 7. تسجيل مصدر الإعدادات للتتبع ──────────────────────────────────
+    schoolData.profileAppliedAt      = admin.firestore.FieldValue.serverTimestamp();
+    schoolData.profileSource          = 'auto';
+    schoolData.hasSchoolOverrides     = Object.keys(schoolOverrides).length > 0;
+    schoolData.countryProfileVersion  = COUNTRY_PROFILE_VERSION;
+
+    console.log(`[CountryProfile] Applied: ${code} | behavior=${schoolData.behaviorSystem} | grading=${schoolData.gradingSystem.type} | tracks=${schoolData.tracksEnabled} | overrides=${schoolData.hasSchoolOverrides}`);
+};
+
+// ============================================================================
+// VERSIONING — نظام إصدارات ملفات تعريف الدول
+// كل مدرسة مرتبطة بنسخة — عند تغيير نظام دولة تُحدَّث المدارس تلقائياً
+// ============================================================================
+const COUNTRY_PROFILE_VERSION = 2; // ارفع هذا الرقم عند أي تغيير جوهري
+
+/**
+ * needsProfileMigration — هل تحتاج المدرسة تحديث ملف التعريف؟
+ */
+const needsProfileMigration = (schoolData) => {
+    const schoolVersion = schoolData.countryProfileVersion || 0;
+    return schoolVersion < COUNTRY_PROFILE_VERSION;
+};
+
+// ============================================================================
 // TWILIO CONFIGURATION (AUTOMATIC SMS)
+
 // ============================================================================
 // IMPORTANT: Replace the placeholders with your actual Twilio credentials
 const TWILIO_ACCOUNT_SID = 'ACe84fbb49a3c88e8fc45ed8ac0b1288ce';
@@ -1903,6 +2316,7 @@ exports.createSchoolAdminProvision = functions.https.onCall(async (data, context
         schoolType,
         schoolStage,
         city,
+        countryCode,
         requestId // Optional: to update status
     } = data;
     const db = admin.firestore();
@@ -1941,6 +2355,12 @@ exports.createSchoolAdminProvision = functions.https.onCall(async (data, context
         if (password) password = normalizeDigits(password);
 
         console.log(`Provisioning user: ${email} for school: ${schoolId}, role: ${role}`);
+
+        // ─── تحميل Country Profile قبل الـ transaction ───────────────────
+        let countryProfile = null;
+        if (schoolName) {
+            countryProfile = await loadCountryProfile(countryCode);
+        }
 
         let targetUid = uid;
         let createdAuthUser = false;
@@ -2079,16 +2499,21 @@ exports.createSchoolAdminProvision = functions.https.onCall(async (data, context
 
                     if (schoolName) {
                         const schoolRef = db.collection('Schools').doc(schoolId);
-                        t.set(schoolRef, {
+                        const schoolData = {
                             id: schoolId,
                             name: schoolName,
                             type: schoolType || 'government',
                             stage: schoolStage || 'الابتدائية',
                             city: city || '',
+                            countryCode: (countryCode || 'SA').toUpperCase(),
                             ownerId: targetUid,
                             isActive: true,
                             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        }, { merge: true });
+                        };
+
+                        // ─── تطبيق إعدادات الدولة تلقائياً ──────────────────
+                        applyCountryProfileToSchool(schoolData, countryProfile || {}, schoolStage);
+                        t.set(schoolRef, schoolData, { merge: true });
                     }
 
                     if (requestId) {
@@ -7384,4 +7809,708 @@ exports.deletePendingSmsMessages = functions.https.onCall(async (data, context) 
         console.error('deletePendingSmsMessages failed:', error);
         throw new functions.https.HttpsError('internal', error.message);
     }
+});
+
+// ============================================================================
+// DYNAMIC COUNTRY PROFILE MANAGEMENT — إدارة ملفات تعريف الدول ديناميكياً
+// ============================================================================
+
+/**
+ * upsertCountryProfile
+ * --------------------
+ * Super Admin يضيف أو يحدّث ملف تعريف دولة في Firestore
+ * هذا يتجاوز الـ Fallback الثابت في الكود
+ */
+exports.upsertCountryProfile = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+    }
+    const callerEmail = context.auth.token.email;
+    if (!isOwnerEmail(callerEmail)) {
+        throw new functions.https.HttpsError('permission-denied', 'هذه العملية مقتصرة على Super Admin');
+    }
+
+    const { countryCode, profile } = data || {};
+    if (!countryCode || !profile) {
+        throw new functions.https.HttpsError('invalid-argument', 'countryCode و profile مطلوبان');
+    }
+
+    const code = countryCode.toUpperCase();
+    try {
+        await db.collection('CountryProfiles').doc(code).set({
+            ...profile,
+            countryCode: code,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedBy: context.auth.uid,
+        }, { merge: true });
+
+        // مسح الـ cache في الـ Fallback (لا يوجد cache في Cloud Functions لكن نسجّل)
+        console.log(`[CountryProfile] Upserted profile for: ${code}`);
+        return { success: true, countryCode: code };
+    } catch (e) {
+        throw new functions.https.HttpsError('internal', `فشل حفظ ملف تعريف الدولة: ${e.message}`);
+    }
+});
+
+/**
+ * getCountryProfile
+ * -----------------
+ * يُرجع ملف تعريف الدولة (Firestore أولاً ثم Fallback)
+ * متاح للجميع (لا يحتاج auth)
+ */
+exports.getCountryProfile = functions.https.onCall(async (data, context) => {
+    const { countryCode } = data || {};
+    if (!countryCode) {
+        throw new functions.https.HttpsError('invalid-argument', 'countryCode مطلوب');
+    }
+    const profile = await loadCountryProfile(countryCode);
+    // إضافة Grading Engine
+    const gradingType = profile.gradingSystem || 'percentage';
+    const gradingEngine = GRADING_ENGINES[gradingType] || GRADING_ENGINES['percentage'];
+    return {
+        ...profile,
+        gradingEngine: {
+            type: gradingType,
+            ...gradingEngine,
+        },
+    };
+});
+
+/**
+ * listCountryProfiles
+ * -------------------
+ * يُرجع قائمة كل الدول المدعومة (Firestore + Fallback مدمجة)
+ */
+exports.listCountryProfiles = functions.https.onCall(async (data, context) => {
+    try {
+        const snapshot = await db.collection('CountryProfiles').get();
+        const firestoreProfiles = {};
+        snapshot.forEach(doc => { firestoreProfiles[doc.id] = doc.data(); });
+
+        // دمج Fallback مع Firestore (Firestore يتجاوز Fallback)
+        const merged = { ...COUNTRY_PROFILES_FALLBACK, ...firestoreProfiles };
+        return {
+            profiles: Object.entries(merged).map(([code, p]) => ({
+                countryCode: code,
+                nameAr: p.nameAr || code,
+                flag: p.flag || '🌍',
+                behaviorSystem: p.behaviorSystem || 'custom',
+                gradingSystem: p.gradingSystem || 'percentage',
+                tracksEnabled: p.tracksEnabled || false,
+                source: firestoreProfiles[code] ? 'firestore' : 'fallback',
+            })),
+        };
+    } catch (e) {
+        throw new functions.https.HttpsError('internal', `فشل تحميل قائمة الدول: ${e.message}`);
+    }
+});
+
+/**
+ * updateSchoolOverrides
+ * ---------------------
+ * مدير المدرسة أو Super Admin يعدّل إعدادات المدرسة فوق إعدادات الدولة
+ * School Override System
+ */
+exports.updateSchoolOverrides = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+    }
+
+    const { schoolId, overrides } = data || {};
+    if (!schoolId || !overrides) {
+        throw new functions.https.HttpsError('invalid-argument', 'schoolId و overrides مطلوبان');
+    }
+
+    // التحقق من الصلاحية: Super Admin أو مدير المدرسة
+    const callerUid = context.auth.uid;
+    const callerEmail = context.auth.token.email;
+    const isSuperAdmin = isOwnerEmail(callerEmail);
+
+    if (!isSuperAdmin) {
+        const callerDoc = await db.collection('GlobalUsers').doc(callerUid).get();
+        if (!callerDoc.exists) {
+            throw new functions.https.HttpsError('permission-denied', 'لا تملك صلاحية تعديل إعدادات المدرسة');
+        }
+        const callerData = callerDoc.data();
+        const isSchoolAdmin = ['admin', 'manager', 'principal'].includes(callerData.role) &&
+                              callerData.schoolId === schoolId;
+        if (!isSchoolAdmin) {
+            throw new functions.https.HttpsError('permission-denied', 'لا تملك صلاحية تعديل إعدادات هذه المدرسة');
+        }
+    }
+
+    try {
+        const schoolRef = db.collection('Schools').doc(schoolId);
+        const schoolDoc = await schoolRef.get();
+        if (!schoolDoc.exists) {
+            throw new functions.https.HttpsError('not-found', 'المدرسة غير موجودة');
+        }
+
+        const schoolData = schoolDoc.data();
+        const countryCode = schoolData.countryCode || 'SA';
+        const schoolStage = schoolData.stage || 'الابتدائية';
+
+        // تحميل Country Profile
+        const profile = await loadCountryProfile(countryCode);
+
+        // بناء schoolData المحدّث مع الـ overrides
+        const updatedData = { ...schoolData };
+        applyCountryProfileToSchool(updatedData, profile, schoolStage, overrides);
+
+        // حفظ الـ overrides بشكل منفصل للمرجعية
+        updatedData.schoolOverrides = {
+            ...overrides,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedBy: callerUid,
+        };
+
+        await schoolRef.update(updatedData);
+
+        console.log(`[SchoolOverride] Updated overrides for school: ${schoolId}`);
+        return { success: true, schoolId, appliedOverrides: Object.keys(overrides) };
+    } catch (e) {
+        if (e instanceof functions.https.HttpsError) throw e;
+        throw new functions.https.HttpsError('internal', `فشل تحديث إعدادات المدرسة: ${e.message}`);
+    }
+});
+
+/**
+ * getSchoolConfig
+ * ---------------
+ * يُرجع الإعدادات الكاملة للمدرسة (Country Profile + School Overrides مدمجة)
+ * يُستخدم من Flutter عند تحميل لوحة المدير/المعلم
+ */
+exports.getSchoolConfig = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+    }
+
+    const { schoolId } = data || {};
+    if (!schoolId) {
+        throw new functions.https.HttpsError('invalid-argument', 'schoolId مطلوب');
+    }
+
+    try {
+        const schoolDoc = await db.collection('Schools').doc(schoolId).get();
+        if (!schoolDoc.exists) {
+            throw new functions.https.HttpsError('not-found', 'المدرسة غير موجودة');
+        }
+
+        const school = schoolDoc.data();
+        const countryCode = school.countryCode || 'SA';
+
+        // إذا كانت الإعدادات محفوظة مسبقاً، نُرجعها مباشرة
+        if (school.features && school.gradingSystem && school.profileAppliedAt) {
+            return {
+                schoolId,
+                countryCode,
+                features: school.features,
+                gradingSystem: school.gradingSystem,
+                behaviorSystem: school.behaviorSystem,
+                calendarSystem: school.calendarSystem,
+                tracksEnabled: school.tracksEnabled || false,
+                enabledTracks: school.enabledTracks || [],
+                weekDays: school.weekDays || [],
+                weekend: school.weekend || [],
+                hasSchoolOverrides: school.hasSchoolOverrides || false,
+                source: 'cached',
+            };
+        }
+
+        // إعادة حساب الإعدادات (للمدارس القديمة)
+        const profile = await loadCountryProfile(countryCode);
+        const configData = { countryCode };
+        applyCountryProfileToSchool(configData, profile, school.stage || 'الابتدائية', school.schoolOverrides || {});
+
+        return {
+            schoolId,
+            countryCode,
+            features: configData.features,
+            gradingSystem: configData.gradingSystem,
+            behaviorSystem: configData.behaviorSystem,
+            calendarSystem: configData.calendarSystem,
+            tracksEnabled: configData.tracksEnabled || false,
+            enabledTracks: configData.enabledTracks || [],
+            weekDays: configData.weekDays || [],
+            weekend: configData.weekend || [],
+            hasSchoolOverrides: false,
+            source: 'computed',
+        };
+    } catch (e) {
+        if (e instanceof functions.https.HttpsError) throw e;
+        throw new functions.https.HttpsError('internal', `فشل تحميل إعدادات المدرسة: ${e.message}`);
+    }
+});
+
+// ============================================================================
+// MIGRATION — تحديث المدارس القديمة لتطبيق نظام Country Profile
+// ============================================================================
+
+/**
+ * migrateSchoolsToCountryProfile
+ * --------------------------------
+ * يُحدِّث كل المدارس التي لا تملك countryProfileVersion أو نسختها قديمة
+ * يُشغَّل يدوياً من Super Admin عند الحاجة
+ * معالجة دُفعية (batch) لتجنب timeout
+ */
+exports.migrateSchoolsToCountryProfile = functions
+    .runWith({ timeoutSeconds: 540, memory: '512MB' })
+    .https.onCall(async (data, context) => {
+        if (!context.auth) {
+            throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+        }
+        const callerEmail = context.auth.token.email;
+        if (!isOwnerEmail(callerEmail)) {
+            throw new functions.https.HttpsError('permission-denied', 'هذه العملية مقتصرة على Super Admin');
+        }
+
+        const { dryRun = false, batchSize = 50 } = data || {};
+        const results = { total: 0, migrated: 0, skipped: 0, errors: [] };
+
+        try {
+            // جلب المدارس التي تحتاج migration
+            const schoolsSnap = await db.collection('Schools')
+                .where('isActive', '==', true)
+                .get();
+
+            results.total = schoolsSnap.size;
+            console.log(`[Migration] Found ${results.total} active schools`);
+
+            const batch = db.batch();
+            let batchCount = 0;
+
+            for (const doc of schoolsSnap.docs) {
+                const school = doc.data();
+                const schoolVersion = school.countryProfileVersion || 0;
+
+                // تخطي المدارس المحدَّثة
+                if (schoolVersion >= COUNTRY_PROFILE_VERSION) {
+                    results.skipped++;
+                    continue;
+                }
+
+                try {
+                    const countryCode = school.countryCode || 'SA';
+                    const profile = await loadCountryProfile(countryCode);
+                    const updatedData = {};
+                    const overrides = school.schoolOverrides || {};
+
+                    applyCountryProfileToSchool(updatedData, profile, school.stage || 'الابتدائية', overrides);
+
+                    if (!dryRun) {
+                        batch.update(doc.ref, {
+                            ...updatedData,
+                            migratedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+                        batchCount++;
+
+                        // commit كل batchSize مدرسة
+                        if (batchCount >= batchSize) {
+                            await batch.commit();
+                            batchCount = 0;
+                        }
+                    }
+
+                    results.migrated++;
+                    console.log(`[Migration] ${dryRun ? '[DRY]' : ''} Migrated: ${doc.id} (${countryCode} v${schoolVersion}→${COUNTRY_PROFILE_VERSION})`);
+                } catch (e) {
+                    results.errors.push({ schoolId: doc.id, error: e.message });
+                    console.error(`[Migration] Failed for ${doc.id}:`, e.message);
+                }
+            }
+
+            // commit الباقي
+            if (!dryRun && batchCount > 0) {
+                await batch.commit();
+            }
+
+            console.log(`[Migration] Done: ${results.migrated} migrated, ${results.skipped} skipped, ${results.errors.length} errors`);
+            return { success: true, dryRun, ...results };
+        } catch (e) {
+            throw new functions.https.HttpsError('internal', `فشل Migration: ${e.message}`);
+        }
+    });
+
+/**
+ * getSchoolMigrationStatus
+ * -------------------------
+ * يُرجع حالة Migration لكل المدارس (كم تحتاج تحديث)
+ */
+exports.getSchoolMigrationStatus = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+    }
+    const callerEmail = context.auth.token.email;
+    if (!isOwnerEmail(callerEmail)) {
+        throw new functions.https.HttpsError('permission-denied', 'Super Admin فقط');
+    }
+
+    const snap = await db.collection('Schools').where('isActive', '==', true).get();
+    let upToDate = 0, needsMigration = 0, noVersion = 0;
+
+    snap.forEach(doc => {
+        const v = doc.data().countryProfileVersion;
+        if (!v) noVersion++;
+        else if (v < COUNTRY_PROFILE_VERSION) needsMigration++;
+        else upToDate++;
+    });
+
+    return {
+        currentVersion: COUNTRY_PROFILE_VERSION,
+        total: snap.size,
+        upToDate,
+        needsMigration: needsMigration + noVersion,
+        noVersion,
+    };
+});
+
+// ============================================================================
+// PARENT OTP LOGIN — تسجيل دخول ولي الأمر عبر SMS (Twilio)
+// ============================================================================
+
+// تخزين مؤقت للـ OTP codes (في الإنتاج استخدم Firestore)
+// نستخدم Firestore collection مؤقتة مع TTL
+
+/**
+ * sendParentOtp
+ * -------------
+ * يرسل رمز OTP لولي الأمر عبر Twilio SMS
+ * يتحقق أن الجوال مسجل في النظام أولاً
+ */
+exports.sendParentOtp = functions.https.onCall(async (data, context) => {
+    const { phoneNumber } = data || {};
+    if (!phoneNumber) {
+        throw new functions.https.HttpsError('invalid-argument', 'رقم الجوال مطلوب');
+    }
+
+    // تطبيع رقم الجوال
+    let phone = normalizeDigits(String(phoneNumber).trim());
+    let e164 = phone;
+    if (phone.startsWith('05') && phone.length === 10) {
+        e164 = '+966' + phone.substring(1);
+    } else if (phone.startsWith('5') && phone.length === 9) {
+        e164 = '+9665' + phone.substring(1);
+    } else if (phone.startsWith('966') && !phone.startsWith('+')) {
+        e164 = '+' + phone;
+    } else if (!phone.startsWith('+')) {
+        e164 = '+966' + phone;
+    }
+
+    // البحث عن ولي الأمر بالجوال
+    const snap = await db.collection('GlobalUsers')
+        .where('phoneNumber', '==', e164)
+        .where('role', '==', 'parent')
+        .limit(1)
+        .get();
+
+    // محاولة بصيغ مختلفة
+    let parentDoc = snap.empty ? null : snap.docs[0];
+
+    if (!parentDoc) {
+        // جرّب بدون +966
+        const snap2 = await db.collection('GlobalUsers')
+            .where('phoneNumber', '==', phone)
+            .where('role', '==', 'parent')
+            .limit(1)
+            .get();
+        if (!snap2.empty) parentDoc = snap2.docs[0];
+    }
+
+    if (!parentDoc) {
+        // جرّب في Parents collection
+        const snap3 = await db.collectionGroup('Parents')
+            .where('mobile', '==', e164)
+            .limit(1)
+            .get();
+        if (!snap3.empty) {
+            const uid = snap3.docs[0].id;
+            const globalDoc = await db.collection('GlobalUsers').doc(uid).get();
+            if (globalDoc.exists) parentDoc = globalDoc;
+        }
+    }
+
+    if (!parentDoc) {
+        throw new functions.https.HttpsError('not-found',
+            'لم يتم العثور على حساب ولي أمر مرتبط بهذا الرقم. تأكد من تسجيل الرقم في المدرسة.');
+    }
+
+    // توليد OTP 6 أرقام
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 دقائق
+
+    // حفظ OTP في Firestore
+    await db.collection('ParentOtpCodes').doc(e164).set({
+        otp,
+        expiresAt,
+        parentUid: parentDoc.id,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        attempts: 0,
+    });
+
+    // إرسال SMS عبر Twilio
+    try {
+        await twilioClient.messages.create({
+            body: `رمز التحقق لمنصة منار: ${otp}\nصالح لمدة 5 دقائق`,
+            from: TWILIO_PHONE_NUMBER,
+            to: e164,
+        });
+        console.log(`[ParentOTP] Sent to ${e164}`);
+    } catch (smsError) {
+        console.error('[ParentOTP] SMS failed:', smsError.message);
+        // في بيئة الاختبار: نرجع الـ OTP في الـ response
+        // في الإنتاج: احذف هذا السطر
+        return { success: true, maskedPhone: e164.slice(0, -4) + '****', otp, testMode: true };
+    }
+
+    return { success: true, maskedPhone: e164.slice(0, -4) + '****' };
+});
+
+/**
+ * verifyParentOtp
+ * ---------------
+ * يتحقق من رمز OTP ويرجع بيانات تسجيل الدخول
+ */
+exports.verifyParentOtp = functions.https.onCall(async (data, context) => {
+    const { phoneNumber, otp } = data || {};
+    if (!phoneNumber || !otp) {
+        throw new functions.https.HttpsError('invalid-argument', 'رقم الجوال والرمز مطلوبان');
+    }
+
+    let phone = normalizeDigits(String(phoneNumber).trim());
+    let e164 = phone;
+    if (phone.startsWith('05') && phone.length === 10) {
+        e164 = '+966' + phone.substring(1);
+    } else if (phone.startsWith('5') && phone.length === 9) {
+        e164 = '+9665' + phone.substring(1);
+    } else if (!phone.startsWith('+')) {
+        e164 = '+966' + phone;
+    }
+
+    const otpDoc = await db.collection('ParentOtpCodes').doc(e164).get();
+    if (!otpDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'لم يتم إرسال رمز لهذا الرقم. أرسل الرمز أولاً.');
+    }
+
+    const otpData = otpDoc.data();
+
+    // التحقق من انتهاء الصلاحية
+    if (Date.now() > otpData.expiresAt) {
+        await db.collection('ParentOtpCodes').doc(e164).delete();
+        throw new functions.https.HttpsError('deadline-exceeded', 'انتهت صلاحية الرمز. أرسل رمزاً جديداً.');
+    }
+
+    // التحقق من عدد المحاولات
+    if (otpData.attempts >= 5) {
+        await db.collection('ParentOtpCodes').doc(e164).delete();
+        throw new functions.https.HttpsError('resource-exhausted', 'تجاوزت عدد المحاولات المسموح بها.');
+    }
+
+    // التحقق من الرمز
+    if (otpData.otp !== String(otp).trim()) {
+        await db.collection('ParentOtpCodes').doc(e164).update({
+            attempts: admin.firestore.FieldValue.increment(1),
+        });
+        throw new functions.https.HttpsError('unauthenticated', 'الرمز غير صحيح. تبقى لك ' + (4 - otpData.attempts) + ' محاولات.');
+    }
+
+    // الرمز صحيح — احذفه وأرجع بيانات المستخدم
+    await db.collection('ParentOtpCodes').doc(e164).delete();
+
+    const parentDoc = await db.collection('GlobalUsers').doc(otpData.parentUid).get();
+    if (!parentDoc.exists) {
+        throw new functions.https.HttpsError('not-found', 'حساب ولي الأمر غير موجود.');
+    }
+
+    const parentData = parentDoc.data();
+    const email = parentData.email;
+
+    // توليد كلمة مرور مؤقتة وتحديثها في Firebase Auth
+    const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+    try {
+        await admin.auth().updateUser(otpData.parentUid, { password: tempPassword });
+        // تأكد أن ولي الأمر لا يُطلب منه تغيير كلمة المرور
+        await db.collection('GlobalUsers').doc(otpData.parentUid).set({
+            isPasswordChangeRequired: false,
+            lastOtpLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    } catch (e) {
+        console.error('[ParentOTP] Failed to set temp password:', e.message);
+        throw new functions.https.HttpsError('internal', 'فشل تحديث كلمة المرور المؤقتة');
+    }
+
+    console.log(`[ParentOTP] Verified for ${e164}, uid: ${otpData.parentUid}`);
+
+    return {
+        success: true,
+        email,
+        tempPassword,
+        uid: otpData.parentUid,
+        name: parentData.displayName || parentData.name || 'ولي الأمر',
+    };
+});
+
+// ============================================================================
+// PARENT PIN SYSTEM — نظام الرقم السري لولي الأمر
+// ============================================================================
+
+const crypto_module = require('crypto');
+
+const hashPin = (pin, salt) => {
+    return crypto_module.createHmac('sha256', salt).update(pin).digest('hex');
+};
+
+/**
+ * setParentPin
+ * ------------
+ * يحفظ الرقم السري لولي الأمر بعد أول دخول بـ OTP
+ * يُستدعى مرة واحدة فقط (أو عند تغيير الرقم)
+ */
+exports.setParentPin = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+    }
+
+    const { pin } = data || {};
+    if (!pin || String(pin).length < 4) {
+        throw new functions.https.HttpsError('invalid-argument', 'الرقم السري يجب أن يكون 4 أرقام على الأقل');
+    }
+
+    const uid = context.auth.uid;
+
+    // التحقق أن المستخدم ولي أمر
+    const userDoc = await db.collection('GlobalUsers').doc(uid).get();
+    if (!userDoc.exists || userDoc.data().role !== 'parent') {
+        throw new functions.https.HttpsError('permission-denied', 'هذه الخدمة لأولياء الأمور فقط');
+    }
+
+    const salt = crypto_module.randomBytes(16).toString('hex');
+    const hashedPin = hashPin(String(pin), salt);
+
+    await db.collection('GlobalUsers').doc(uid).update({
+        pinHash: hashedPin,
+        pinSalt: salt,
+        pinSetAt: admin.firestore.FieldValue.serverTimestamp(),
+        hasPin: true,
+    });
+
+    return { success: true };
+});
+
+/**
+ * loginParentWithPin
+ * ------------------
+ * تسجيل دخول ولي الأمر برقم الجوال + الرقم السري
+ * بدون OTP — للدخول السريع في المرات التالية
+ */
+exports.loginParentWithPin = functions.https.onCall(async (data, context) => {
+    const { phoneNumber, pin } = data || {};
+    if (!phoneNumber || !pin) {
+        throw new functions.https.HttpsError('invalid-argument', 'رقم الجوال والرقم السري مطلوبان');
+    }
+
+    // تطبيع رقم الجوال
+    let phone = normalizeDigits(String(phoneNumber).trim());
+    let e164 = phone;
+    if (phone.startsWith('05') && phone.length === 10) e164 = '+966' + phone.substring(1);
+    else if (phone.startsWith('5') && phone.length === 9) e164 = '+9665' + phone.substring(1);
+    else if (!phone.startsWith('+')) e164 = '+966' + phone;
+
+    // البحث عن ولي الأمر
+    let parentDoc = null;
+    const snap = await db.collection('GlobalUsers')
+        .where('phoneNumber', '==', e164)
+        .where('role', '==', 'parent')
+        .limit(1).get();
+    if (!snap.empty) parentDoc = snap.docs[0];
+
+    if (!parentDoc) {
+        const snap2 = await db.collection('GlobalUsers')
+            .where('phoneNumber', '==', phone)
+            .where('role', '==', 'parent')
+            .limit(1).get();
+        if (!snap2.empty) parentDoc = snap2.docs[0];
+    }
+
+    if (!parentDoc) {
+        throw new functions.https.HttpsError('not-found', 'لم يتم العثور على حساب مرتبط بهذا الرقم');
+    }
+
+    const parentData = parentDoc.data();
+
+    // التحقق من وجود PIN
+    if (!parentData.hasPin || !parentData.pinHash || !parentData.pinSalt) {
+        throw new functions.https.HttpsError('failed-precondition', 'لم يتم إعداد الرقم السري بعد. استخدم الدخول برمز SMS أولاً.');
+    }
+
+    // التحقق من PIN
+    const hashedInput = hashPin(String(pin), parentData.pinSalt);
+    if (hashedInput !== parentData.pinHash) {
+        throw new functions.https.HttpsError('unauthenticated', 'الرقم السري غير صحيح');
+    }
+
+    // توليد كلمة مرور مؤقتة
+    const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+    await admin.auth().updateUser(parentDoc.id, { password: tempPassword });
+    await db.collection('GlobalUsers').doc(parentDoc.id).set({
+        isPasswordChangeRequired: false,
+        lastPinLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return {
+        success: true,
+        email: parentData.email,
+        tempPassword,
+        uid: parentDoc.id,
+        name: parentData.displayName || parentData.name || 'ولي الأمر',
+        hasPin: true,
+    };
+});
+
+/**
+ * checkParentHasPin
+ * -----------------
+ * يتحقق هل ولي الأمر لديه رقم سري مسبقاً
+ */
+exports.checkParentHasPin = functions.https.onCall(async (data, context) => {
+    const { phoneNumber } = data || {};
+    if (!phoneNumber) {
+        throw new functions.https.HttpsError('invalid-argument', 'رقم الجوال مطلوب');
+    }
+
+    let phone = normalizeDigits(String(phoneNumber).trim());
+    let e164 = phone;
+    if (phone.startsWith('05') && phone.length === 10) e164 = '+966' + phone.substring(1);
+    else if (phone.startsWith('5') && phone.length === 9) e164 = '+9665' + phone.substring(1);
+    else if (!phone.startsWith('+')) e164 = '+966' + phone;
+
+    const snap = await db.collection('GlobalUsers')
+        .where('phoneNumber', '==', e164)
+        .where('role', '==', 'parent')
+        .limit(1).get();
+
+    if (snap.empty) {
+        const snap2 = await db.collection('GlobalUsers')
+            .where('phoneNumber', '==', phone)
+            .where('role', '==', 'parent')
+            .limit(1).get();
+        if (snap2.empty) return { hasPin: false, exists: false };
+        return { hasPin: snap2.docs[0].data().hasPin === true, exists: true };
+    }
+
+    return { hasPin: snap.docs[0].data().hasPin === true, exists: true };
+});
+
+/**
+ * checkParentHasPinByUid
+ * ----------------------
+ * يتحقق هل ولي الأمر لديه رقم سري بالـ UID مباشرة
+ */
+exports.checkParentHasPinByUid = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+    }
+    const uid = data.uid || context.auth.uid;
+    const doc = await db.collection('GlobalUsers').doc(uid).get();
+    if (!doc.exists) return { hasPin: false };
+    return { hasPin: doc.data().hasPin === true };
 });

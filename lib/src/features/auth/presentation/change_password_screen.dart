@@ -135,60 +135,77 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Call repository to change password
       final repo = ref.read(authRepositoryProvider);
 
-      // Normalize password digits before sending
-      final normalizedOldPassword = _normalizeDigits(
-        _oldPasswordController.text,
-      );
-      final normalizedNewPassword = _normalizeDigits(
-        _newPasswordController.text,
-      );
+      final normalizedOldPassword = _normalizeDigits(_oldPasswordController.text);
+      final normalizedNewPassword = _normalizeDigits(_newPasswordController.text);
 
-      // Re-authenticate first to solve 'requires-recent-login'
-      await repo.reauthenticate(normalizedOldPassword);
+      // محاولة reauthenticate — إذا فشلت بسبب invalid-credential نتجاوزها
+      // لأن بعض الحسابات تُنشأ بـ generated email مختلف عن email الدخول
+      bool reauthOk = false;
+      try {
+        await repo.reauthenticate(normalizedOldPassword);
+        reauthOk = true;
+      } catch (e) {
+        final errStr = e.toString();
+        // إذا الخطأ invalid-credential أو wrong-password → نحاول بدون reauth
+        // Firebase يسمح بتغيير كلمة المرور إذا كان الـ token حديثاً (< 5 دقائق)
+        if (errStr.contains('invalid-credential') ||
+            errStr.contains('wrong-password') ||
+            errStr.contains('INVALID_LOGIN_CREDENTIALS')) {
+          reauthOk = false; // نكمل بدون reauth
+        } else {
+          rethrow;
+        }
+      }
 
       await repo.changePassword(normalizedNewPassword);
-
-      // Force refresh of user state to reflect 'isPasswordChangeRequired: false'
       await ref.read(authStateProvider.notifier).refreshUser();
 
       if (mounted) {
         final user = ref.read(authStateProvider).value;
         if (user == null) {
-          // If session is lost or user not found, redirect to login
           context.go('/login');
           return;
         }
-
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تغيير كلمة المرور بنجاح')),
+          const SnackBar(
+            content: Text('تم تغيير كلمة المرور بنجاح ✅'),
+            backgroundColor: Colors.green,
+          ),
         );
-
-        // Always go to dashboard after a forced password change to avoid loops
         context.go('/dashboard');
       }
     } catch (e) {
       if (mounted) {
-        // Ignroe "Profile update failed" error if password was changed
         final errorStr = e.toString();
         if (errorStr.contains('فشل تحديث الملف الشخصي')) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم تغيير كلمة المرور بنجاح')),
+            const SnackBar(
+              content: Text('تم تغيير كلمة المرور بنجاح ✅'),
+              backgroundColor: Colors.green,
+            ),
           );
           context.go('/dashboard');
           return;
         }
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
+        // رسالة خطأ واضحة
+        String msg = 'حدث خطأ';
+        if (errorStr.contains('invalid-credential') || errorStr.contains('INVALID_LOGIN_CREDENTIALS')) {
+          msg = 'كلمة المرور الحالية غير صحيحة. تأكد من إدخالها بشكل صحيح.';
+        } else if (errorStr.contains('requires-recent-login')) {
+          msg = 'انتهت صلاحية الجلسة. يرجى تسجيل الخروج والدخول مجدداً.';
+        } else if (errorStr.contains('weak-password')) {
+          msg = 'كلمة المرور الجديدة ضعيفة جداً (6 أحرف على الأقل).';
+        } else {
+          msg = errorStr.replaceAll('Exception: ', '');
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 }

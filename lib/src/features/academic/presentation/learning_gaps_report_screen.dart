@@ -10,7 +10,6 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show rootBundle;
-import 'dart:html' as html;
 import '../providers/academic_providers.dart';
 import '../domain/performance_stats.dart';
 
@@ -284,27 +283,19 @@ class _LearningGapsReportScreenState extends ConsumerState<LearningGapsReportScr
       // حفظ وعرض معاينة PDF
       final bytes = await pdf.save();
       
-      if (kIsWeb) {
-        // للويب: فتح في نافذة جديدة للمعاينة والطباعة
-        final blob = html.Blob([bytes], 'application/pdf');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        html.window.open(url, '_blank');
-        html.Url.revokeObjectUrl(url);
-        
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ تم فتح معاينة التقرير'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        // للموبايل: استخدام Printing
-        await Printing.layoutPdf(
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'تقرير_الفجوات_التعليمية_${DateTime.now().toString().split(' ')[0]}.pdf',
+      // استخدام Printing لكل المنصات (ويب + موبايل)
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => bytes,
+        name: 'تقرير_الفجوات_التعليمية_${DateTime.now().toString().split(' ')[0]}.pdf',
+      );
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم فتح معاينة التقرير'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {

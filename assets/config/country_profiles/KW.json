@@ -1,0 +1,47 @@
+{
+  "countryCode": "KW",
+  "nameAr": "الكويت",
+  "nameEn": "Kuwait",
+  "flag": "🇰🇼",
+  "region": "gulf",
+  "primaryLanguage": "ar",
+  "textDirection": "rtl",
+  "currency": "KWD",
+  "timezone": "Asia/Kuwait",
+  "behaviorSystem": "custom",
+  "gradingSystem": "percentage",
+  "calendarSystem": "twoSemesters",
+  "tracksEnabled": false,
+  "defaultTracks": ["علمي", "أدبي"],
+  "stages": [
+    { "key": "primary", "nameAr": "الابتدائية", "nameEn": "Primary", "fromGrade": 1, "toGrade": 5, "fromAge": 6, "toAge": 11 },
+    { "key": "middle", "nameAr": "المتوسطة", "nameEn": "Intermediate", "fromGrade": 6, "toGrade": 9, "fromAge": 11, "toAge": 15 },
+    { "key": "secondary", "nameAr": "الثانوية", "nameEn": "Secondary", "fromGrade": 10, "toGrade": 12, "fromAge": 15, "toAge": 18 }
+  ],
+  "smsImportant": true,
+  "emailPrimary": false,
+  "messagingAppsCommon": true,
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": false,
+    "parentCommunication": true,
+    "parentSms": true,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": false,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "ministry": "وزارة التربية",
+    "weekDays": ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"],
+    "weekend": ["الجمعة", "السبت"]
+  }
+}

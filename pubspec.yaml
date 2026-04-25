@@ -116,6 +116,7 @@ flutter:
     - assets/templet/
     - assets/config/
     - assets/config/timetable_policies_v2/
+    - assets/config/country_profiles/
     - assets/fonts/
     - assets/logokshuf.webp
   #   - images/a_dot_burr.jpeg

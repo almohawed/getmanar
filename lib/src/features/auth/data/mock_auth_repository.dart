@@ -210,10 +210,17 @@ class MockAuthRepository implements AuthRepository {
   ) async {
     await Future.delayed(const Duration(seconds: 1));
     if (smsCode == '123456') {
-      // In mock, we return the principal user if code matches
       _currentUser = mockPrincipal;
       return mockPrincipal;
     }
     return null;
+  }
+
+  @override
+  Future<User?> signInWithCustomToken(String customToken) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    // Mock: return parent user
+    _currentUser = mockPrincipal;
+    return mockPrincipal;
   }
 }

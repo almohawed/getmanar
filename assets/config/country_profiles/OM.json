@@ -1,0 +1,47 @@
+{
+  "countryCode": "OM",
+  "nameAr": "سلطنة عُمان",
+  "nameEn": "Oman",
+  "flag": "🇴🇲",
+  "region": "gulf",
+  "primaryLanguage": "ar",
+  "textDirection": "rtl",
+  "currency": "OMR",
+  "timezone": "Asia/Muscat",
+  "behaviorSystem": "custom",
+  "gradingSystem": "percentage",
+  "calendarSystem": "twoSemesters",
+  "tracksEnabled": false,
+  "defaultTracks": ["علمي", "أدبي"],
+  "stages": [
+    { "key": "primary", "nameAr": "الحلقة الأولى", "nameEn": "Cycle 1", "fromGrade": 1, "toGrade": 4, "fromAge": 6, "toAge": 10 },
+    { "key": "middle", "nameAr": "الحلقة الثانية", "nameEn": "Cycle 2", "fromGrade": 5, "toGrade": 10, "fromAge": 10, "toAge": 16 },
+    { "key": "secondary", "nameAr": "ما بعد الأساسي", "nameEn": "Post-Basic", "fromGrade": 11, "toGrade": 12, "fromAge": 16, "toAge": 18 }
+  ],
+  "smsImportant": true,
+  "emailPrimary": false,
+  "messagingAppsCommon": true,
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": false,
+    "parentCommunication": true,
+    "parentSms": true,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": false,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "ministry": "وزارة التربية والتعليم",
+    "weekDays": ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"],
+    "weekend": ["الجمعة", "السبت"]
+  }
+}

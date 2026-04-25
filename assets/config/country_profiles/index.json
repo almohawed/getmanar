@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-04-24",
+  "countries": [
+    { "code": "SA", "nameAr": "السعودية", "nameEn": "Saudi Arabia", "flag": "🇸🇦", "region": "gulf", "supported": true },
+    { "code": "AE", "nameAr": "الإمارات", "nameEn": "UAE", "flag": "🇦🇪", "region": "gulf", "supported": true },
+    { "code": "QA", "nameAr": "قطر", "nameEn": "Qatar", "flag": "🇶🇦", "region": "gulf", "supported": true },
+    { "code": "KW", "nameAr": "الكويت", "nameEn": "Kuwait", "flag": "🇰🇼", "region": "gulf", "supported": true },
+    { "code": "BH", "nameAr": "البحرين", "nameEn": "Bahrain", "flag": "🇧🇭", "region": "gulf", "supported": true },
+    { "code": "OM", "nameAr": "عُمان", "nameEn": "Oman", "flag": "🇴🇲", "region": "gulf", "supported": true },
+    { "code": "US", "nameAr": "أمريكا", "nameEn": "United States", "flag": "🇺🇸", "region": "americas", "supported": true },
+    { "code": "FR", "nameAr": "فرنسا", "nameEn": "France", "flag": "🇫🇷", "region": "europe", "supported": true },
+    { "code": "ES", "nameAr": "إسبانيا", "nameEn": "Spain", "flag": "🇪🇸", "region": "europe", "supported": true },
+    { "code": "GB", "nameAr": "بريطانيا", "nameEn": "United Kingdom", "flag": "🇬🇧", "region": "europe", "supported": true }
+  ],
+  "regions": [
+    { "key": "gulf", "nameAr": "الخليج العربي", "nameEn": "Gulf" },
+    { "key": "arab", "nameAr": "الوطن العربي", "nameEn": "Arab World" },
+    { "key": "europe", "nameAr": "أوروبا", "nameEn": "Europe" },
+    { "key": "americas", "nameAr": "الأمريكتان", "nameEn": "Americas" },
+    { "key": "asia", "nameAr": "آسيا", "nameEn": "Asia" },
+    { "key": "africa", "nameAr": "أفريقيا", "nameEn": "Africa" }
+  ]
+}

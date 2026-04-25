@@ -1570,16 +1570,28 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
 
   String _masaratTrackLabelAr(String key) {
     switch (key.trim()) {
+      // المسارات الخمسة الرسمية للثانوية العامة في المملكة العربية السعودية
+      case 'عام':
+        return 'المسار العام';
+      case 'علوم الحاسب والهندسة':
+        return 'علوم الحاسب والهندسة';
+      case 'صحي':
+        return 'المسار الصحي';
+      case 'إدارة الأعمال':
+        return 'إدارة الأعمال';
+      case 'شرعي':
+        return 'المسار الشرعي';
+      // Legacy keys (backward compatibility)
       case 'general':
-        return 'عام';
+        return 'المسار العام';
       case 'computer_engineering':
-        return 'هندسة الحاسب';
+        return 'علوم الحاسب والهندسة';
       case 'health_life':
-        return 'الصحة والحياة';
+        return 'المسار الصحي';
       case 'business':
         return 'إدارة الأعمال';
       case 'sharia':
-        return 'الشرعي';
+        return 'المسار الشرعي';
       default:
         return key.isEmpty ? 'مسار' : key;
     }
@@ -2501,17 +2513,51 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
     // If editing, only show manual tab without tab bar
     if (_isEditing) {
       return Scaffold(
-        appBar: AppBar(title: const Text('تعديل بيانات المعلم')),
+        backgroundColor: const Color(0xFF0A1628),
+        appBar: AppBar(
+          title: const Text('تعديل بيانات المعلم',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFF0D1B2A),
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
         body: _buildStandardForm(),
       );
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFF0A1628),
       appBar: AppBar(
-        title: const Text('إدارة المعلمين'),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1A237E), Color(0xFF283593), Color(0xFF3949AB)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+          ),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('إدارة المعلمين',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('إضافة وتعديل بيانات المعلمين',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+          ],
+        ),
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           PopupMenuButton<String>(
             tooltip: 'تصدير بيانات دخول المعلمين',
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.more_vert, color: Colors.white, size: 18)),
+            color: const Color(0xFF1B2A4A),
             onSelected: (v) async {
               final schoolId =
                   (ref.read(authStateProvider).value?.schoolId ?? '').trim();
@@ -2563,68 +2609,160 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
                 );
               }
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
+            itemBuilder: (context) => [
+              const PopupMenuItem(
                 value: 'copy',
                 child: ListTile(
-                  leading: Icon(Icons.copy),
-                  title: Text('نسخ آخر دفعة محفوظة'),
+                  leading: Icon(Icons.copy, color: Colors.white70),
+                  title: Text('نسخ آخر دفعة محفوظة',
+                      style: TextStyle(color: Colors.white70)),
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'excel',
                 child: ListTile(
-                  leading: Icon(Icons.download),
-                  title: Text('تصدير Excel (آخر دفعة)'),
+                  leading: Icon(Icons.download, color: Colors.white70),
+                  title: Text('تصدير Excel (آخر دفعة)',
+                      style: TextStyle(color: Colors.white70)),
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'history',
                 child: ListTile(
-                  leading: Icon(Icons.history),
-                  title: Text('سجل الدفعات'),
+                  leading: Icon(Icons.history, color: Colors.white70),
+                  title: Text('سجل الدفعات',
+                      style: TextStyle(color: Colors.white70)),
                 ),
               ),
             ],
           ),
+          const SizedBox(width: 8),
         ],
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.amber,
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white54,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           tabs: const [
             Tab(text: 'إضافة يدوية / ذكية'),
             Tab(text: 'استيراد Excel'),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [_buildManualTab(), _buildExcelTab()],
+      body: Theme(
+        data: Theme.of(context).copyWith(
+          scaffoldBackgroundColor: const Color(0xFF0A1628),
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+            surface: const Color(0xFF0A1628),
+            onSurface: Colors.white,
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.07),
+            labelStyle: const TextStyle(color: Colors.white54),
+            hintStyle: const TextStyle(color: Colors.white24),
+            prefixIconColor: Colors.white38,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF3949AB), width: 1.5),
+            ),
+          ),
+          dropdownMenuTheme: DropdownMenuThemeData(
+            menuStyle: MenuStyle(
+              backgroundColor: WidgetStateProperty.all(const Color(0xFF1B2A4A)),
+            ),
+          ),
+          textTheme: Theme.of(context).textTheme.apply(
+            bodyColor: Colors.white,
+            displayColor: Colors.white,
+          ),
+        ),
+        child: Container(
+          color: const Color(0xFF0A1628),
+          child: TabBarView(
+            controller: _tabController,
+            children: [_buildManualTab(), _buildExcelTab()],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildManualTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          // Toggle Smart Mode
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('الوضع العادي'),
-              Switch(
-                value: _isSmartMode,
-                onChanged: (val) => setState(() => _isSmartMode = val),
+    return Container(
+      color: const Color(0xFF0A1628),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+          // ─── Toggle Smart Mode ────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF1565C0).withValues(alpha: 0.15),
+                  const Color(0xFF1565C0).withValues(alpha: 0.05),
+                ],
               ),
-              const Text('الوضع الذكي السريع'),
-            ],
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _isSmartMode ? Icons.auto_awesome : Icons.edit_note,
+                  color: _isSmartMode ? Colors.amber : Colors.white54,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isSmartMode ? 'الوضع الذكي السريع' : 'الوضع العادي',
+                        style: TextStyle(
+                          color: _isSmartMode ? Colors.amber : Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        _isSmartMode
+                            ? 'أدخل بيانات متعددة دفعة واحدة'
+                            : 'إدخال بيانات معلم واحد',
+                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _isSmartMode,
+                  onChanged: (val) => setState(() => _isSmartMode = val),
+                  activeColor: Colors.amber,
+                  inactiveThumbColor: Colors.white38,
+                  inactiveTrackColor: Colors.white12,
+                ),
+              ],
+            ),
           ),
-          const Divider(),
+          const SizedBox(height: 16),
 
           if (_isSmartMode) _buildSmartPasteForm() else _buildStandardForm(),
         ],
       ),
+    ),
     );
   }
 
@@ -2634,19 +2772,35 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
       children: [
         Container(
           padding: EdgeInsets.all(12.w),
-          color: Colors.blue.withValues(alpha: 0.1),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+          ),
           child: const Text(
             'أدخل بيانات المعلمين، كل معلم في سطر:\nالاسم - الهوية - التخصص - النصاب - الفصول (مفصولة بفاصلة)\nمثال:\nمحمد أحمد - 1234567890 - علوم - 20 - 1/1, 1/2',
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: 12, color: Colors.orange),
           ),
         ),
         SizedBox(height: 16.h),
         TextField(
           controller: _smartPasteController,
           maxLines: 10,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            enabledBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.orange, width: 1.5),
+            ),
             hintText: 'ألصق البيانات هنا...',
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.07),
           ),
         ),
         SizedBox(height: 16.h),
@@ -2696,44 +2850,74 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Card(
-                color: Colors.blueGrey.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'المرحلة المكتشفة: ${_stageKeyLabelAr(detectedStageKey)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'مرحلة المدرسة: ${_detectedSchoolStageRaw.isEmpty ? '-' : _detectedSchoolStageRaw}',
-                      ),
-                      const SizedBox(height: 6),
-                      Text('النموذج المفعّل: $_activeFormLabel'),
-                      if (displayGrades.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text('الصفوف المتاحة: ${displayGrades.join('، ')}'),
-                      ],
-                      if (showSecondaryProgram) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'نظام الثانوي: ${_secondaryProgramTypeLabelAr(_resolution!.secondaryProgramType)}',
-                        ),
-                      ],
+              // ─── Info Card ────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF00695C).withValues(alpha: 0.15),
+                      const Color(0xFF00695C).withValues(alpha: 0.05),
                     ],
                   ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF00695C).withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      const Icon(Icons.info_outline, color: Color(0xFF26A69A), size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'المرحلة المكتشفة: ${_stageKeyLabelAr(detectedStageKey)}',
+                        style: const TextStyle(
+                            color: Color(0xFF26A69A),
+                            fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text(
+                      'مرحلة المدرسة: ${_detectedSchoolStageRaw.isEmpty ? '-' : _detectedSchoolStageRaw}',
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('النموذج المفعّل: $_activeFormLabel',
+                        style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                    if (displayGrades.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text('الصفوف المتاحة: ${displayGrades.join('، ')}',
+                          style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    ],
+                    if (showSecondaryProgram) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'نظام الثانوي: ${_secondaryProgramTypeLabelAr(_resolution!.secondaryProgramType)}',
+                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
                   labelText: 'الاسم الرباعي',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  prefixIcon: const Icon(Icons.person, color: Colors.white38),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.07),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0xFF3949AB), width: 1.5)),
                 ),
                 validator: (v) =>
                     v == null || v.isEmpty ? 'يرجى إدخال الاسم' : null,
@@ -3487,109 +3671,335 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
   }
 
   Widget _buildExcelTab() {
+    final hasResults = _lastTeacherImportRows.isNotEmpty;
+    final completed = _lastTeacherImportRows
+        .where((r) => r.status == _TeacherImportRowStatus.completed)
+        .toList();
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.file_upload, size: 64, color: Colors.green),
-          SizedBox(height: 16.h),
-          const Text(
-            'استيراد المعلمين من Excel',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8.h),
-          const Text(
-            'قم بتحميل القالب أولاً، ثم املأ البيانات وارفعه هنا.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-          SizedBox(height: 32.h),
-
-          InkWell(
-            onTap: _downloadTemplate,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.lightBlue.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(color: Colors.blue.shade100),
+          // ─── Header ──────────────────────────────────────────────────
+          Container(
+            padding: EdgeInsets.all(20.w),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1A237E), Color(0xFF283593)],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
               ),
-              child: Column(
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12.w),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Icon(Icons.table_chart, color: Colors.white, size: 28.sp),
+                ),
+                SizedBox(width: 14.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('استيراد المعلمين من Excel',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16.sp)),
+                      SizedBox(height: 4.h),
+                      Text('حمّل القالب، عبّئه، ثم ارفعه لإضافة المعلمين تلقائياً',
+                          style: TextStyle(color: Colors.white70, fontSize: 11.sp)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 20.h),
+
+          // ─── الخطوتان ─────────────────────────────────────────────────
+          Row(
+            children: [
+              // خطوة 1: تحميل القالب
+              Expanded(
+                child: GestureDetector(
+                  onTap: _downloadTemplate,
+                  child: Container(
+                    padding: EdgeInsets.all(20.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.blue.shade800.withValues(alpha: 0.8),
+                          Colors.blue.shade600.withValues(alpha: 0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14.r),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.4)),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(12.w),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.download_for_offline,
+                              size: 32.sp, color: Colors.white),
+                        ),
+                        SizedBox(height: 10.h),
+                        Text('الخطوة 1',
+                            style: TextStyle(
+                                color: Colors.white60, fontSize: 10.sp)),
+                        SizedBox(height: 4.h),
+                        Text('تحميل قالب Excel',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.sp)),
+                        SizedBox(height: 4.h),
+                        Text('نموذج جاهز للتعبئة',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white60, fontSize: 10.sp)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              // خطوة 2: رفع الملف
+              Expanded(
+                child: GestureDetector(
+                  onTap: _showImportOptions,
+                  child: Container(
+                    padding: EdgeInsets.all(20.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.green.shade800.withValues(alpha: 0.8),
+                          Colors.green.shade600.withValues(alpha: 0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14.r),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(12.w),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.upload_file,
+                              size: 32.sp, color: Colors.white),
+                        ),
+                        SizedBox(height: 10.h),
+                        Text('الخطوة 2',
+                            style: TextStyle(
+                                color: Colors.white60, fontSize: 10.sp)),
+                        SizedBox(height: 4.h),
+                        Text('رفع ملف Excel',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.sp)),
+                        SizedBox(height: 4.h),
+                        Text('بعد تعبئة البيانات',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white60, fontSize: 10.sp)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // ─── حالة الاستيراد ───────────────────────────────────────────
+          if (_importStatus != null) ...[
+            SizedBox(height: 16.h),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: _importStatus!.contains('فشل')
+                    ? Colors.red.withValues(alpha: 0.15)
+                    : Colors.green.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10.r),
+                border: Border.all(
+                  color: _importStatus!.contains('فشل')
+                      ? Colors.red.withValues(alpha: 0.4)
+                      : Colors.green.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
                 children: [
                   Icon(
-                    Icons.download_for_offline,
-                    size: 40.sp,
-                    color: Colors.blue,
+                    _importStatus!.contains('فشل')
+                        ? Icons.error_outline
+                        : Icons.check_circle_outline,
+                    color: _importStatus!.contains('فشل')
+                        ? Colors.red.shade300
+                        : Colors.green.shade300,
+                    size: 20.sp,
                   ),
-                  SizedBox(height: 8.h),
-                  const Text(
-                    'تحميل قالب Excel',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Text(
+                      _importStatus!,
+                      style: TextStyle(
+                        color: _importStatus!.contains('فشل')
+                            ? Colors.red.shade300
+                            : Colors.green.shade300,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.sp,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-          SizedBox(height: 24.h),
+          ],
 
-          InkWell(
-            onTap: _showImportOptions,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
+          // ─── جدول النتائج ─────────────────────────────────────────────
+          if (hasResults) ...[
+            SizedBox(height: 20.h),
+            Container(
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(color: Colors.green.shade100),
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(14.r),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
               child: Column(
                 children: [
-                  Icon(Icons.upload_file, size: 40.sp, color: Colors.green),
-                  SizedBox(height: 8.h),
-                  const Text(
-                    'رفع ملف Excel وتعبئة البيانات',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  // Header الجدول
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 16.w, vertical: 12.h),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1A237E), Color(0xFF283593)],
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topRight: Radius.circular(14.r),
+                        topLeft: Radius.circular(14.r),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.people, color: Colors.white70, size: 16.sp),
+                        SizedBox(width: 8.w),
+                        Text(
+                          'بيانات دخول المعلمين (${completed.length} معلم)',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.sp),
+                        ),
+                        const Spacer(),
+                        Text('احفظ هذه البيانات قبل الإغلاق',
+                            style: TextStyle(
+                                color: Colors.amber, fontSize: 10.sp)),
+                      ],
+                    ),
                   ),
+                  // رأس الأعمدة
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 16.w, vertical: 10.h),
+                    color: Colors.white.withValues(alpha: 0.06),
+                    child: Row(
+                      children: [
+                        _th('#', 40),
+                        _th('اسم المعلم', 180),
+                        _th('التخصص', 130),
+                        _th('كود الدخول', 120),
+                        _th('كلمة المرور المؤقتة', 130),
+                        _th('الحالة', 70),
+                      ],
+                    ),
+                  ),
+                  // الصفوف
+                  ...List.generate(_lastTeacherImportRows.length, (i) {
+                    final r = _lastTeacherImportRows[i];
+                    final isCompleted =
+                        r.status == _TeacherImportRowStatus.completed;
+                    return Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 10.h),
+                      decoration: BoxDecoration(
+                        color: i % 2 == 0
+                            ? Colors.white.withValues(alpha: 0.02)
+                            : Colors.transparent,
+                        border: Border(
+                          bottom: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.05)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          _td('${i + 1}', 40, Colors.white38),
+                          _td(r.name, 180, Colors.white),
+                          _td(r.specialization ?? '—', 130, Colors.white70),
+                          _td(
+                            r.username ?? '—',
+                            120,
+                            isCompleted
+                                ? Colors.blue.shade300
+                                : Colors.white38,
+                            mono: true,
+                          ),
+                          _td(
+                            r.pin ?? '—',
+                            130,
+                            isCompleted
+                                ? Colors.amber.shade300
+                                : Colors.white38,
+                            mono: true,
+                          ),
+                          Container(
+                            width: 70.w,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isCompleted
+                                  ? Colors.green.withValues(alpha: 0.2)
+                                  : r.status ==
+                                          _TeacherImportRowStatus.duplicate
+                                      ? Colors.orange.withValues(alpha: 0.2)
+                                      : Colors.red.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                            child: Text(
+                              r.status.label,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.bold,
+                                color: isCompleted
+                                    ? Colors.green.shade300
+                                    : r.status ==
+                                            _TeacherImportRowStatus.duplicate
+                                        ? Colors.orange.shade300
+                                        : Colors.red.shade300,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
-              ),
-            ),
-          ),
-
-          if (_importStatus != null) ...[
-            SizedBox(height: 24.h),
-            Container(
-              padding: EdgeInsets.all(16.w),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Text(
-                _importStatus!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _importStatus!.contains('فشل')
-                      ? Colors.red
-                      : Colors.green.shade800,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
             ),
           ],
@@ -3597,7 +4007,33 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
       ),
     );
   }
-}
+
+  Widget _th(String text, double width) {
+    return SizedBox(
+      width: width.w,
+      child: Text(text,
+          style: TextStyle(
+              color: Colors.white60,
+              fontSize: 11.sp,
+              fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _td(String text, double width, Color color, {bool mono = false}) {
+    return SizedBox(
+      width: width.w,
+      child: Text(
+        text,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: mono ? 12.sp : 11.sp,
+          fontFamily: mono ? 'monospace' : null,
+          fontWeight: mono ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    );
+  }
 
 enum _TeacherImportRowStatus { completed, duplicate, failed }
 

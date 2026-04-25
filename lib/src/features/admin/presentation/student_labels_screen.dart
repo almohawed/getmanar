@@ -21,12 +21,97 @@ class StudentLabelsScreen extends ConsumerStatefulWidget {
       _StudentLabelsScreenState();
 }
 
+// ─── نماذج مقاسات الورق ───────────────────────────────────────────────────────
+class _LabelFormat {
+  final String id;
+  final String name;
+  final String description;
+  final int cols;
+  final int rows;
+  final double labelWidthMm;
+  final double labelHeightMm;
+  final PdfPageFormat pageFormat;
+
+  const _LabelFormat({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.cols,
+    required this.rows,
+    required this.labelWidthMm,
+    required this.labelHeightMm,
+    required this.pageFormat,
+  });
+
+  int get perPage => cols * rows;
+}
+
+final _labelFormats = <_LabelFormat>[
+  _LabelFormat(
+    id: 'a4_5x13',
+    name: 'A4 — 5×13 (65 ملصق)',
+    description: '38.1 × 21.2 مم — ورق A4 لاصق مقسم',
+    cols: 5,
+    rows: 13,
+    labelWidthMm: 38.1,
+    labelHeightMm: 21.2,
+    pageFormat: PdfPageFormat.a4,
+  ),
+  _LabelFormat(
+    id: 'a4_3x7_dragon',
+    name: 'A4 — دبل دراجون 3×7 (21 ملصق)',
+    description: '63.5 × 38.1 مم — مقاس A4 دبل دراجون',
+    cols: 3,
+    rows: 7,
+    labelWidthMm: 63.5,
+    labelHeightMm: 38.1,
+    pageFormat: PdfPageFormat.a4,
+  ),
+  _LabelFormat(
+    id: 'a4_4x10',
+    name: 'A4 — 4×10 (40 ملصق)',
+    description: '48.5 × 25.4 مم — ورق A4 لاصق',
+    cols: 4,
+    rows: 10,
+    labelWidthMm: 48.5,
+    labelHeightMm: 25.4,
+    pageFormat: PdfPageFormat.a4,
+  ),
+  _LabelFormat(
+    id: 'a4_2x7',
+    name: 'A4 — 2×7 (14 ملصق)',
+    description: '99.1 × 38.1 مم — ملصقات كبيرة',
+    cols: 2,
+    rows: 7,
+    labelWidthMm: 99.1,
+    labelHeightMm: 38.1,
+    pageFormat: PdfPageFormat.a4,
+  ),
+  _LabelFormat(
+    id: 'a4_3x11',
+    name: 'A4 — 3×11 (33 ملصق)',
+    description: '70.0 × 25.4 مم — ورق A4 لاصق',
+    cols: 3,
+    rows: 11,
+    labelWidthMm: 70.0,
+    labelHeightMm: 25.4,
+    pageFormat: PdfPageFormat.a4,
+  ),
+];
+
 class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
   String? _classId;
   final _selectedIds = <String>{};
   bool _showGuides = false;
+  late _LabelFormat _selectedFormat;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedFormat = _labelFormats[0];
+  }
 
   @override
   void dispose() {
@@ -89,6 +174,7 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
       schoolId: (ref.read(authStateProvider).value?.schoolId ?? '').trim(),
       classLabelById: classLabelById,
       showGuides: _showGuides,
+      format: _selectedFormat,
     );
     await Printing.layoutPdf(
       onLayout: (_) async => Uint8List.fromList(bytes),
@@ -101,20 +187,21 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
     required String schoolId,
     required Map<String, String> classLabelById,
     required bool showGuides,
+    required _LabelFormat format,
   }) async {
     final pdf = pw.Document();
     final font = await PdfGoogleFonts.cairoRegular();
     final bold = await PdfGoogleFonts.cairoBold();
 
-    const cols = 5;
-    const rows = 13;
-    const perPage = cols * rows;
+    final cols = format.cols;
+    final rows = format.rows;
+    final perPage = format.perPage;
 
-    final labelW = 38.1 * PdfPageFormat.mm;
-    final labelH = 21.2 * PdfPageFormat.mm;
+    final labelW = format.labelWidthMm * PdfPageFormat.mm;
+    final labelH = format.labelHeightMm * PdfPageFormat.mm;
 
-    final pageW = PdfPageFormat.a4.width;
-    final pageH = PdfPageFormat.a4.height;
+    final pageW = format.pageFormat.width;
+    final pageH = format.pageFormat.height;
 
     final left = max(0.0, (pageW - cols * labelW) / 2);
     final top = max(0.0, (pageH - rows * labelH) / 2);
@@ -128,7 +215,7 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
     for (final chunk in chunks) {
       pdf.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.a4,
+          pageFormat: format.pageFormat,
           theme: pw.ThemeData.withFont(base: font, bold: bold),
           build: (_) {
             final cells = List<User?>.generate(
@@ -163,6 +250,7 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
                                 student: student,
                                 schoolId: schoolId,
                                 classLabelById: classLabelById,
+                                format: format,
                               ),
                       );
                     }),
@@ -182,6 +270,7 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
     required User student,
     required String schoolId,
     required Map<String, String> classLabelById,
+    required _LabelFormat format,
   }) {
     final sid = schoolId.trim().isEmpty
         ? (student.schoolId ?? '').trim()
@@ -194,7 +283,11 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
     final classLabel = (classLabelById[classId] ?? '').trim();
     final name = student.name.trim();
 
-    final qrSize = 17.5 * PdfPageFormat.mm;
+    // حجم QR يتناسب مع حجم الملصق
+    final qrSize = (format.labelHeightMm * 0.80) * PdfPageFormat.mm;
+    // حجم الخط يتناسب مع حجم الملصق
+    final nameFontSize = format.labelHeightMm >= 35 ? 9.5 : 7.2;
+    final classFontSize = format.labelHeightMm >= 35 ? 8.5 : 6.6;
 
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -206,7 +299,7 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
           height: qrSize,
           drawText: false,
         ),
-        pw.SizedBox(width: 2),
+        pw.SizedBox(width: 3),
         pw.Expanded(
           child: pw.Column(
             mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -218,18 +311,18 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
                 overflow: pw.TextOverflow.clip,
                 textDirection: pw.TextDirection.rtl,
                 style: pw.TextStyle(
-                  fontSize: 7.2,
+                  fontSize: nameFontSize,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
               if (classLabel.isNotEmpty) ...[
-                pw.SizedBox(height: 1.5),
+                pw.SizedBox(height: 2),
                 pw.Text(
                   'فصل: $classLabel',
                   maxLines: 1,
                   overflow: pw.TextOverflow.clip,
                   textDirection: pw.TextDirection.rtl,
-                  style: const pw.TextStyle(fontSize: 6.6),
+                  style: pw.TextStyle(fontSize: classFontSize),
                 ),
               ],
             ],
@@ -247,7 +340,7 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
 
     return UnifiedPageScaffold(
       title: 'ملصقات تعريف الطلاب',
-      subtitle: 'طباعة ملصقات A4 (5×13) مناسبة للورق اللاصق المقسم',
+      subtitle: 'اختر مقاس الورق ثم صدّر للطباعة',
       allowedRoles: const [
         UserRole.admin,
         UserRole.superAdmin,
@@ -270,6 +363,80 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
                     padding: EdgeInsets.all(16.w),
                     child: Column(
                       children: [
+                        // ─── قائمة المقاسات تظهر دائماً ──────────────
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                            side: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(12.w),
+                            child: DropdownButtonFormField<_LabelFormat>(
+                              value: _selectedFormat,
+                              decoration: InputDecoration(
+                                labelText: 'مقاس ورق الملصقات',
+                                prefixIcon: const Icon(Icons.straighten,
+                                    color: Colors.indigo),
+                                border: const OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Colors.indigo.shade50,
+                              ),
+                              items: _labelFormats.map((fmt) {
+                                return DropdownMenuItem<_LabelFormat>(
+                                  value: fmt,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(fmt.name,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13)),
+                                        Text(fmt.description,
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600)),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (v) {
+                                if (v != null) setState(() => _selectedFormat = v);
+                              },
+                              selectedItemBuilder: (context) {
+                                return _labelFormats.map((fmt) {
+                                  return Row(children: [
+                                    const Icon(Icons.label_outline,
+                                        size: 16, color: Colors.indigo),
+                                    const SizedBox(width: 6),
+                                    Text(fmt.name,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13)),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.indigo.shade100,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text('${fmt.perPage} ملصق/ورقة',
+                                          style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.indigo.shade800)),
+                                    ),
+                                  ]);
+                                }).toList();
+                              },
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
                         const UnifiedEmptyState(
                           message:
                               'لا يوجد طلاب في المدرسة حالياً.\nأضف الطلاب أولاً ثم ارجع لطباعة الملصقات.',
@@ -334,6 +501,7 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
                           padding: EdgeInsets.all(12.w),
                           child: Column(
                             children: [
+                              // ─── صف 1: بحث + فصل ───────────────────────
                               Row(
                                 children: [
                                   Expanded(
@@ -351,7 +519,7 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
                                   ),
                                   SizedBox(width: 10.w),
                                   SizedBox(
-                                    width: 220.w,
+                                    width: 200.w,
                                     child: DropdownButtonFormField<String?>(
                                       value: _classId,
                                       decoration: const InputDecoration(
@@ -378,14 +546,91 @@ class _StudentLabelsScreenState extends ConsumerState<StudentLabelsScreen> {
                                 ],
                               ),
                               SizedBox(height: 10.h),
+                              // ─── صف 2: مقاس ورق الملصقات ───────────────
+                              DropdownButtonFormField<_LabelFormat>(
+                                value: _selectedFormat,
+                                decoration: InputDecoration(
+                                  labelText: 'مقاس ورق الملصقات',
+                                  prefixIcon: const Icon(Icons.straighten,
+                                      color: Colors.indigo),
+                                  border: const OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Colors.indigo.shade50,
+                                ),
+                                items: _labelFormats.map((fmt) {
+                                  return DropdownMenuItem<_LabelFormat>(
+                                    value: fmt,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 4),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(fmt.name,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13)),
+                                          Text(fmt.description,
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color:
+                                                      Colors.grey.shade600)),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (v) {
+                                  if (v != null) {
+                                    setState(() => _selectedFormat = v);
+                                  }
+                                },
+                                selectedItemBuilder: (context) {
+                                  return _labelFormats.map((fmt) {
+                                    return Row(
+                                      children: [
+                                        const Icon(Icons.label_outline,
+                                            size: 16, color: Colors.indigo),
+                                        const SizedBox(width: 6),
+                                        Text(fmt.name,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13)),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.indigo.shade100,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            '${fmt.perPage} ملصق/ورقة',
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                color:
+                                                    Colors.indigo.shade800),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList();
+                                },
+                              ),
+                              SizedBox(height: 10.h),
+                              // ─── صف 3: خطوط إرشادية + طباعة ───────────
                               Row(
                                 children: [
                                   Expanded(
                                     child: SwitchListTile(
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text('إظهار خطوط إرشادية'),
+                                      title:
+                                          const Text('إظهار خطوط إرشادية'),
                                       subtitle: const Text(
-                                        'للمعايرة فقط (يفضل إيقافها عند الطباعة على الملصقات).',
+                                        'للمعايرة فقط (يفضل إيقافها عند الطباعة).',
                                       ),
                                       value: _showGuides,
                                       onChanged: (v) =>

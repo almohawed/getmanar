@@ -1,7 +1,8 @@
 import 'dart:math';
 
 class MotivationalQuotes {
-  static final List<String> _quotes = [
+  // ─── اقتباسات للمعلمين ────────────────────────────────────────────────────
+  static final List<String> _teacherQuotes = [
     'يا صانع الأجيال، جهودكم تبني الأوطان. نتمنى لكم يوماً مليئاً بالعطاء.',
     'التعليم هو السلاح الأقوى الذي يمكنك استخدامه لتغيير العالم. شكراً لعطائكم.',
     'بكم ترتقي الأمم وتزدهر العقول. طبتم وطاب مسعاكم.',
@@ -12,7 +13,37 @@ class MotivationalQuotes {
     'المعلم هو القلب النابض للعملية التعليمية، وبكم نصنع المستقبل.',
   ];
 
-  static String getRandomQuote() {
-    return _quotes[Random().nextInt(_quotes.length)];
+  // ─── اقتباسات لأولياء الأمور ─────────────────────────────────────────────
+  static final List<String> _parentQuotes = [
+    'متابعتك لأبنائك هي أعظم هدية تمنحهم إياها.',
+    'الأسرة والمدرسة شريكان في بناء جيل واعد.',
+    'اهتمامك بتعليم أبنائك يصنع فارقاً حقيقياً في مستقبلهم.',
+    'أنت الداعم الأول لأبنائك في رحلتهم التعليمية.',
+    'تواصلك مع المدرسة يعكس حرصك على نجاح أبنائك.',
+    'كل متابعة منك تزيد ثقة أبنائك بأنفسهم.',
+    'شراكتك مع المدرسة تبني جسراً نحو مستقبل أفضل لأبنائك.',
+  ];
+
+  // ─── اقتباسات للمدراء ────────────────────────────────────────────────────
+  static final List<String> _adminQuotes = [
+    'القيادة الحكيمة تصنع بيئة تعليمية متميزة.',
+    'مدرستك في أيدٍ أمينة. نتمنى لك يوماً موفقاً.',
+    'القرار الصحيح في الوقت المناسب هو سر النجاح الإداري.',
+    'بقيادتك تزدهر المدرسة وينجح الطلاب.',
+  ];
+
+  static String getRandomQuote() => _teacherQuotes[Random().nextInt(_teacherQuotes.length)];
+
+  static String getQuoteForRole(String role) {
+    switch (role) {
+      case 'parent':
+        return _parentQuotes[Random().nextInt(_parentQuotes.length)];
+      case 'admin':
+      case 'manager':
+      case 'principal':
+        return _adminQuotes[Random().nextInt(_adminQuotes.length)];
+      default:
+        return _teacherQuotes[Random().nextInt(_teacherQuotes.length)];
+    }
   }
 }

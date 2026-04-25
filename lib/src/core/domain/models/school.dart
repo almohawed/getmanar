@@ -1,3 +1,5 @@
+import 'app_feature.dart';
+
 class School {
   final String id;
   final String name;
@@ -52,6 +54,47 @@ class School {
     this.hasSpecialEducation = false,
     SmsConfig? smsConfig,
   }) : smsConfig = smsConfig ?? SmsConfig();
+
+  /// يتحقق إذا كانت المدرسة تملك صلاحية الوصول لميزة معينة بناءً على خطة الاشتراك
+  bool hasAccess(AppFeature feature) {
+    if (isLifetimeAccess) return true;
+    final plan = subscriptionPlan.toLowerCase();
+
+    const freeFeatures = {
+      AppFeature.basicBehavior,
+      AppFeature.studentRecords,
+      AppFeature.teacherAccounts,
+      AppFeature.basicReports,
+    };
+    const smartFeatures = {
+      AppFeature.adminHierarchy,
+      AppFeature.smartSubstitution,
+      AppFeature.digitalPermission,
+      AppFeature.excelImport,
+      AppFeature.advancedRoles,
+      AppFeature.advancedReports,
+      AppFeature.smartAlerts,
+    };
+    const eliteFeatures = {
+      AppFeature.smartSchedule,
+      AppFeature.studentCardsQR,
+      AppFeature.parentAccess,
+      AppFeature.homeDashboard,
+      AppFeature.geofenceArrival,
+      AppFeature.apiAccess,
+      AppFeature.vipSupport,
+      AppFeature.advancedBehaviorAnalysis,
+    };
+
+    if (freeFeatures.contains(feature)) return true;
+    if (smartFeatures.contains(feature)) {
+      return plan == 'smart' || plan == 'elite' || plan == 'premium';
+    }
+    if (eliteFeatures.contains(feature)) {
+      return plan == 'elite';
+    }
+    return false;
+  }
 
   Map<String, dynamic> toMap() {
     return {

@@ -14,6 +14,7 @@ class SchoolReportGenerator {
     required double examAdherence,
     required List<String> risks,
     String? adminRegion,
+    String? countryCode,
   }) async {
     final pdf = pw.Document();
 

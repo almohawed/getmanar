@@ -1,0 +1,50 @@
+{
+  "countryCode": "QA",
+  "nameAr": "قطر",
+  "nameEn": "Qatar",
+  "flag": "🇶🇦",
+  "region": "gulf",
+  "primaryLanguage": "ar",
+  "textDirection": "rtl",
+  "currency": "QAR",
+  "timezone": "Asia/Qatar",
+  "behaviorSystem": "points",
+  "gradingSystem": "percentage",
+  "calendarSystem": "twoSemesters",
+  "tracksEnabled": true,
+  "defaultTracks": ["علمي", "أدبي", "تجاري"],
+  "stages": [
+    { "key": "primary", "nameAr": "الابتدائية", "nameEn": "Primary", "fromGrade": 1, "toGrade": 6, "fromAge": 6, "toAge": 12 },
+    { "key": "preparatory", "nameAr": "الإعدادية", "nameEn": "Preparatory", "fromGrade": 7, "toGrade": 9, "fromAge": 12, "toAge": 15 },
+    { "key": "secondary", "nameAr": "الثانوية", "nameEn": "Secondary", "fromGrade": 10, "toGrade": 12, "fromAge": 15, "toAge": 18 }
+  ],
+  "smsImportant": false,
+  "emailPrimary": true,
+  "messagingAppsCommon": true,
+  "initialBehaviorPoints": 100,
+  "behaviorPointsThreshold": 50,
+  "features": {
+    "attendance": true,
+    "behavior": true,
+    "smartSchedule": true,
+    "tracks": true,
+    "parentCommunication": true,
+    "parentSms": false,
+    "performanceReports": true,
+    "subscriptions": true,
+    "timetable": true,
+    "exams": true,
+    "assignments": true,
+    "counseling": true,
+    "healthTracking": true,
+    "schoolBroadcast": false,
+    "leaveRequests": true
+  },
+  "allowSchoolCustomization": true,
+  "extra": {
+    "ministry": "وزارة التعليم والتعليم العالي",
+    "schoolTypes": ["حكومي", "مستقل", "خاص", "دولي"],
+    "weekDays": ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"],
+    "weekend": ["الجمعة", "السبت"]
+  }
+}

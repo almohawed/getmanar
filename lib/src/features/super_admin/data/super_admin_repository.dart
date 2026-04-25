@@ -40,6 +40,7 @@ class SuperAdminRepository {
     bool isLifetimeAccess = false,
     String subscriptionPlan = 'free',
     bool hasSpecialEducation = false,
+    String countryCode = 'SA',
   }) async {
     try {
       // Normalize identity number to ensure English digits for Auth/Login
@@ -61,6 +62,7 @@ class SuperAdminRepository {
         'mobile': managerPhoneNumber,
         'email': managerEmail, // Contact Email
         'password': managerPassword.isNotEmpty ? managerPassword : '123456',
+        'countryCode': countryCode,
 
         // Subscription Fields
         'showSubscriptionSection': showSubscriptionSection,
@@ -268,7 +270,9 @@ class SuperAdminRepository {
   Future<void> deleteSchool(String schoolId) async {
     try {
       final callable =
-          FirebaseFunctions.instance.httpsCallable('deleteSchoolDeep');
+          FirebaseFunctions.instance.httpsCallable('deleteSchoolSafe',
+              options: HttpsCallableOptions(
+                  timeout: const Duration(minutes: 5)));
       await callable.call({'schoolId': schoolId});
     } catch (e) {
       if (e is FirebaseFunctionsException) {
@@ -422,11 +426,25 @@ class SuperAdminRepository {
   }
 
   Stream<List<GlobalUser>> getAllGlobalUsers() {
-    return _firestore.collection('GlobalUsers').snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return GlobalUser.fromMap(doc.data(), doc.id);
+    return Stream.fromFuture(fetchGlobalAccounts());
+  }
+
+  Future<List<GlobalUser>> fetchGlobalAccounts() async {
+    try {
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('listGlobalAccounts')
+          .call();
+      final data = result.data as Map<String, dynamic>;
+      final usersRaw = data['users'] as List<dynamic>? ?? [];
+      return usersRaw.map((u) {
+        final map = Map<String, dynamic>.from(u as Map);
+        final id = map['id'] as String? ?? '';
+        return GlobalUser.fromMap(map, id);
       }).toList();
-    });
+    } catch (e) {
+      debugPrint('listGlobalAccounts error: $e');
+      rethrow;
+    }
   }
 
   Future<void> deleteGlobalAccount(GlobalUser user) async {
@@ -468,8 +486,8 @@ final superAdminRepositoryProvider = Provider<SuperAdminRepository>((ref) {
   return SuperAdminRepository(FirebaseFirestore.instance);
 });
 
-final globalAccountsProvider = StreamProvider<List<GlobalUser>>((ref) {
-  return ref.watch(superAdminRepositoryProvider).getAllGlobalUsers();
+final globalAccountsProvider = FutureProvider<List<GlobalUser>>((ref) {
+  return ref.watch(superAdminRepositoryProvider).fetchGlobalAccounts();
 });
 
 // Added this provider

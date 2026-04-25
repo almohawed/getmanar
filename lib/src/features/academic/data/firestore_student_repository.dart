@@ -246,6 +246,7 @@ class FirestoreStudentRepository implements StudentRepository {
           sid,
           student.parentIdentityNumber!,
           student.phoneNumber,
+          studentName: student.name,
         );
       } else {
         debugPrint(
@@ -257,11 +258,19 @@ class FirestoreStudentRepository implements StudentRepository {
     }
   }
 
+  /// يستخرج اسم ولي الأمر من اسم الطالب (يحذف الاسم الأول)
+  static String _deriveParentName(String studentName) {
+    final parts = studentName.trim().split(RegExp(r'\s+'));
+    if (parts.length <= 1) return studentName.trim();
+    return parts.sublist(1).join(' ');
+  }
+
   Future<void> _ensureParentAccount(
     String schoolId,
     String parentIdentityNumber,
-    String? phoneNumber,
-  ) async {
+    String? phoneNumber, {
+    String? studentName,
+  }) async {
     try {
       // Strict Identity Check: Check if parent exists by National ID
       final existingParent = await _parentRepository.getParentByIdentity(
@@ -278,13 +287,17 @@ class FirestoreStudentRepository implements StudentRepository {
 
       // Create new Parent (Single Identity Only)
       final parentEmail = 'p$parentIdentityNumber@getmanar.com';
+      // اشتق اسم ولي الأمر من اسم الطالب إن توفّر
+      final parentName = (studentName != null && studentName.trim().isNotEmpty)
+          ? _deriveParentName(studentName)
+          : 'ولي أمر - $parentIdentityNumber';
       final parentUser = User(
         id: const Uuid().v4(),
-        name: 'ولي أمر - $parentIdentityNumber',
+        name: parentName,
         email: parentEmail,
         role: UserRole.parent,
-        identityNumber: parentIdentityNumber, // Crucial: Set Identity
-        phoneNumber: phoneNumber, // Contact info only, not identity
+        identityNumber: parentIdentityNumber,
+        phoneNumber: phoneNumber,
         schoolId: schoolId,
         isPasswordChangeRequired: true,
       );
