@@ -15,6 +15,7 @@ import 'administrative_dashboard.dart';
 import '../../deputy/presentation/academic_affairs_dashboard.dart';
 import '../../deputy/presentation/school_affairs_dashboard.dart';
 import '../../deputy/presentation/student_affairs_dashboard.dart';
+import '../../deputy/presentation/stage_deputy_dashboard.dart';
 import '../../requests/presentation/geofence_listener.dart';
 import '../../notifications/presentation/notifications_provider.dart';
 import '../../../core/domain/models/school.dart';
@@ -255,6 +256,8 @@ class DashboardScreen extends ConsumerWidget {
           return const SchoolAffairsDashboard();
         } else if (user.deputyType == 'student') {
           return const StudentAffairsDashboard();
+        } else if (user.deputyType == 'stage') {
+          return const StageDeputyDashboard();
         }
         // Default fallback (e.g. if type not set)
         return const AdminDashboardV2();

@@ -135,6 +135,37 @@ class _StudentAffairsDashboardState
 
                 _buildSection(
                   context,
+                  title: 'الإشراف والمناوبة',
+                  color: const Color(0xFF0D47A1),
+                  items: [
+                    {
+                      'icon': Icons.supervisor_account_rounded,
+                      'title': 'الإشراف والمناوبة',
+                      'route': '/supervision-duty',
+                    },
+                  ],
+                ),
+
+                _buildSection(
+                  context,
+                  title: 'الاستئذانات',
+                  color: Colors.amber.shade800,
+                  items: [
+                    {
+                      'icon': Icons.exit_to_app,
+                      'title': 'إذن خروج طالب',
+                      'route': '/student-exit-permission',
+                    },
+                    {
+                      'icon': Icons.list_alt,
+                      'title': 'طلبات الاستئذان',
+                      'route': '/deputy-requests',
+                    },
+                  ],
+                ),
+
+                _buildSection(
+                  context,
                   title: 'الانضباط اليومي',
                   color: Colors.orange.shade800,
                   items: [

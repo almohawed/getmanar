@@ -94,7 +94,7 @@ def generate(req: Req):
             cid = assignment.get('classId', '')
             tid = assignment.get('teacherId', '')
             sid = assignment.get('subjectId', '')
-            wh = min(assignment.get('weeklyHours', 2), 7)
+            wh = min(assignment.get('weeklyHours', 2), 7)فف
             
             if not cid or not tid or not sid:
                 logger.warning(f"Skipping incomplete assignment: {assignment}")

@@ -62,6 +62,7 @@ class AdminDashboard extends ConsumerWidget {
             WelcomeBanner(
               userName: user?.name ?? 'المدير',
               gradient: DashboardPalette.bannerGradient('admin'),
+              role: 'admin',
               trailing: _AdminAssignmentChips(userId: user?.id ?? ''),
             ),
 
@@ -865,6 +866,12 @@ class AdminDashboard extends ConsumerWidget {
               '/smart-schedule',
             ),
             _NavItem(
+              'الإشراف والمناوبة',
+              Icons.supervisor_account_rounded,
+              const Color(0xFF0D47A1),
+              '/supervision-duty',
+            ),
+            _NavItem(
               'الاختبارات',
               Icons.assignment,
               Colors.red.shade700,
@@ -1123,6 +1130,7 @@ class AdminDashboard extends ConsumerWidget {
           '/circulars', '/circulars/create', '/school-attendance-dashboard',
           '/development-plans', '/permissions-dashboard', '/subscription-plans',
           '/student-barcodes', '/admin/sms-settings', '/deputy-sms',
+          '/supervision-duty',
         ];
         if (implementedRoutes.contains(route)) {
           context.push(route, extra: extra);

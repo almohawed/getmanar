@@ -8514,3 +8514,307 @@ exports.checkParentHasPinByUid = functions.https.onCall(async (data, context) =>
     if (!doc.exists) return { hasPin: false };
     return { hasPin: doc.data().hasPin === true };
 });
+
+
+// ============================================================================
+// نظام الإشراف والمناوبة - Supervision & Duty Notification System
+// ============================================================================
+
+/**
+ * دالة مجدولة تعمل كل يوم الساعة 7 صباحاً
+ * تُرسل إشعارات للمعلمين الذين لديهم مناوبة في اليوم التالي
+ */
+exports.sendDutyReminderNotifications = functions.pubsub
+    .schedule('0 7 * * *')
+    .timeZone('Asia/Riyadh')
+    .onRun(async (context) => {
+        console.log('🔔 Running duty reminder notifications...');
+
+        try {
+            // جلب جميع المدارس
+            const schoolsSnap = await db.collection('Schools').get();
+
+            for (const schoolDoc of schoolsSnap.docs) {
+                const schoolId = schoolDoc.id;
+                await _processDutyRemindersForSchool(schoolId);
+            }
+
+            console.log('✅ Duty reminders sent successfully');
+            return null;
+        } catch (error) {
+            console.error('❌ Error sending duty reminders:', error);
+            return null;
+        }
+    });
+
+/**
+ * معالجة إشعارات المناوبة لمدرسة واحدة
+ */
+async function _processDutyRemindersForSchool(schoolId) {
+    try {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0]; // yyyy-MM-dd
+
+        // جلب الإشعارات المجدولة لغد
+        const notificationsSnap = await db
+            .collection('Schools')
+            .doc(schoolId)
+            .collection('ScheduledNotifications')
+            .where('dutyDate', '==', tomorrowStr)
+            .where('isSent', '==', false)
+            .get();
+
+        if (notificationsSnap.empty) return;
+
+        console.log(`📋 Found ${notificationsSnap.size} duty reminders for school ${schoolId}`);
+
+        for (const notifDoc of notificationsSnap.docs) {
+            const notif = notifDoc.data();
+            const teacherId = notif.userId;
+            const title = notif.title || '📋 تذكير: مناوبتك غداً';
+            const body = notif.body || 'لديك مناوبة غداً';
+
+            // جلب FCM token للمعلم
+            const teacherDoc = await db
+                .collection('Schools')
+                .doc(schoolId)
+                .collection('Teachers')
+                .doc(teacherId)
+                .get();
+
+            if (!teacherDoc.exists) continue;
+
+            const fcmToken = teacherDoc.data().fcmToken;
+
+            if (fcmToken) {
+                // إرسال إشعار FCM
+                try {
+                    await admin.messaging().send({
+                        token: fcmToken,
+                        notification: { title, body },
+                        data: {
+                            type: 'duty_reminder',
+                            schoolId,
+                            teacherId,
+                            dutyDate: tomorrowStr,
+                        },
+                        android: {
+                            priority: 'high',
+                            notification: {
+                                channelId: 'main_channel_high_importance',
+                                priority: 'high',
+                            },
+                        },
+                    });
+                    console.log(`✅ Sent duty reminder to teacher ${teacherId}`);
+                } catch (fcmError) {
+                    console.error(`❌ FCM error for teacher ${teacherId}:`, fcmError.message);
+                }
+            }
+
+            // حفظ الإشعار في قائمة إشعارات المعلم
+            await db
+                .collection('Schools')
+                .doc(schoolId)
+                .collection('Notifications')
+                .add({
+                    userId: teacherId,
+                    title,
+                    body,
+                    type: 'duty_reminder',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    isRead: false,
+                });
+
+            // تحديث حالة الإشعار المجدول
+            await notifDoc.ref.update({
+                isSent: true,
+                sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    } catch (error) {
+        console.error(`❌ Error processing reminders for school ${schoolId}:`, error);
+    }
+}
+
+/**
+ * إرسال إشعار إشراف الفسحة عند الحصة الثالثة
+ * يُستدعى من تطبيق Flutter
+ */
+exports.sendBreakSupervisionNotification = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+    }
+
+    const { schoolId } = data || {};
+    if (!schoolId) {
+        throw new functions.https.HttpsError('invalid-argument', 'schoolId مطلوب');
+    }
+
+    try {
+        const today = new Date();
+        const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        const todayName = dayNames[today.getDay()];
+
+        // جلب جدول الإشراف
+        const supervisionSnap = await db
+            .collection('Schools')
+            .doc(schoolId)
+            .collection('SupervisionSchedule')
+            .orderBy('createdAt', 'desc')
+            .limit(1)
+            .get();
+
+        if (supervisionSnap.empty) {
+            return { success: false, message: 'لا يوجد جدول إشراف' };
+        }
+
+        const assignments = supervisionSnap.docs[0].data().assignments || [];
+        const todayAssignments = assignments.filter(a => a.day === todayName);
+
+        if (todayAssignments.length === 0) {
+            return { success: false, message: `لا يوجد مشرفون مجدولون ليوم ${todayName}` };
+        }
+
+        let sentCount = 0;
+
+        for (const assignment of todayAssignments) {
+            const teacherId = assignment.teacherId;
+            const location = assignment.location || 'غير محدد';
+
+            // جلب FCM token
+            const teacherDoc = await db
+                .collection('Schools')
+                .doc(schoolId)
+                .collection('Teachers')
+                .doc(teacherId)
+                .get();
+
+            if (!teacherDoc.exists) continue;
+
+            const fcmToken = teacherDoc.data().fcmToken;
+            const title = '🔔 تذكير إشراف الفسحة';
+            const body = `حان وقت إشراف الفسحة — موقعك: ${location}`;
+
+            if (fcmToken) {
+                try {
+                    await admin.messaging().send({
+                        token: fcmToken,
+                        notification: { title, body },
+                        data: {
+                            type: 'supervision_break',
+                            schoolId,
+                            location,
+                        },
+                        android: {
+                            priority: 'high',
+                            notification: {
+                                channelId: 'main_channel_high_importance',
+                                priority: 'high',
+                            },
+                        },
+                    });
+                    sentCount++;
+                } catch (fcmError) {
+                    console.error(`FCM error for teacher ${teacherId}:`, fcmError.message);
+                }
+            }
+
+            // حفظ الإشعار
+            await db
+                .collection('Schools')
+                .doc(schoolId)
+                .collection('Notifications')
+                .add({
+                    userId: teacherId,
+                    title,
+                    body,
+                    type: 'supervision_break',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    isRead: false,
+                });
+        }
+
+        return {
+            success: true,
+            message: `تم إرسال الإشعار لـ ${sentCount} مشرف`,
+            sentCount,
+        };
+    } catch (error) {
+        console.error('Error sending break supervision notification:', error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+
+
+// ============================================================================
+// حذف إشعارات حصص الانتظار — Delete Wait Assignment Notifications
+// ============================================================================
+
+/**
+ * دالة قابلة للاستدعاء من التطبيق لحذف إشعارات "تكليف انتظار"
+ * تحذف من مدرسة واحدة أو جميع المدارس
+ */
+exports.deleteWaitNotifications = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'يجب تسجيل الدخول أولاً');
+    }
+
+    const { schoolId, allSchools } = data || {};
+    let totalDeleted = 0;
+
+    try {
+        const schoolIds = [];
+
+        if (allSchools === true) {
+            // حذف من جميع المدارس (Super Admin فقط)
+            const userDoc = await db.collection('GlobalUsers').doc(context.auth.uid).get();
+            if (userDoc.data()?.role !== 'superAdmin') {
+                throw new functions.https.HttpsError('permission-denied', 'هذه العملية للمشرف العام فقط');
+            }
+            const schoolsSnap = await db.collection('Schools').get();
+            schoolsSnap.docs.forEach(d => schoolIds.push(d.id));
+        } else if (schoolId) {
+            schoolIds.push(schoolId);
+        } else {
+            throw new functions.https.HttpsError('invalid-argument', 'schoolId أو allSchools مطلوب');
+        }
+
+        for (const sid of schoolIds) {
+            // البحث عن إشعارات الانتظار بالعنوان
+            const snap = await db
+                .collection('Schools').doc(sid)
+                .collection('Notifications')
+                .where('title', '>=', '📋 تكليف انتظار')
+                .where('title', '<=', '📋 تكليف انتظار\uf8ff')
+                .get();
+
+            if (snap.empty) continue;
+
+            // حذف دفعي بحد 500
+            const chunks = [];
+            for (let i = 0; i < snap.docs.length; i += 500) {
+                chunks.push(snap.docs.slice(i, i + 500));
+            }
+            for (const chunk of chunks) {
+                const batch = db.batch();
+                chunk.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                totalDeleted += chunk.length;
+            }
+
+            console.log(`[deleteWaitNotifications] School ${sid}: deleted ${snap.docs.length}`);
+        }
+
+        return {
+            success: true,
+            deleted: totalDeleted,
+            message: `تم حذف ${totalDeleted} إشعار انتظار بنجاح`,
+        };
+    } catch (error) {
+        console.error('[deleteWaitNotifications] Error:', error);
+        if (error instanceof functions.https.HttpsError) throw error;
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});

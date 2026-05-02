@@ -1,22 +1,137 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../../core/domain/models/behavior_record.dart';
 import '../../wait_management/data/mock_wait_repository.dart';
 import '../../behavior/presentation/behavior_controller.dart';
 
-// Providers for this screen
+// ─── Helper ───────────────────────────────────────────────────────────────────
+String _todayArabicName() {
+  final days = ['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس', 'الجمعة', 'السبت'];
+  return days[DateTime.now().weekday % 7];
+}
+
+String _normalizeD(String s) => s
+    .replaceAll('أ', 'ا').replaceAll('إ', 'ا').replaceAll('آ', 'ا')
+    .replaceAll('ة', 'ه').replaceAll('ى', 'ي').trim();
+
+// ─── Provider: حصص انتظار المعلم — إشعار واحد فقط لليوم ─────────────────────
 final teacherWaitsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, teacherId) async {
-  final repo = ref.watch(mockWaitRepositoryProvider);
-  return repo.getTeacherWaits(teacherId);
+  if (teacherId.isEmpty) return [];
+  final user = ref.read(authStateProvider).value;
+  final schoolId = user?.schoolId ?? '';
+  if (schoolId.isEmpty) return [];
+
+  try {
+    final now = DateTime.now();
+    final dateKey = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+    final startOfDay = Timestamp.fromDate(DateTime(now.year, now.month, now.day));
+    final endOfDay   = Timestamp.fromDate(DateTime(now.year, now.month, now.day, 23, 59, 59));
+
+    // نجلب إشعارات اليوم فقط — بحقل date أو بـ Timestamp
+    QuerySnapshot snap;
+    try {
+      // محاولة البحث بحقل date (الإشعارات الجديدة)
+      snap = await FirebaseFirestore.instance
+          .collection('Schools').doc(schoolId)
+          .collection('Notifications')
+          .where('userId', isEqualTo: teacherId)
+          .where('date', isEqualTo: dateKey)
+          .orderBy('timestamp', descending: true)
+          .limit(5)
+          .get();
+    } catch (_) {
+      snap = await FirebaseFirestore.instance
+          .collection('Schools').doc(schoolId)
+          .collection('Notifications')
+          .where('userId', isEqualTo: teacherId)
+          .orderBy('timestamp', descending: true)
+          .limit(5)
+          .get();
+    }
+
+    // نأخذ أحدث إشعار تكليف انتظار لليوم فقط
+    DocumentSnapshot? latestDoc;
+    for (final doc in snap.docs) {
+      final data  = doc.data() as Map<String, dynamic>;
+      final title = (data['title'] ?? '').toString();
+      if (!title.contains('تكليف انتظار')) continue;
+
+      // تحقق التاريخ للإشعارات القديمة (بدون حقل date)
+      final dateField = (data['date'] ?? '').toString();
+      if (dateField.isEmpty) {
+        final ts = data['timestamp'];
+        if (ts is Timestamp) {
+          if (ts.compareTo(startOfDay) < 0 || ts.compareTo(endOfDay) > 0) continue;
+        } else if (ts is String) {
+          final parsed = DateTime.tryParse(ts);
+          if (parsed == null) continue;
+          final d = '${parsed.year}-${parsed.month.toString().padLeft(2,'0')}-${parsed.day.toString().padLeft(2,'0')}';
+          if (d != dateKey) continue;
+        }
+      } else if (dateField != dateKey) {
+        continue;
+      }
+
+      latestDoc = doc;
+      break; // أحدث إشعار فقط
+    }
+
+    if (latestDoc == null) return [];
+
+    final data  = latestDoc.data() as Map<String, dynamic>;
+    final title = (data['title'] ?? '').toString();
+    final body  = (data['body']  ?? '').toString();
+    final dayInTitle = title.contains('—') ? title.split('—').last.trim() : _todayArabicName();
+
+    // تحليل نص الإشعار لاستخراج الحصص
+    final lines = body.split('\n').where((l) => l.trim().startsWith('الحصة')).toList();
+    final result = <Map<String, dynamic>>[];
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final periodMatch = RegExp(r'الحصة\s+(\d+)').firstMatch(line);
+      // يدعم كلا الصيغتين: "| فصل 3/4" و " - 3/4"
+      // يلتقط أي نص بعد الفاصل حتى قبل "(" أو "[" أو نهاية السطر
+      final classMatch  = RegExp(r'(?:\|\s*فصل\s+|[-–]\s*)([\d/\w\s]+?)(?:\s*[\(\[]|$)').firstMatch(line);
+      final subjMatch   = RegExp(r'\(([^)]+)\)').firstMatch(line);
+      final absentMatch = RegExp(r'\[غياب:\s*([^\]]+)\]').firstMatch(line);
+
+      result.add({
+        'day':        dayInTitle,
+        'period':     periodMatch?.group(1) ?? '?',
+        'class':      classMatch?.group(1)?.trim() ?? '—',
+        'subject':    subjMatch?.group(1) ?? '',
+        'absentName': absentMatch?.group(1) ?? '',
+        'waitLabel':  'منتظر',
+        'notifId':    latestDoc.id,
+        'lineIdx':    i,  // مؤشر فريد لكل حصة داخل الإشعار
+        'uniqueKey':  '${latestDoc.id}_$i',
+        'status':     'pending',
+      });
+    }
+
+    result.sort((a, b) {
+      final ap = int.tryParse('${a['period']}') ?? 0;
+      final bp = int.tryParse('${b['period']}') ?? 0;
+      return ap.compareTo(bp);
+    });
+    return result;
+  } catch (_) {
+    return [];
+  }
 });
 
 final rejectedViolationsProvider = FutureProvider.family<List<BehaviorRecord>, String>((ref, teacherId) async {
   final repo = ref.watch(behaviorRepositoryProvider);
   return repo.getRejectedViolations(teacherId);
 });
+
+// قائمة حصص الانتظار المرفوضة — ValueNotifier مشترك
+final _rejectedWaitsNotifier = ValueNotifier<List<Map<String, dynamic>>>([]);
 
 class TeacherAlertsCenterScreen extends ConsumerStatefulWidget {
   const TeacherAlertsCenterScreen({super.key});
@@ -50,59 +165,84 @@ class _TeacherAlertsCenterScreenState
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('مركز التنبيهات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18.sp)),
-            Text('حصص الانتظار والمخالفات المرفوضة', style: TextStyle(color: Colors.white70, fontSize: 11.sp)),
+            Text('حصص الانتظار', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18.sp)),
+            Text('تكليفات الانتظار لليوم', style: TextStyle(color: Colors.white70, fontSize: 11.sp)),
           ],
         ),
         centerTitle: false,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          // تبويبات مخصصة
-          Container(
-            color: const Color(0xFFB71C1C),
-            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-            child: Row(
-              children: [
-                Expanded(child: _buildTab(0, 'حصص الانتظار', Icons.access_time_rounded)),
-                SizedBox(width: 10.w),
-                Expanded(child: _buildTab(1, 'المرفوضات', Icons.cancel_rounded)),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _selectedIndex == 0
-                ? _WaitsTab(teacherId: teacherId)
-                : _RejectedTab(teacherId: teacherId),
-          ),
-        ],
-      ),
+      body: Column(children: [
+        Expanded(child: _WaitsTab(teacherId: teacherId)),
+        _WaitAbsenceSection(teacherId: teacherId),
+      ]),
     );
   }
+}
 
-  Widget _buildTab(int index, String label, IconData icon) {
-    final selected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(vertical: 10.h),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: selected ? Colors.white : Colors.white.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16.sp, color: selected ? const Color(0xFFB71C1C) : Colors.white),
-            SizedBox(width: 6.w),
-            Text(label, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold, color: selected ? const Color(0xFFB71C1C) : Colors.white)),
-          ],
-        ),
-      ),
+// ─── قسم غياب الانتظار ───────────────────────────────────────────────────────
+class _WaitAbsenceSection extends ConsumerWidget {
+  final String teacherId;
+  const _WaitAbsenceSection({required this.teacherId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).value;
+    final schoolId = user?.schoolId ?? '';
+    if (schoolId.isEmpty || teacherId.isEmpty) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('Schools').doc(schoolId)
+          .collection('TeacherWaitAbsences')
+          .where('teacherId', isEqualTo: teacherId)
+          .orderBy('recordedAt', descending: true)
+          .limit(5)
+          .snapshots(),
+      builder: (ctx, snap) {
+        if (!snap.hasData || snap.data!.docs.isEmpty) return const SizedBox.shrink();
+        final docs = snap.data!.docs;
+        return Container(
+          margin: EdgeInsets.all(12.w),
+          padding: EdgeInsets.all(14.w),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F3FF),
+            borderRadius: BorderRadius.circular(14.r),
+            border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(Icons.assignment_late_rounded, color: const Color(0xFF7C3AED), size: 16.sp),
+                SizedBox(width: 6.w),
+                Text('سجل الغياب عن الانتظار',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: const Color(0xFF7C3AED))),
+              ]),
+              SizedBox(height: 10.h),
+              ...docs.map((doc) {
+                final d = doc.data() as Map<String, dynamic>;
+                return Padding(
+                  padding: EdgeInsets.only(bottom: 6.h),
+                  child: Row(children: [
+                    Icon(Icons.circle, size: 6.sp, color: Colors.red.shade400),
+                    SizedBox(width: 8.w),
+                    Text('${d['day'] ?? ''} — ${d['date'] ?? ''}',
+                        style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade700)),
+                    const Spacer(),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                      decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(6.r), border: Border.all(color: Colors.red.shade200)),
+                      child: Text('غائب عن الانتظار', style: TextStyle(color: Colors.red.shade700, fontSize: 10.sp, fontWeight: FontWeight.bold)),
+                    ),
+                  ]),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -116,233 +256,130 @@ class _WaitsTab extends ConsumerWidget {
     final waitsAsync = ref.watch(teacherWaitsProvider(teacherId));
     return waitsAsync.when(
       data: (waits) {
-        final sorted = waits.sorted((a, b) {
-          final ad = _dayOrder(a['day']?.toString() ?? '');
-          final bd = _dayOrder(b['day']?.toString() ?? '');
-          if (ad != bd) return ad.compareTo(bd);
-          final ap = int.tryParse('${a['period']}') ?? 0;
-          final bp = int.tryParse('${b['period']}') ?? 0;
-          return ap.compareTo(bp);
-        });
-
-        if (sorted.isEmpty) {
+        if (waits.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
                   padding: EdgeInsets.all(24.w),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Colors.orange.withOpacity(0.08), Colors.amber.withOpacity(0.04)]),
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.08), shape: BoxShape.circle),
                   child: Icon(Icons.access_time_rounded, size: 64.sp, color: Colors.orange.shade600),
                 ),
                 SizedBox(height: 16.h),
-                Text('لا توجد حصص انتظار حالية', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                Text('لا توجد حصص انتظار اليوم', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                SizedBox(height: 6.h),
+                Text(_todayArabicName(), style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade500)),
               ],
             ),
           );
         }
 
-        return ListView.separated(
+        return ListView(
           padding: EdgeInsets.all(16.w),
-          itemCount: sorted.length,
-          separatorBuilder: (_, __) => SizedBox(height: 10.h),
-          itemBuilder: (context, index) {
-            final w = sorted[index];
-            final day = '${w['day']}';
-            final period = '${w['period']}';
-            final klass = '${w['class']}';
-            return Container(
+          children: [
+            // عنوان اليوم
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+              margin: EdgeInsets.only(bottom: 14.h),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16.r),
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10.r),
                 border: Border.all(color: Colors.orange.shade200),
-                boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 3))],
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 6.w,
-                    height: 70.h,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [Colors.orange.shade600, Colors.amber.shade600], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-                      borderRadius: BorderRadius.only(topRight: Radius.circular(16.r), bottomRight: Radius.circular(16.r)),
-                    ),
-                  ),
-                  SizedBox(width: 14.w),
-                  Container(
-                    padding: EdgeInsets.all(10.w),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Icon(Icons.access_time_filled_rounded, color: Colors.orange.shade700, size: 24.sp),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('الحصة $period - فصل $klass', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp, color: Colors.grey.shade900)),
-                        SizedBox(height: 3.h),
-                        Text(day, style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade600)),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    margin: EdgeInsets.only(left: 12.w),
-                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Text('انتظار', style: TextStyle(color: Colors.orange.shade800, fontSize: 11.sp, fontWeight: FontWeight.bold)),
-                  ),
-                  SizedBox(width: 12.w),
-                ],
-              ),
-            );
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text('خطأ: $e')),
-    );
-  }
-
-  int _dayOrder(String day) {
-    final ar = [
-      'السبت',
-      'الأحد',
-      'الاثنين',
-      'الثلاثاء',
-      'الأربعاء',
-      'الخميس',
-      'الجمعة'
-    ];
-    final en = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday'
-    ];
-    final arIdx = ar.indexOf(day);
-    if (arIdx >= 0) return arIdx;
-    final enIdx = en.indexOf(day);
-    if (enIdx >= 0) return enIdx;
-    return 999; // unknown days go last
-  }
-}
-
-class _RejectedTab extends ConsumerWidget {
-  final String teacherId;
-  const _RejectedTab({required this.teacherId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final rejectedAsync = ref.watch(rejectedViolationsProvider(teacherId));
-    return rejectedAsync.when(
-      data: (violations) {
-        final sorted = [...violations]
-          ..sort(
-            (a, b) => b.timestamp.compareTo(a.timestamp),
-          );
-
-        if (sorted.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+              child: Row(children: [
+                Icon(Icons.today_rounded, color: Colors.orange.shade700, size: 18.sp),
+                SizedBox(width: 8.w),
+                Text('حصص انتظار اليوم — ${_todayArabicName()}',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: Colors.orange.shade900)),
+                const Spacer(),
                 Container(
-                  padding: EdgeInsets.all(24.w),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Colors.green.withOpacity(0.08), Colors.teal.withOpacity(0.04)]),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.check_circle_outline_rounded, size: 64.sp, color: Colors.green.shade600),
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                  decoration: BoxDecoration(color: Colors.orange.shade700, borderRadius: BorderRadius.circular(10.r)),
+                  child: Text('${waits.length}', style: TextStyle(color: Colors.white, fontSize: 11.sp, fontWeight: FontWeight.bold)),
                 ),
-                SizedBox(height: 16.h),
-                Text('لا توجد مخالفات مرفوضة', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
-                SizedBox(height: 8.h),
-                Text('ممتاز! جميع مخالفاتك معتمدة', style: TextStyle(fontSize: 12.sp, color: Colors.grey.shade500)),
-              ],
+              ]),
             ),
-          );
-        }
-
-        return ListView.separated(
-          padding: EdgeInsets.all(16.w),
-          itemCount: sorted.length,
-          separatorBuilder: (_, __) => SizedBox(height: 10.h),
-          itemBuilder: (context, index) {
-            final BehaviorRecord v = sorted[index];
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(color: Colors.red.shade200),
-                boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.07), blurRadius: 10, offset: const Offset(0, 3))],
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.only(topLeft: Radius.circular(16.r), topRight: Radius.circular(16.r)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(8.w),
-                          decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(10.r)),
-                          child: Icon(Icons.cancel_rounded, color: Colors.red.shade700, size: 18.sp),
-                        ),
-                        SizedBox(width: 10.w),
-                        Expanded(
-                          child: Text(v.description, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: Colors.grey.shade900)),
-                        ),
-                        Text(_timeAgo(v.timestamp), style: TextStyle(fontSize: 10.sp, color: Colors.grey.shade500)),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.all(12.w),
-                    child: Container(
-                      padding: EdgeInsets.all(10.w),
-                      decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10.r), border: Border.all(color: Colors.red.shade100)),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded, size: 14.sp, color: Colors.red.shade700),
-                          SizedBox(width: 8.w),
-                          Expanded(child: Text('سبب الرفض: ${v.rejectionReason ?? "غير محدد"}', style: TextStyle(fontSize: 12.sp, color: Colors.red.shade800))),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+            ...waits.map((w) => _buildWaitCard(context, w)),
+          ],
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text('خطأ: $e')),
+      loading: () => const Center(child: CircularProgressIndicator(color: Colors.orange)),
+      error: (e, _) => Center(child: Text('خطأ: $e', style: const TextStyle(color: Colors.red))),
     );
   }
 
-  String _timeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final diff = now.difference(dateTime);
-    if (diff.inDays > 0) return 'منذ ${diff.inDays} يوم';
-    if (diff.inHours > 0) return 'منذ ${diff.inHours} ساعة';
-    if (diff.inMinutes > 0) return 'منذ ${diff.inMinutes} دقيقة';
-    return 'الآن';
+  Widget _buildWaitCard(BuildContext context, Map<String, dynamic> w) {
+    final period     = '${w['period']}';
+    final klass      = (w['class'] as String).isNotEmpty ? w['class'] as String : '—';
+    final day        = '${w['day']}';
+    final label      = '${w['waitLabel']}';
+    final subject    = (w['subject'] as String).isNotEmpty ? w['subject'] as String : '';
+    final absentName = (w['absentName'] as String).isNotEmpty ? w['absentName'] as String : '';
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 10.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: Colors.orange.shade200),
+        boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.07), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(14.w),
+        child: Row(children: [
+          Container(
+            padding: EdgeInsets.all(9.w),
+            decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10.r)),
+            child: Icon(Icons.access_time_filled_rounded, color: Colors.orange.shade700, size: 22.sp),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Text('الحصة $period', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp, color: Colors.grey.shade900)),
+                Text(' — ', style: TextStyle(color: Colors.grey.shade400, fontSize: 14.sp)),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6.r), border: Border.all(color: Colors.blue.shade200)),
+                  child: Text('فصل $klass', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp, color: Colors.blue.shade800)),
+                ),
+              ]),
+              if (subject.isNotEmpty) ...[
+                SizedBox(height: 4.h),
+                Row(children: [
+                  Icon(Icons.book_outlined, size: 12.sp, color: Colors.purple.shade400),
+                  SizedBox(width: 4.w),
+                  Text(subject, style: TextStyle(fontSize: 11.sp, color: Colors.purple.shade700, fontWeight: FontWeight.w600)),
+                ]),
+              ],
+              if (absentName.isNotEmpty) ...[
+                SizedBox(height: 3.h),
+                Row(children: [
+                  Icon(Icons.person_off_outlined, size: 12.sp, color: Colors.red.shade400),
+                  SizedBox(width: 4.w),
+                  Text('غياب: $absentName', style: TextStyle(fontSize: 11.sp, color: Colors.red.shade600)),
+                ]),
+              ],
+              SizedBox(height: 4.h),
+              Row(children: [
+                Text(day, style: TextStyle(fontSize: 11.sp, color: Colors.grey.shade600)),
+                SizedBox(width: 8.w),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+                  decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(6.r), border: Border.all(color: Colors.orange.shade200)),
+                  child: Text(label, style: TextStyle(fontSize: 10.sp, color: Colors.orange.shade800, fontWeight: FontWeight.bold)),
+                ),
+              ]),
+            ],
+          )),
+        ]),
+      ),
+    );
   }
 }
+
+
+
+

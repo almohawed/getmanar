@@ -58,13 +58,16 @@ class FirestoreAdminTaskRepository implements AdminTaskRepository {
 
   @override
   Stream<List<AdminTaskEntity>> watchTasks(String schoolId) {
-    return _getCollection(
-      schoolId,
-    ).orderBy('dueDate', descending: false).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return AdminTaskModel.fromFirestore(doc);
-      }).toList();
-    });
+    return _getCollection(schoolId)
+        .snapshots()
+        .map((snapshot) {
+          final tasks = snapshot.docs.map((doc) {
+            return AdminTaskModel.fromFirestore(doc);
+          }).toList();
+          // ترتيب محلي بدلاً من Firestore orderBy لتجنب مشكلة الـ index
+          tasks.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+          return tasks;
+        });
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../features/supervision/presentation/supervision_duty_screen.dart';
 import '../features/broadcast/presentation/broadcast_screen.dart';
 import '../features/broadcast/presentation/assign_broadcast_supervisor_screen.dart';
 import '../features/admin/presentation/teacher_detail_screen.dart'; // Import this
@@ -56,6 +57,8 @@ import '../features/schedule/presentation/teacher_schedule_screen.dart';
 import '../features/schedule/presentation/teacher_schedule_with_summary_screen.dart';
 import '../features/schedule/presentation/student_schedule_screen.dart';
 import '../features/schedule/presentation/current_schedule_screen.dart';
+import '../features/schedule/presentation/schedule_import_screen.dart';
+import '../features/schedule/presentation/subjects_management_screen.dart';
 import '../features/behavior/presentation/behavioral_violations_screen.dart';
 import '../features/violations/presentation/violations_list_screen.dart';
 import '../features/behavior/presentation/violations_log_screen.dart';
@@ -92,6 +95,7 @@ import '../features/schedule/presentation/modifications_log_screen.dart';
 import '../features/super_admin/presentation/global_accounts_screen.dart'; // Import this
 import '../features/super_admin/presentation/seed_omar_screen.dart';
 import '../features/settings/presentation/settings_screen.dart'; // Import SettingsScreen
+import '../features/settings/presentation/about_screen.dart'; // Import AboutScreen
 import '../features/settings/presentation/masarat_tracks_screen.dart';
 import '../features/setup/presentation/school_setup_wizard.dart';
 import '../features/admin/presentation/smart_admin_dashboard.dart';
@@ -203,6 +207,7 @@ import '../features/academic/presentation/teacher_performance_report_tab.dart';
 import '../features/academic/presentation/export_academic_reports_tab.dart';
 import '../features/simple_schedule/presentation/simple_schedule_screen.dart';
 import '../features/simple_schedule/presentation/my_schedule_screen.dart';
+import '../features/requests/presentation/student_exit_permission_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -652,6 +657,10 @@ final router = GoRouter(
       builder: (context, state) => const SettingsScreen(),
     ),
     GoRoute(
+      path: '/about',
+      builder: (context, state) => const AboutScreen(),
+    ),
+    GoRoute(
       path: '/school-location',
       builder: (context, state) => const SchoolLocationScreen(),
     ),
@@ -726,6 +735,12 @@ final router = GoRouter(
       },
     ),
     GoRoute(
+      path: '/supervision-duty',
+      builder: (context, state) {
+        return const SupervisionDutyScreen();
+      },
+    ),
+    GoRoute(
       path: '/subject-assignment',
       builder: (context, state) {
         return const SubjectAssignmentScreen();
@@ -744,7 +759,15 @@ final router = GoRouter(
       },
     ),
     GoRoute(
-      path: '/schedule-management',
+      path: '/subjects-management',
+          builder: (context, state) => const SubjectsManagementScreen(),
+        ),
+        GoRoute(
+          path: '/schedule-import',
+          builder: (context, state) => const ScheduleImportScreen(),
+        ),
+        GoRoute(
+          path: '/schedule-management',
       builder: (context, state) {
         return const ScheduleManagementScreen();
       },
@@ -1382,7 +1405,12 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/wait-management',
-      builder: (context, state) => const WaitManagementScreen(),
+      builder: (context, state) {
+        // Get schoolId from extra or from auth
+        final extra = state.extra as Map<String, dynamic>?;
+        final schoolId = extra?['schoolId'] as String?;
+        return WaitManagementScreen(schoolId: schoolId);
+      },
     ),
     GoRoute(
       path: '/teacher-schedule',
@@ -1541,6 +1569,10 @@ final router = GoRouter(
           schoolId: params['schoolId']!,
         );
       },
+    ),
+    GoRoute(
+      path: '/student-exit-permission',
+      builder: (context, state) => const StudentExitPermissionScreen(),
     ),
   ],
 );

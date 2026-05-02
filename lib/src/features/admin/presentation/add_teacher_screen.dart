@@ -62,6 +62,9 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
   // Smart Paste State
   final _smartPasteController = TextEditingController();
   bool _isSmartMode = false;
+  double _importProgress = 0.0;   // 0.0 → 1.0
+  int _importDone = 0;
+  int _importTotal = 0;
 
   String _selectedStage = 'الابتدائية';
   bool _isStageFixed = false;
@@ -184,6 +187,132 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
       buf.writeln([_escapeCsv(r.name), _escapeCsv(u), _escapeCsv(p)].join(','));
     }
     return buf.toString();
+  }
+
+  /// تصدير نتائج الاستيراد كـ Excel احترافي
+  Future<void> _exportResultsAsExcel(List<_TeacherImportRowReport> rows) async {
+    try {
+      excel.ExcelColor c(String hex) => excel.ExcelColor.fromHexString(hex);
+
+      final workbook = excel.Excel.createExcel();
+      workbook.delete('Sheet1');
+      final sheet = workbook['بيانات دخول المعلمين'];
+
+      // عرض الأعمدة
+      sheet.setColumnWidth(0, 5);
+      sheet.setColumnWidth(1, 32);
+      sheet.setColumnWidth(2, 22);
+      sheet.setColumnWidth(3, 18);
+      sheet.setColumnWidth(4, 12);
+
+      // صف العنوان
+      sheet.merge(
+        excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+        excel.CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0),
+      );
+      final titleCell = sheet.cell(
+          excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0));
+      titleCell.value = excel.TextCellValue('بيانات دخول المعلمين — منصة منار');
+      titleCell.cellStyle = excel.CellStyle(
+        bold: true, fontSize: 14,
+        fontColorHex: c('FFFFFFFF'),
+        backgroundColorHex: c('FF1A237E'),
+        horizontalAlign: excel.HorizontalAlign.Center,
+        verticalAlign: excel.VerticalAlign.Center,
+      );
+      sheet.setRowHeight(0, 32);
+
+      // تحذير
+      sheet.merge(
+        excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1),
+        excel.CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 1),
+      );
+      final warnCell = sheet.cell(
+          excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1));
+      warnCell.value = excel.TextCellValue(
+          'تحذير: هذه البيانات سرية. سلّم كل معلم بياناته الخاصة فقط. كلمات المرور مؤقتة.');
+      warnCell.cellStyle = excel.CellStyle(
+        fontSize: 9, italic: true,
+        fontColorHex: c('FFBF360C'),
+        backgroundColorHex: c('FFFFF8E1'),
+        horizontalAlign: excel.HorizontalAlign.Center,
+      );
+      sheet.setRowHeight(1, 20);
+
+      // رؤوس الأعمدة
+      final headers = ['#', 'اسم المعلم', 'التخصص', 'كود الدخول', 'كلمة المرور'];
+      for (var i = 0; i < headers.length; i++) {
+        final cell = sheet.cell(
+            excel.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2));
+        cell.value = excel.TextCellValue(headers[i]);
+        cell.cellStyle = excel.CellStyle(
+          bold: true, fontSize: 11,
+          fontColorHex: c('FFFFFFFF'),
+          backgroundColorHex: c('FF283593'),
+          horizontalAlign: excel.HorizontalAlign.Center,
+          verticalAlign: excel.VerticalAlign.Center,
+        );
+      }
+      sheet.setRowHeight(2, 26);
+
+      // البيانات
+      var rowIdx = 3;
+      var num = 1;
+      for (final r in rows) {
+        if (r.status == _TeacherImportRowStatus.failed) continue;
+        final u = (r.username ?? '').trim();
+        final p = (r.pin ?? '').trim();
+        if (u.isEmpty) continue;
+
+        final bg = rowIdx % 2 == 0 ? c('FFE8EAF6') : c('FFFFFFFF');
+        final vals = [
+          '$num',
+          r.name,
+          r.specialization ?? '—',
+          u,
+          p.isEmpty ? '—' : p,
+        ];
+        for (var col = 0; col < vals.length; col++) {
+          final cell = sheet.cell(
+              excel.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIdx));
+          cell.value = excel.TextCellValue(vals[col]);
+          cell.cellStyle = excel.CellStyle(
+            fontSize: 11,
+            fontColorHex: col >= 3 ? c('FF1565C0') : c('FF212121'),
+            backgroundColorHex: bg,
+            bold: col >= 3,
+            horizontalAlign: col == 0
+                ? excel.HorizontalAlign.Center
+                : excel.HorizontalAlign.Right,
+          );
+        }
+        sheet.setRowHeight(rowIdx, 22);
+        rowIdx++;
+        num++;
+      }
+
+      final bytes = workbook.save();
+      if (bytes == null) throw Exception('فشل إنشاء الملف');
+
+      final xFile = XFile.fromData(
+        Uint8List.fromList(bytes),
+        name: 'بيانات_دخول_المعلمين_منار.xlsx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      if (kIsWeb) {
+        await xFile.saveTo('بيانات_دخول_المعلمين_منار.xlsx');
+      } else {
+        await SharePlus.instance.share(ShareParams(
+          files: [xFile],
+          text: 'بيانات دخول المعلمين — منصة منار',
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('فشل التصدير: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Uint8List? _buildTeacherCredentialsXlsxBytesFromCsv(String csv) {
@@ -608,6 +737,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
     required int? nisab,
     required List<String> classIds,
     required Set<String> reservedUsernames,
+    String? teacherRank,
   }) async {
     final rnd = Random(DateTime.now().microsecondsSinceEpoch);
 
@@ -670,6 +800,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
         maxWeeklyClasses: nisab,
         identityNumber: candidate,
         phoneNumber: phoneNumber,
+        teacherRank: teacherRank,
         isPasswordChangeRequired: true,
       );
 
@@ -2028,40 +2159,130 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
   // --- Excel Logic ---
   Future<void> _downloadTemplate() async {
     try {
-      // Load from assets
-      final byteData = await rootBundle.load('assets/templet/tetchar.xlsx');
-      final bytes = byteData.buffer.asUint8List(
-        byteData.offsetInBytes,
-        byteData.lengthInBytes,
-      );
+      final workbook = excel.Excel.createExcel();
+      workbook.delete('Sheet1');
+      final sheet = workbook['قالب المعلمين'];
 
-      // NOTE: Auto-fill logic removed to ensure the original template is preserved exactly as is.
-      // The user reported that the downloaded template was "wrong" (not the modified tetchar),
-      // so we avoid any modification to the binary data.
+      // ─── helper لتحويل hex إلى ExcelColor ────────────────────────────
+      excel.ExcelColor c(String hex) => excel.ExcelColor.fromHexString(hex);
+
+      // ─── عرض الأعمدة ─────────────────────────────────────────────────
+      sheet.setColumnWidth(0, 35);
+      sheet.setColumnWidth(1, 25);
+      sheet.setColumnWidth(2, 20);
+
+      // ─── صف العنوان (مدمج) ───────────────────────────────────────────
+      sheet.merge(
+        excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+        excel.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 0),
+      );
+      final titleCell = sheet.cell(
+          excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0));
+      titleCell.value =
+          excel.TextCellValue('قالب استيراد بيانات المعلمين - منصة منار');
+      titleCell.cellStyle = excel.CellStyle(
+        bold: true,
+        fontSize: 14,
+        fontColorHex: c('FFFFFFFF'),
+        backgroundColorHex: c('FF1A237E'),
+        horizontalAlign: excel.HorizontalAlign.Center,
+        verticalAlign: excel.VerticalAlign.Center,
+        textWrapping: excel.TextWrapping.WrapText,
+      );
+      sheet.setRowHeight(0, 35);
+
+      // ─── صف التعليمات (مدمج) ─────────────────────────────────────────
+      sheet.merge(
+        excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1),
+        excel.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 1),
+      );
+      final instrCell = sheet.cell(
+          excel.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1));
+      instrCell.value = excel.TextCellValue(
+          'تعليمات: أدخل بيانات المعلمين من الصف الرابع. لا تعدّل رؤوس الأعمدة.');
+      instrCell.cellStyle = excel.CellStyle(
+        bold: false,
+        fontSize: 10,
+        fontColorHex: c('FFBF360C'),
+        backgroundColorHex: c('FFFFF8E1'),
+        horizontalAlign: excel.HorizontalAlign.Center,
+        textWrapping: excel.TextWrapping.WrapText,
+      );
+      sheet.setRowHeight(1, 25);
+
+      // ─── رؤوس الأعمدة ────────────────────────────────────────────────
+      final headers = ['اسم المعلم', 'التخصص', 'الرتبة'];
+      for (var i = 0; i < headers.length; i++) {
+        final cell = sheet.cell(
+            excel.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 2));
+        cell.value = excel.TextCellValue(headers[i]);
+        cell.cellStyle = excel.CellStyle(
+          bold: true,
+          fontSize: 12,
+          fontColorHex: c('FFFFFFFF'),
+          backgroundColorHex: c('FF283593'),
+          horizontalAlign: excel.HorizontalAlign.Center,
+          verticalAlign: excel.VerticalAlign.Center,
+        );
+      }
+      sheet.setRowHeight(2, 28);
+
+      // ─── صف مثال ─────────────────────────────────────────────────────
+      final exampleData = ['محمد أحمد العتيبي', 'رياضيات', 'ممارس'];
+      for (var i = 0; i < exampleData.length; i++) {
+        final cell = sheet.cell(
+            excel.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
+        cell.value = excel.TextCellValue(exampleData[i]);
+        cell.cellStyle = excel.CellStyle(
+          fontSize: 11,
+          fontColorHex: c('FF9E9E9E'),
+          backgroundColorHex: c('FFF5F5F5'),
+          italic: true,
+          horizontalAlign: excel.HorizontalAlign.Right,
+        );
+      }
+      sheet.setRowHeight(3, 22);
+
+      // ─── صفوف البيانات الفارغة ────────────────────────────────────────
+      for (var r = 4; r < 24; r++) {
+        final bg = r % 2 == 0 ? c('FFE8EAF6') : c('FFFFFFFF');
+        for (var col = 0; col < 3; col++) {
+          final cell = sheet.cell(
+              excel.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: r));
+          cell.value = excel.TextCellValue('');
+          cell.cellStyle = excel.CellStyle(
+            fontSize: 11,
+            fontColorHex: c('FF1A237E'),
+            backgroundColorHex: bg,
+            horizontalAlign: excel.HorizontalAlign.Right,
+          );
+        }
+        sheet.setRowHeight(r, 22);
+      }
+
+      // ─── تصدير ───────────────────────────────────────────────────────
+      final bytes = workbook.save();
+      if (bytes == null) throw Exception('فشل إنشاء الملف');
 
       final xFile = XFile.fromData(
-        bytes,
-        name: 'tetchar.xlsx', // Changed to match the asset name
+        Uint8List.fromList(bytes),
+        name: 'قالب_المعلمين_منار.xlsx',
         mimeType:
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
 
       if (kIsWeb) {
-        // On Web, use saveTo to trigger download
-        await xFile.saveTo('tetchar.xlsx');
+        await xFile.saveTo('قالب_المعلمين_منار.xlsx');
       } else {
-        // On Mobile, use SharePlus
-        final shareParams = ShareParams(
+        await SharePlus.instance.share(ShareParams(
           files: [xFile],
-          text: 'قالب بيانات المعلمين',
-        );
-        await SharePlus.instance.share(shareParams);
+          text: 'قالب بيانات المعلمين — منصة منار',
+        ));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('فشل تحميل القالب: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('فشل تحميل القالب: $e')));
       }
     }
   }
@@ -2348,9 +2569,12 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
                   val.contains('رقم الهوية')) {
                 colMap['id'] = j;
               }
-              if (val.contains('المواد المسندة')) colMap['spec'] = j;
+              if (val.contains('المواد المسندة') ||
+                  val.contains('التخصص')) colMap['spec'] = j;
               if (val.contains('الأنصبة')) colMap['nisab'] = j;
               if (val.contains('الفصول المسنده')) colMap['classes'] = j;
+              if (val.contains('الرتبة') ||
+                  val.toLowerCase().contains('rank')) colMap['rank'] = j;
             }
             if (colMap.containsKey('name')) {
               headerRowIndex = i;
@@ -2360,10 +2584,24 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
 
           if (headerRowIndex == -1) continue; // Skip sheet if no headers found
 
+          // حساب إجمالي الصفوف للتقدم
+          final totalRows = sheet.rows.length - headerRowIndex - 1;
+          if (mounted) setState(() {
+            _importTotal = totalRows > 0 ? totalRows : 1;
+            _importDone = 0;
+            _importProgress = 0.0;
+          });
+
           // 2. Process Data
           for (var i = headerRowIndex + 1; i < sheet.rows.length; i++) {
             final row = sheet.rows[i];
-            if (row.isEmpty) continue;
+            if (row.isEmpty) {
+              if (mounted) setState(() {
+                _importDone++;
+                _importProgress = _importDone / _importTotal;
+              });
+              continue;
+            }
 
             // Get Name
             String name = '';
@@ -2411,6 +2649,32 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
                     .trim();
               } else {
                 spec = cell.value.toString().trim();
+              }
+            }
+
+            // Get Rank (الرتبة)
+            String? rankStr;
+            if (colMap.containsKey('rank') &&
+                colMap['rank']! < row.length &&
+                row[colMap['rank']!] != null) {
+              final cell = row[colMap['rank']!];
+              if (cell!.value is excel.TextCellValue) {
+                rankStr = (cell.value as excel.TextCellValue).value
+                    .toString()
+                    .trim();
+              } else {
+                rankStr = cell.value?.toString().trim();
+              }
+            }
+            // تحويل نص الرتبة إلى قيمة TeacherRank
+            String? teacherRank;
+            if (rankStr != null) {
+              if (rankStr.contains('ممارس') || rankStr.toLowerCase().contains('practitioner')) {
+                teacherRank = 'practitioner';
+              } else if (rankStr.contains('متقدم') || rankStr.toLowerCase().contains('advanced')) {
+                teacherRank = 'advanced';
+              } else if (rankStr.contains('خبير') || rankStr.toLowerCase().contains('expert')) {
+                teacherRank = 'expert';
               }
             }
 
@@ -2475,6 +2739,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
               nisab: nisab,
               classIds: classIds,
               reservedUsernames: reservedUsernames,
+              teacherRank: teacherRank,
             );
             report.add(
               _TeacherImportRowReport(
@@ -2487,12 +2752,18 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
                 status: status,
               ),
             );
+            // تحديث شريط التقدم
+            if (mounted) setState(() {
+              _importDone++;
+              _importProgress = (_importDone / _importTotal).clamp(0.0, 1.0);
+            });
           }
         }
 
         if (mounted) {
-          await _showTeacherImportReportDialog(report);
           setState(() {
+            _importProgress = 1.0;
+            _lastTeacherImportRows = report;
             _importStatus = 'تمت عملية الاستيراد (${report.length} سجل)';
           });
         }
@@ -3672,6 +3943,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
 
   Widget _buildExcelTab() {
     final hasResults = _lastTeacherImportRows.isNotEmpty;
+    final isImporting = _isLoading && _importTotal > 0;
     final completed = _lastTeacherImportRows
         .where((r) => r.status == _TeacherImportRowStatus.completed)
         .toList();
@@ -3708,10 +3980,8 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('استيراد المعلمين من Excel',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16.sp)),
+                          style: TextStyle(color: Colors.white,
+                              fontWeight: FontWeight.bold, fontSize: 16.sp)),
                       SizedBox(height: 4.h),
                       Text('حمّل القالب، عبّئه، ثم ارفعه لإضافة المعلمين تلقائياً',
                           style: TextStyle(color: Colors.white70, fontSize: 11.sp)),
@@ -3724,110 +3994,116 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
           SizedBox(height: 20.h),
 
           // ─── الخطوتان ─────────────────────────────────────────────────
-          Row(
+          if (!isImporting && !hasResults) Row(
             children: [
-              // خطوة 1: تحميل القالب
               Expanded(
                 child: GestureDetector(
                   onTap: _downloadTemplate,
                   child: Container(
                     padding: EdgeInsets.all(20.w),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.blue.shade800.withValues(alpha: 0.8),
-                          Colors.blue.shade600.withValues(alpha: 0.8),
-                        ],
-                      ),
+                      gradient: LinearGradient(colors: [
+                        Colors.blue.shade800.withValues(alpha: 0.8),
+                        Colors.blue.shade600.withValues(alpha: 0.8),
+                      ]),
                       borderRadius: BorderRadius.circular(14.r),
                       border: Border.all(color: Colors.blue.withValues(alpha: 0.4)),
                     ),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(12.w),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.download_for_offline,
-                              size: 32.sp, color: Colors.white),
+                    child: Column(children: [
+                      Container(
+                        padding: EdgeInsets.all(12.w),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
                         ),
-                        SizedBox(height: 10.h),
-                        Text('الخطوة 1',
-                            style: TextStyle(
-                                color: Colors.white60, fontSize: 10.sp)),
-                        SizedBox(height: 4.h),
-                        Text('تحميل قالب Excel',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13.sp)),
-                        SizedBox(height: 4.h),
-                        Text('نموذج جاهز للتعبئة',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Colors.white60, fontSize: 10.sp)),
-                      ],
-                    ),
+                        child: Icon(Icons.download_for_offline, size: 32.sp, color: Colors.white),
+                      ),
+                      SizedBox(height: 10.h),
+                      Text('الخطوة 1', style: TextStyle(color: Colors.white60, fontSize: 10.sp)),
+                      SizedBox(height: 4.h),
+                      Text('تحميل قالب Excel', textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.sp)),
+                    ]),
                   ),
                 ),
               ),
               SizedBox(width: 12.w),
-              // خطوة 2: رفع الملف
               Expanded(
                 child: GestureDetector(
                   onTap: _showImportOptions,
                   child: Container(
                     padding: EdgeInsets.all(20.w),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.green.shade800.withValues(alpha: 0.8),
-                          Colors.green.shade600.withValues(alpha: 0.8),
-                        ],
-                      ),
+                      gradient: LinearGradient(colors: [
+                        Colors.green.shade800.withValues(alpha: 0.8),
+                        Colors.green.shade600.withValues(alpha: 0.8),
+                      ]),
                       borderRadius: BorderRadius.circular(14.r),
                       border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
                     ),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(12.w),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.upload_file,
-                              size: 32.sp, color: Colors.white),
+                    child: Column(children: [
+                      Container(
+                        padding: EdgeInsets.all(12.w),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
                         ),
-                        SizedBox(height: 10.h),
-                        Text('الخطوة 2',
-                            style: TextStyle(
-                                color: Colors.white60, fontSize: 10.sp)),
-                        SizedBox(height: 4.h),
-                        Text('رفع ملف Excel',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13.sp)),
-                        SizedBox(height: 4.h),
-                        Text('بعد تعبئة البيانات',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Colors.white60, fontSize: 10.sp)),
-                      ],
-                    ),
+                        child: Icon(Icons.upload_file, size: 32.sp, color: Colors.white),
+                      ),
+                      SizedBox(height: 10.h),
+                      Text('الخطوة 2', style: TextStyle(color: Colors.white60, fontSize: 10.sp)),
+                      SizedBox(height: 4.h),
+                      Text('رفع ملف Excel', textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.sp)),
+                    ]),
                   ),
                 ),
               ),
             ],
           ),
 
+          // ─── شريط التقدم ──────────────────────────────────────────────
+          if (isImporting) ...[
+            SizedBox(height: 16.h),
+            Container(
+              padding: EdgeInsets.all(20.w),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(14.r),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('جاري إضافة المعلمين...',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.sp)),
+                      Text('${(_importProgress * 100).toInt()}%',
+                          style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14.sp)),
+                    ],
+                  ),
+                  SizedBox(height: 12.h),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8.r),
+                    child: LinearProgressIndicator(
+                      value: _importProgress,
+                      minHeight: 12,
+                      backgroundColor: Colors.white.withValues(alpha: 0.1),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF42A5F5)),
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Text('$_importDone من $_importTotal معلم',
+                      style: TextStyle(color: Colors.white54, fontSize: 11.sp)),
+                ],
+              ),
+            ),
+          ],
+
           // ─── حالة الاستيراد ───────────────────────────────────────────
-          if (_importStatus != null) ...[
+          if (_importStatus != null && !isImporting) ...[
             SizedBox(height: 16.h),
             Container(
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
@@ -3842,38 +4118,44 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
                       : Colors.green.withValues(alpha: 0.4),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    _importStatus!.contains('فشل')
-                        ? Icons.error_outline
-                        : Icons.check_circle_outline,
-                    color: _importStatus!.contains('فشل')
-                        ? Colors.red.shade300
-                        : Colors.green.shade300,
-                    size: 20.sp,
-                  ),
-                  SizedBox(width: 10.w),
-                  Expanded(
-                    child: Text(
-                      _importStatus!,
-                      style: TextStyle(
-                        color: _importStatus!.contains('فشل')
-                            ? Colors.red.shade300
-                            : Colors.green.shade300,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13.sp,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              child: Row(children: [
+                Icon(
+                  _importStatus!.contains('فشل') ? Icons.error_outline : Icons.check_circle_outline,
+                  color: _importStatus!.contains('فشل') ? Colors.red.shade300 : Colors.green.shade300,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 10.w),
+                Expanded(child: Text(_importStatus!,
+                    style: TextStyle(
+                      color: _importStatus!.contains('فشل') ? Colors.red.shade300 : Colors.green.shade300,
+                      fontWeight: FontWeight.bold, fontSize: 13.sp))),
+              ]),
             ),
           ],
 
           // ─── جدول النتائج ─────────────────────────────────────────────
-          if (hasResults) ...[
+          if (hasResults && !isImporting) ...[
             SizedBox(height: 20.h),
+            // زر التصدير
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('نتائج الاستيراد (${_lastTeacherImportRows.length} معلم)',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.sp)),
+                ElevatedButton.icon(
+                  onPressed: () => _exportResultsAsExcel(_lastTeacherImportRows),
+                  icon: Icon(Icons.download, size: 16.sp),
+                  label: const Text('تصدير Excel'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.04),
@@ -3884,122 +4166,82 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
                 children: [
                   // Header الجدول
                   Container(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16.w, vertical: 12.h),
+                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1A237E), Color(0xFF283593)],
-                      ),
+                      gradient: const LinearGradient(colors: [Color(0xFF1A237E), Color(0xFF283593)]),
                       borderRadius: BorderRadius.only(
                         topRight: Radius.circular(14.r),
                         topLeft: Radius.circular(14.r),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.people, color: Colors.white70, size: 16.sp),
-                        SizedBox(width: 8.w),
-                        Text(
-                          'بيانات دخول المعلمين (${completed.length} معلم)',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13.sp),
-                        ),
-                        const Spacer(),
-                        Text('احفظ هذه البيانات قبل الإغلاق',
-                            style: TextStyle(
-                                color: Colors.amber, fontSize: 10.sp)),
-                      ],
-                    ),
-                  ),
-                  // رأس الأعمدة
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 16.w, vertical: 10.h),
-                    color: Colors.white.withValues(alpha: 0.06),
-                    child: Row(
-                      children: [
-                        _th('#', 40),
-                        _th('اسم المعلم', 180),
-                        _th('التخصص', 130),
-                        _th('كود الدخول', 120),
-                        _th('كلمة المرور المؤقتة', 130),
-                        _th('الحالة', 70),
-                      ],
-                    ),
+                    child: Row(children: [
+                      _th('#', 35),
+                      _th('اسم المعلم', 170),
+                      _th('التخصص', 120),
+                      _th('كود الدخول', 110),
+                      _th('كلمة المرور', 110),
+                      _th('الحالة', 65),
+                    ]),
                   ),
                   // الصفوف
                   ...List.generate(_lastTeacherImportRows.length, (i) {
                     final r = _lastTeacherImportRows[i];
-                    final isCompleted =
-                        r.status == _TeacherImportRowStatus.completed;
+                    final isOk = r.status == _TeacherImportRowStatus.completed;
                     return Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 16.w, vertical: 10.h),
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
                       decoration: BoxDecoration(
                         color: i % 2 == 0
                             ? Colors.white.withValues(alpha: 0.02)
                             : Colors.transparent,
-                        border: Border(
-                          bottom: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.05)),
-                        ),
+                        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
                       ),
-                      child: Row(
-                        children: [
-                          _td('${i + 1}', 40, Colors.white38),
-                          _td(r.name, 180, Colors.white),
-                          _td(r.specialization ?? '—', 130, Colors.white70),
-                          _td(
-                            r.username ?? '—',
-                            120,
-                            isCompleted
-                                ? Colors.blue.shade300
-                                : Colors.white38,
-                            mono: true,
+                      child: Row(children: [
+                        _td('${i + 1}', 35, Colors.white38),
+                        _td(r.name, 170, Colors.white),
+                        _td(r.specialization ?? '—', 120, Colors.white70),
+                        _td(r.username ?? '—', 110,
+                            isOk ? Colors.blue.shade300 : Colors.white38, mono: true),
+                        _td(r.pin ?? '—', 110,
+                            isOk ? Colors.amber.shade300 : Colors.white38, mono: true),
+                        Container(
+                          width: 65.w,
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isOk
+                                ? Colors.green.withValues(alpha: 0.2)
+                                : r.status == _TeacherImportRowStatus.duplicate
+                                    ? Colors.orange.withValues(alpha: 0.2)
+                                    : Colors.red.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4.r),
                           ),
-                          _td(
-                            r.pin ?? '—',
-                            130,
-                            isCompleted
-                                ? Colors.amber.shade300
-                                : Colors.white38,
-                            mono: true,
-                          ),
-                          Container(
-                            width: 70.w,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isCompleted
-                                  ? Colors.green.withValues(alpha: 0.2)
-                                  : r.status ==
-                                          _TeacherImportRowStatus.duplicate
-                                      ? Colors.orange.withValues(alpha: 0.2)
-                                      : Colors.red.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4.r),
-                            ),
-                            child: Text(
-                              r.status.label,
+                          child: Text(r.status.label,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 10.sp,
                                 fontWeight: FontWeight.bold,
-                                color: isCompleted
+                                color: isOk
                                     ? Colors.green.shade300
-                                    : r.status ==
-                                            _TeacherImportRowStatus.duplicate
+                                    : r.status == _TeacherImportRowStatus.duplicate
                                         ? Colors.orange.shade300
                                         : Colors.red.shade300,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                              )),
+                        ),
+                      ]),
                     );
                   }),
                 ],
+              ),
+            ),
+            SizedBox(height: 16.h),
+            // زر رفع ملف جديد
+            OutlinedButton.icon(
+              onPressed: _showImportOptions,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('رفع ملف آخر'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white70,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                padding: EdgeInsets.symmetric(vertical: 12.h),
               ),
             ),
           ],
@@ -4034,6 +4276,7 @@ class _AddTeacherScreenState extends ConsumerState<AddTeacherScreen>
       ),
     );
   }
+}
 
 enum _TeacherImportRowStatus { completed, duplicate, failed }
 

@@ -53,13 +53,69 @@ class _ActionItem {
   const _ActionItem({required this.icon, required this.label, required this.color, required this.route, this.extra});
 }
 
-class AdminDashboardV2 extends ConsumerWidget {
+class AdminDashboardV2 extends ConsumerStatefulWidget {
   const AdminDashboardV2({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminDashboardV2> createState() => _AdminDashboardV2State();
+}
+
+class _AdminDashboardV2State extends ConsumerState<AdminDashboardV2> {
+  bool _showSubscription = false;
+  String _loadedSchoolId = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tryLoad();
+    });
+  }
+
+  void _tryLoad() {
+    final user = ref.read(authStateProvider).value;
+    final schoolId = (user?.schoolId ?? '').trim();
+    if (schoolId.isNotEmpty && schoolId != _loadedSchoolId) {
+      _loadedSchoolId = schoolId;
+      _loadSubscriptionVisibility(schoolId);
+    }
+  }
+
+  Future<void> _loadSubscriptionVisibility(String schoolId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('Schools').doc(schoolId).get();
+      if (doc.exists && mounted) {
+        final val = doc.data()?['showSubscriptionSection'];
+        setState(() {
+          _showSubscription = val == true;
+        });
+      }
+    } catch (e) {
+      debugPrint('showSubscription load error: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final user = ref.watch(authStateProvider).value;
     final schoolId = (user?.schoolId ?? '').trim();
+
+    // مراقبة تغيّر authState لتحميل showSubscription
+    ref.listen(authStateProvider, (_, next) {
+      final sid = (next.value?.schoolId ?? '').trim();
+      if (sid.isNotEmpty && sid != _loadedSchoolId) {
+        _loadedSchoolId = sid;
+        _loadSubscriptionVisibility(sid);
+      }
+    });
+
+    // تحميل عند أول حصول على schoolId
+    if (schoolId.isNotEmpty && schoolId != _loadedSchoolId) {
+      _loadedSchoolId = schoolId;
+      Future.delayed(Duration.zero, () => _loadSubscriptionVisibility(schoolId));
+    }
     final schoolName = ref.watch(schoolProvider(schoolId).select((v) => v.value?.name ?? ''));
     final studentsCount = ref.watch(studentsProvider.select((v) => v.value?.length ?? 0));
     final classesCount = ref.watch(classesProvider.select((v) => v.value?.length ?? 0));
@@ -68,10 +124,6 @@ class AdminDashboardV2 extends ConsumerWidget {
     final schoolStatus = ref.watch(schoolStatusProvider).value ?? SchoolStatusMetrics();
     final actionNeeded = ref.watch(actionNeededProvider).value ?? [];
     final liveCounts = ref.watch(_adminLiveCountsProvider(schoolId)).value ?? {};
-    // Read showSubscriptionSection from school data
-    final showSubscriptionSection = ref.watch(
-      schoolProvider(schoolId).select((v) => v.value?.showSubscriptionSection ?? true),
-    );
     // Check if secondary school (show masarat management for all secondary schools)
     final isSecondary = ref.watch(
       schoolProvider(schoolId).select((v) => v.value?.stage == 'الثانوية'),
@@ -95,6 +147,7 @@ class AdminDashboardV2 extends ConsumerWidget {
               WelcomeBanner(
                 userName: user?.name ?? 'المدير',
                 gradient: DashboardPalette.bannerGradient('admin'),
+                role: 'admin',
               ),
               SizedBox(height: 16.h),
 
@@ -141,11 +194,13 @@ class AdminDashboardV2 extends ConsumerWidget {
                 _ActionItem(icon: Icons.person_pin, label: 'المعلمين', color: Colors.green.shade700, route: '/teachers-list'),
                 _ActionItem(icon: Icons.class_, label: 'الفصول', color: Colors.orange.shade700, route: '/classes-list'),
                 _ActionItem(icon: Icons.auto_awesome, label: 'الجدول المدرسي', color: Colors.indigo.shade700, route: '/smart-schedule'),
+                _ActionItem(icon: Icons.supervisor_account_rounded, label: 'الإشراف والمناوبة', color: const Color(0xFF0D47A1), route: '/supervision-duty'),
                 _ActionItem(icon: Icons.assignment, label: 'الاختبارات', color: Colors.red.shade700, route: '/smart-exams'),
               ]),
 
               _buildSectionHeader(context, 'شؤون الطلاب'),
               _buildActionGrid(context, ref, [
+                _ActionItem(icon: Icons.exit_to_app, label: 'إذن خروج طالب', color: Colors.amber.shade700, route: '/student-exit-permission'),
                 _ActionItem(icon: Icons.fact_check, label: liveCounts['absences'] != null && liveCounts['absences']! > 0 ? 'الحضور والغياب (${liveCounts['absences']})' : 'الحضور والغياب', color: Colors.teal, route: '/school-attendance-dashboard'),
                 _ActionItem(icon: Icons.gavel, label: liveCounts['behaviorCases'] != null && liveCounts['behaviorCases']! > 0 ? 'السلوك والمواظبة (${liveCounts['behaviorCases']})' : 'السلوك والمواظبة', color: Colors.orange, route: '/behavior'),
                 _ActionItem(icon: Icons.psychology, label: 'التوجيه الطلابي', color: Colors.purple, route: '/counselor-dashboard'),
@@ -181,7 +236,7 @@ class AdminDashboardV2 extends ConsumerWidget {
                 _ActionItem(icon: Icons.settings, label: 'إعدادات المدرسة', color: Colors.grey, route: '/settings'),
                 _ActionItem(icon: Icons.location_on, label: 'موقع المدرسة', color: const Color(0xFF00897B), route: '/school-location'),
                 _ActionItem(icon: Icons.lock_person, label: liveCounts['permissions'] != null && liveCounts['permissions']! > 0 ? 'الصلاحيات (${liveCounts['permissions']})' : 'الصلاحيات', color: Colors.blueGrey, route: '/permissions-dashboard'),
-                if (showSubscriptionSection)
+                if (_showSubscription)
                   _ActionItem(icon: Icons.card_membership, label: 'الاشتراك', color: Colors.amber, route: '/subscription-plans'),
                 _ActionItem(icon: Icons.mic, label: 'مسؤول الإذاعة', color: const Color(0xFF1A237E), route: '/assign-broadcast-supervisor'),
                 if (isSecondary)
@@ -216,15 +271,72 @@ class AdminDashboardV2 extends ConsumerWidget {
                 child: Icon(Icons.admin_panel_settings, color: Colors.white, size: 26.sp),
               ),
               SizedBox(width: 12.w),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (schoolName.isNotEmpty) ...[
-                    Text(schoolName, style: TextStyle(color: Colors.white, fontSize: 20.sp, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 4.h),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (schoolName.isNotEmpty) ...[
+                      Text(schoolName, style: TextStyle(color: Colors.white, fontSize: 20.sp, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 4.h),
+                    ],
+                    Text('مدير المدرسة', style: TextStyle(color: Colors.white.withOpacity(0.95), fontSize: 16.sp, fontWeight: FontWeight.w600)),
                   ],
-                  Text('مدير المدرسة', style: TextStyle(color: Colors.white.withOpacity(0.95), fontSize: 16.sp, fontWeight: FontWeight.w600)),
-                ],
+                ),
+              ),
+              // زر تسجيل الخروج
+              GestureDetector(
+                onTap: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                      title: Row(children: [
+                        Icon(Icons.logout_rounded, color: Colors.red, size: 22.sp),
+                        SizedBox(width: 8.w),
+                        Text('تسجيل الخروج', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
+                      ]),
+                      content: Text('هل تريد تسجيل الخروج من الحساب؟', style: TextStyle(fontSize: 14.sp)),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Text('إلغاء', style: TextStyle(color: Colors.grey, fontSize: 13.sp)),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          icon: Icon(Icons.logout_rounded, size: 16.sp),
+                          label: Text('خروج', style: TextStyle(fontSize: 13.sp)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true && context.mounted) {
+                    await ref.read(authStateProvider.notifier).logout();
+                    if (context.mounted) {
+                      context.go('/login');
+                    }
+                  }
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10.r),
+                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.logout_rounded, color: Colors.white, size: 16.sp),
+                      SizedBox(width: 6.w),
+                      Text('خروج', style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -361,7 +473,7 @@ class AdminDashboardV2 extends ConsumerWidget {
           itemBuilder: (context, i) {
             final item = items[i];
             return _buildActionCard(context, icon: item.icon, label: item.label, color: item.color, onTap: () {
-              final implemented = ['/students-list','/teachers-list','/classes-list','/schedule-management','/smart-schedule','/assign-subjects','/admin-tasks','/staff-list','/admin-assignments','/smart-exams','/parents','/maintenance-requests','/school-guide','/activity-dashboard','/counselor-dashboard','/health-dashboard','/safety-dashboard','/attendance','/behavior','/settings','/school-location','/code-management','/governance-framework','/incoming-mail','/circulars','/circulars/create','/school-attendance-dashboard','/development-plans','/permissions-dashboard','/subscription-plans','/student-barcodes','/admin/sms-settings','/deputy-sms','/assign-broadcast-supervisor','/masarat-tracks'];
+              final implemented = ['/students-list','/teachers-list','/classes-list','/schedule-management','/smart-schedule','/assign-subjects','/admin-tasks','/staff-list','/admin-assignments','/smart-exams','/parents','/maintenance-requests','/school-guide','/activity-dashboard','/counselor-dashboard','/health-dashboard','/safety-dashboard','/attendance','/behavior','/settings','/school-location','/code-management','/governance-framework','/incoming-mail','/circulars','/circulars/create','/school-attendance-dashboard','/development-plans','/permissions-dashboard','/subscription-plans','/student-barcodes','/admin/sms-settings','/deputy-sms','/assign-broadcast-supervisor','/masarat-tracks','/student-exit-permission','/supervision-duty'];
               if (implemented.contains(item.route)) {
                 context.push(item.route, extra: item.extra);
               } else {

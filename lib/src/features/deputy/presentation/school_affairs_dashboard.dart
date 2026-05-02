@@ -108,6 +108,11 @@ class _SchoolAffairsDashboardState
                     'route': '/staff-attendance',
                   },
                   {
+                    'icon': Icons.supervisor_account_rounded,
+                    'title': 'الإشراف والمناوبة',
+                    'route': '/supervision-duty',
+                  },
+                  {
                     'icon': Icons.draw,
                     'title': 'سجل التوقيعات',
                     'route': '/signatures-log',

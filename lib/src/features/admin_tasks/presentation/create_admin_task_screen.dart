@@ -152,6 +152,8 @@ class _CreateAdminTaskScreenState extends ConsumerState<CreateAdminTaskScreen> {
         return 'وكيل';
       case UserRole.administrative:
         return 'إداري';
+      case UserRole.teacher:
+        return 'معلم';
       default:
         return 'موظف';
     }

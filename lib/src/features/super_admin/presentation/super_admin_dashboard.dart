@@ -8,6 +8,7 @@ import 'super_admin_settings_screen.dart';
 import 'schools_list_screen.dart';
 import 'system_statistics_screen.dart';
 import 'subscriptions_management_screen.dart';
+import 'active_schools_screen.dart';
 
 class SuperAdminDashboard extends ConsumerWidget {
   const SuperAdminDashboard({super.key});
@@ -199,6 +200,15 @@ class SuperAdminDashboard extends ConsumerWidget {
               delegate: SliverChildListDelegate([
                 _buildCard(
                   context,
+                  icon: Icons.verified_rounded,
+                  label: 'المدارس المفعّلة',
+                  subtitle: 'إدارة قسم الاشتراك',
+                  gradient: const [Color(0xFF00695C), Color(0xFF00897B)],
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const ActiveSchoolsScreen())),
+                ),
+                _buildCard(
+                  context,
                   icon: Icons.school_rounded,
                   label: 'المدارس المسجلة',
                   subtitle: 'عرض وإدارة المدارس',
@@ -221,14 +231,6 @@ class SuperAdminDashboard extends ConsumerWidget {
                   subtitle: 'تسجيل مدرسة جديدة',
                   gradient: const [Color(0xFF4A148C), Color(0xFF7B1FA2)],
                   onTap: () => context.push('/add-school'),
-                ),
-                _buildCard(
-                  context,
-                  icon: Icons.school_rounded,
-                  label: 'مدرسة عمر بن أبي سلمة',
-                  subtitle: 'إنشاء المدرسة + الكادر',
-                  gradient: const [Color(0xFF004D40), Color(0xFF00796B)],
-                  onTap: () => context.push('/seed-omar-school'),
                 ),
                 _buildCard(
                   context,

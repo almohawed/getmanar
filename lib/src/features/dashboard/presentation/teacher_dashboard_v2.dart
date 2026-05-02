@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/domain/models/user.dart';
+import '../../../core/utils/motivational_quotes.dart';
 import '../../auth/presentation/auth_controller.dart';
 import 'teacher_alerts_center_screen.dart';
 import '../../circulars/presentation/circulars_providers.dart';
@@ -58,6 +59,14 @@ class TeacherDashboardV2 extends ConsumerWidget {
                   {'icon': Icons.quiz, 'title': 'الاختبارات', 'route': '/tests'},
                   {'icon': Icons.emoji_events, 'title': 'تعزيز السلوك', 'route': '/behavior-enhancement'},
                   {'icon': Icons.bar_chart, 'title': 'التقارير', 'route': '/reports'},
+                ],
+              ),
+
+              _buildSection(context, ref,
+                title: 'الإشراف',
+                color: const Color(0xFF0D47A1),
+                items: [
+                  {'icon': Icons.supervisor_account_rounded, 'title': 'الإشراف والمناوبة', 'route': '/supervision-duty'},
                 ],
               ),
 
@@ -121,23 +130,22 @@ class TeacherDashboardV2 extends ConsumerWidget {
                     Text('أهلاً بك، ${user?.name ?? "المعلم"}',
                         style: TextStyle(color: Colors.white, fontSize: 22.sp, fontWeight: FontWeight.bold)),
                     SizedBox(height: 4.h),
-                    Text('لوحة التحكم',
-                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13.sp)),
+                    Text(
+                      MotivationalQuotes.getQuoteForRole('teacher'),
+                      style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12.sp, height: 1.4),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          if (unreadCirculars > 0 || waitCount > 0) ...[
+          if (unreadCirculars > 0) ...[
             SizedBox(height: 16.h),
             Row(
               children: [
-                if (unreadCirculars > 0) ...[
-                  _buildQuickStat(icon: Icons.campaign, label: 'تعاميم جديدة', value: unreadCirculars.toString(), color: Colors.orange),
-                  SizedBox(width: 12.w),
-                ],
-                if (waitCount > 0)
-                  _buildQuickStat(icon: Icons.timer, label: 'حصص انتظار', value: waitCount.toString(), color: Colors.red),
+                _buildQuickStat(icon: Icons.campaign, label: 'تعاميم جديدة', value: unreadCirculars.toString(), color: Colors.orange),
               ],
             ),
           ],

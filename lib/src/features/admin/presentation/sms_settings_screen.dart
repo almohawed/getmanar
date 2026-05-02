@@ -38,6 +38,9 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
   final _messageCtrl = TextEditingController();
   String? _selectedParentId;
   bool _isSending = false;
+  // وضع الإرسال: 'single' | 'all' | 'grade'
+  String _sendMode = 'single';
+  String? _selectedGrade; // الصف المختار للإرسال الجماعي
 
   // حذف الرسائل المعلقة
   bool _isDeleting = false;
@@ -619,55 +622,60 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
           ),
           SizedBox(height: 16.h),
 
-          // اختيار ولي الأمر
+          // ── اختيار وضع الإرسال ──────────────────────────────────────────
           _buildCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'اختر ولي الأمر',
-                  style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold),
-                ),
+                Text('نوع الإرسال', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold)),
+                SizedBox(height: 12.h),
+                // أزرار الاختيار
+                Row(children: [
+                  _SendModeBtn(label: 'ولي أمر واحد', icon: Icons.person_rounded,
+                      selected: _sendMode == 'single', color: Colors.blue.shade700,
+                      onTap: () => setState(() { _sendMode = 'single'; _selectedGrade = null; })),
+                  SizedBox(width: 8.w),
+                  _SendModeBtn(label: 'جميع أولياء الأمور', icon: Icons.groups_rounded,
+                      selected: _sendMode == 'all', color: Colors.green.shade700,
+                      onTap: () => setState(() { _sendMode = 'all'; _selectedParentId = null; _selectedGrade = null; })),
+                  SizedBox(width: 8.w),
+                  _SendModeBtn(label: 'مرحلة دراسية', icon: Icons.school_rounded,
+                      selected: _sendMode == 'grade', color: Colors.orange.shade700,
+                      onTap: () => setState(() { _sendMode = 'grade'; _selectedParentId = null; })),
+                ]),
+              ],
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // ── اختيار ولي الأمر (وضع فردي) ────────────────────────────────
+          if (_sendMode == 'single') _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('اختر ولي الأمر', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold)),
                 SizedBox(height: 12.h),
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('Schools')
-                      .doc(schoolId)
-                      .collection('Parents')
-                      .snapshots(),
+                      .collection('Schools').doc(schoolId).collection('Parents').snapshots(),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
+                    if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                     final parents = snapshot.data!.docs;
                     if (parents.isEmpty) {
                       return Container(
                         padding: EdgeInsets.all(16.w),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(10.r),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'لا يوجد أولياء أمور مسجلين',
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13.sp),
-                          ),
-                        ),
+                        decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10.r)),
+                        child: Center(child: Text('لا يوجد أولياء أمور مسجلين',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13.sp))),
                       );
                     }
-
                     return Container(
                       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(10.r),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
+                      decoration: BoxDecoration(color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10.r), border: Border.all(color: Colors.grey.shade300)),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: _selectedParentId,
+                          isExpanded: true, value: _selectedParentId,
                           hint: Text('اختر ولي الأمر', style: TextStyle(fontSize: 13.sp)),
                           icon: Icon(Icons.arrow_drop_down, color: Colors.grey.shade700),
                           items: parents.map((doc) {
@@ -676,20 +684,13 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
                             final phone = data['phoneNumber'] ?? '';
                             return DropdownMenuItem<String>(
                               value: doc.id,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(name, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600)),
-                                  if (phone.isNotEmpty)
-                                    Text(phone, style: TextStyle(fontSize: 11.sp, color: Colors.grey.shade600)),
-                                ],
-                              ),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                                Text(name, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600)),
+                                if (phone.isNotEmpty) Text(phone, style: TextStyle(fontSize: 11.sp, color: Colors.grey.shade600)),
+                              ]),
                             );
                           }).toList(),
-                          onChanged: (value) {
-                            setState(() => _selectedParentId = value);
-                          },
+                          onChanged: (value) => setState(() => _selectedParentId = value),
                         ),
                       ),
                     );
@@ -698,6 +699,92 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
               ],
             ),
           ),
+
+          // ── اختيار المرحلة الدراسية ──────────────────────────────────────
+          if (_sendMode == 'grade') _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('اختر المرحلة / الصف', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold)),
+                SizedBox(height: 12.h),
+                FutureBuilder<DocumentSnapshot>(
+                  future: FirebaseFirestore.instance.collection('Schools').doc(schoolId).get(),
+                  builder: (context, snap) {
+                    if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+                    final schoolData = snap.data!.data() as Map<String, dynamic>? ?? {};
+                    final stage = (schoolData['stage'] ?? schoolData['schoolStage'] ?? '').toString();
+                    final grades = _getGradesForStage(stage);
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                      decoration: BoxDecoration(color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10.r), border: Border.all(color: Colors.grey.shade300)),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true, value: _selectedGrade,
+                          hint: Text('اختر الصف الدراسي', style: TextStyle(fontSize: 13.sp)),
+                          icon: Icon(Icons.arrow_drop_down, color: Colors.grey.shade700),
+                          items: [
+                            DropdownMenuItem<String>(
+                              value: '__all__',
+                              child: Row(children: [
+                                Icon(Icons.groups_rounded, color: Colors.green.shade700, size: 18),
+                                SizedBox(width: 8.w),
+                                Text('جميع أولياء الأمور', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700, color: Colors.green.shade700)),
+                              ]),
+                            ),
+                            ...grades.map((g) => DropdownMenuItem<String>(
+                              value: g,
+                              child: Row(children: [
+                                Icon(Icons.school_rounded, color: Colors.orange.shade700, size: 16),
+                                SizedBox(width: 8.w),
+                                Text('أولياء أمور $g', style: TextStyle(fontSize: 13.sp)),
+                              ]),
+                            )),
+                          ],
+                          onChanged: (v) => setState(() => _selectedGrade = v),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                if (_selectedGrade != null && _selectedGrade != '__all__') ...[
+                  SizedBox(height: 10.h),
+                  Container(
+                    padding: EdgeInsets.all(10.w),
+                    decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8.r),
+                        border: Border.all(color: Colors.orange.shade200)),
+                    child: Row(children: [
+                      Icon(Icons.info_outline, color: Colors.orange.shade700, size: 16),
+                      SizedBox(width: 8.w),
+                      Expanded(child: Text(
+                        'سيتم إرسال الرسالة لجميع أولياء أمور طلاب $_selectedGrade',
+                        style: TextStyle(fontSize: 12.sp, color: Colors.orange.shade800),
+                      )),
+                    ]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // ── بانر الإرسال الجماعي ─────────────────────────────────────────
+          if (_sendMode == 'all') _buildCard(
+            child: Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(color: Colors.green.shade200)),
+              child: Row(children: [
+                Icon(Icons.groups_rounded, color: Colors.green.shade700, size: 22),
+                SizedBox(width: 10.w),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('إرسال لجميع أولياء الأمور', style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700, color: Colors.green.shade800)),
+                  Text('سيتم إرسال الرسالة لجميع أولياء الأمور المسجلين في المدرسة',
+                      style: TextStyle(fontSize: 11.sp, color: Colors.green.shade700)),
+                ])),
+              ]),
+            ),
+          ),
+
           SizedBox(height: 16.h),
 
           // كتابة الرسالة
@@ -705,10 +792,7 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'نص الرسالة',
-                  style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold),
-                ),
+                Text('نص الرسالة', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold)),
                 SizedBox(height: 12.h),
                 TextField(
                   controller: _messageCtrl,
@@ -724,16 +808,12 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
                   onChanged: (_) => setState(() {}),
                 ),
                 SizedBox(height: 8.h),
-                Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 14.sp, color: Colors.orange.shade700),
-                    SizedBox(width: 6.w),
-                    Text(
-                      'الحد الأقصى 160 حرف للرسالة الواحدة',
-                      style: TextStyle(fontSize: 11.sp, color: Colors.orange.shade700),
-                    ),
-                  ],
-                ),
+                Row(children: [
+                  Icon(Icons.info_outline, size: 14.sp, color: Colors.orange.shade700),
+                  SizedBox(width: 6.w),
+                  Text('الحد الأقصى 160 حرف للرسالة الواحدة',
+                      style: TextStyle(fontSize: 11.sp, color: Colors.orange.shade700)),
+                ]),
               ],
             ),
           ),
@@ -744,49 +824,28 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [Colors.green.shade600, Colors.green.shade700],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
+                begin: Alignment.topRight, end: Alignment.bottomLeft,
               ),
               borderRadius: BorderRadius.circular(14.r),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.green.shade600.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: Colors.green.shade600.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
             ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(14.r),
-                onTap: (_isSending || _selectedParentId == null || _messageCtrl.text.trim().isEmpty)
-                    ? null
-                    : _sendMessage,
+                onTap: _canSend() ? _sendMessage : null,
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 16.h),
                   child: Center(
                     child: _isSending
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.send, color: Colors.white),
-                              SizedBox(width: 8.w),
-                              Text(
-                                'إرسال الرسالة',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 15.sp,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                        ? const SizedBox(width: 22, height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.send, color: Colors.white),
+                            SizedBox(width: 8.w),
+                            Text('إرسال الرسالة',
+                                style: TextStyle(color: Colors.white, fontSize: 15.sp, fontWeight: FontWeight.bold)),
+                          ]),
                   ),
                 ),
               ),
@@ -795,6 +854,34 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
         ],
       ),
     );
+  }
+
+  bool _canSend() {
+    if (_isSending || _messageCtrl.text.trim().isEmpty) return false;
+    if (_sendMode == 'single') return _selectedParentId != null;
+    if (_sendMode == 'all') return true;
+    if (_sendMode == 'grade') return _selectedGrade != null;
+    return false;
+  }
+
+  /// قائمة الصفوف حسب المرحلة الدراسية
+  List<String> _getGradesForStage(String stage) {
+    final s = stage.toLowerCase();
+    if (s.contains('ابتدائي') || s.contains('primary') || s.contains('elementary')) {
+      return ['الصف الأول الابتدائي', 'الصف الثاني الابتدائي', 'الصف الثالث الابتدائي',
+              'الصف الرابع الابتدائي', 'الصف الخامس الابتدائي', 'الصف السادس الابتدائي'];
+    } else if (s.contains('متوسط') || s.contains('middle') || s.contains('intermediate')) {
+      return ['الصف الأول المتوسط', 'الصف الثاني المتوسط', 'الصف الثالث المتوسط'];
+    } else if (s.contains('ثانوي') || s.contains('secondary') || s.contains('high')) {
+      return ['الصف الأول الثانوي', 'الصف الثاني الثانوي', 'الصف الثالث الثانوي'];
+    }
+    // مدرسة مشتركة أو غير محددة — أظهر الكل
+    return [
+      'الصف الأول الابتدائي', 'الصف الثاني الابتدائي', 'الصف الثالث الابتدائي',
+      'الصف الرابع الابتدائي', 'الصف الخامس الابتدائي', 'الصف السادس الابتدائي',
+      'الصف الأول المتوسط', 'الصف الثاني المتوسط', 'الصف الثالث المتوسط',
+      'الصف الأول الثانوي', 'الصف الثاني الثانوي', 'الصف الثالث الثانوي',
+    ];
   }
 
   Widget _buildLogTab() {
@@ -987,7 +1074,7 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
   }
 
   Future<void> _sendMessage() async {
-    if (_selectedParentId == null || _messageCtrl.text.trim().isEmpty) return;
+    if (_messageCtrl.text.trim().isEmpty) return;
 
     final user = ref.read(authStateProvider).value;
     final schoolId = user?.schoolId ?? '';
@@ -996,72 +1083,145 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
     setState(() => _isSending = true);
 
     try {
-      // جلب معلومات ولي الأمر
-      final parentDoc = await FirebaseFirestore.instance
-          .collection('Schools')
-          .doc(schoolId)
-          .collection('Parents')
-          .doc(_selectedParentId)
-          .get();
-
-      if (!parentDoc.exists) {
-        throw Exception('ولي الأمر غير موجود');
-      }
-
-      final parentData = parentDoc.data()!;
-      final phoneNumber = parentData['phoneNumber'] ?? '';
-      if (phoneNumber.isEmpty) {
-        throw Exception('رقم الهاتف غير متوفر لولي الأمر');
-      }
-
       // التحقق من تفعيل الخدمة
       final smsEnabled = await ref.read(smsRepositoryProvider).isSmsEnabled(schoolId);
-      if (!smsEnabled) {
-        throw Exception('خدمة SMS غير مفعلة. يرجى تفعيلها من تبويب الإعداد');
-      }
+      if (!smsEnabled) throw Exception('خدمة SMS غير مفعلة. يرجى تفعيلها من تبويب الإعداد');
 
-      // إضافة الرسالة إلى قائمة الانتظار
-      final messageId = FirebaseFirestore.instance.collection('temp').doc().id;
-      await FirebaseFirestore.instance
-          .collection('Schools')
-          .doc(schoolId)
-          .collection('SmsOutbox')
-          .doc(messageId)
-          .set({
-        'phoneNumber': phoneNumber,
-        'body': _messageCtrl.text.trim(),
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': user?.id ?? '',
-        'createdByName': user?.name ?? '',
-        'recipientName': parentData['name'] ?? '',
-        'recipientId': _selectedParentId,
-      });
+      final body = _messageCtrl.text.trim();
+      final outbox = FirebaseFirestore.instance.collection('Schools').doc(schoolId).collection('SmsOutbox');
+      int sentCount = 0;
+
+      if (_sendMode == 'single') {
+        // ── إرسال لولي أمر واحد ──────────────────────────────────────────
+        if (_selectedParentId == null) throw Exception('يرجى اختيار ولي الأمر');
+        final parentDoc = await FirebaseFirestore.instance
+            .collection('Schools').doc(schoolId).collection('Parents').doc(_selectedParentId).get();
+        if (!parentDoc.exists) throw Exception('ولي الأمر غير موجود');
+        final parentData = parentDoc.data()!;
+        final phone = parentData['phoneNumber'] ?? '';
+        if (phone.isEmpty) throw Exception('رقم الهاتف غير متوفر');
+        final msgId = outbox.doc().id;
+        await outbox.doc(msgId).set({
+          'phoneNumber': phone, 'body': body, 'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+          'createdBy': user?.id ?? '', 'createdByName': user?.name ?? '',
+          'recipientName': parentData['name'] ?? '', 'recipientId': _selectedParentId,
+          'sendMode': 'single',
+        });
+        sentCount = 1;
+
+      } else if (_sendMode == 'all') {
+        // ── إرسال لجميع أولياء الأمور ────────────────────────────────────
+        final parentsSnap = await FirebaseFirestore.instance
+            .collection('Schools').doc(schoolId).collection('Parents').get();
+        final batch = FirebaseFirestore.instance.batch();
+        for (final doc in parentsSnap.docs) {
+          final data = doc.data();
+          final phone = data['phoneNumber'] ?? '';
+          if (phone.isEmpty) continue;
+          final msgRef = outbox.doc();
+          batch.set(msgRef, {
+            'phoneNumber': phone, 'body': body, 'status': 'pending',
+            'createdAt': FieldValue.serverTimestamp(),
+            'createdBy': user?.id ?? '', 'createdByName': user?.name ?? '',
+            'recipientName': data['name'] ?? '', 'recipientId': doc.id,
+            'sendMode': 'all',
+          });
+          sentCount++;
+        }
+        await batch.commit();
+
+      } else if (_sendMode == 'grade') {
+        // ── إرسال لأولياء أمور صف معين ───────────────────────────────────
+        if (_selectedGrade == null) throw Exception('يرجى اختيار الصف الدراسي');
+
+        if (_selectedGrade == '__all__') {
+          // جميع أولياء الأمور
+          final parentsSnap = await FirebaseFirestore.instance
+              .collection('Schools').doc(schoolId).collection('Parents').get();
+          final batch = FirebaseFirestore.instance.batch();
+          for (final doc in parentsSnap.docs) {
+            final data = doc.data();
+            final phone = data['phoneNumber'] ?? '';
+            if (phone.isEmpty) continue;
+            final msgRef = outbox.doc();
+            batch.set(msgRef, {
+              'phoneNumber': phone, 'body': body, 'status': 'pending',
+              'createdAt': FieldValue.serverTimestamp(),
+              'createdBy': user?.id ?? '', 'createdByName': user?.name ?? '',
+              'recipientName': data['name'] ?? '', 'recipientId': doc.id,
+              'sendMode': 'all',
+            });
+            sentCount++;
+          }
+          await batch.commit();
+        } else {
+          // أولياء أمور صف معين — نبحث في Students عن الصف ثم نجلب أولياء أمورهم
+          final studentsSnap = await FirebaseFirestore.instance
+              .collection('Schools').doc(schoolId).collection('Students')
+              .where('gradeLevel', isEqualTo: _selectedGrade)
+              .get();
+
+          // إذا لم يوجد gradeLevel جرب grade أو className
+          final studentIds = studentsSnap.docs.map((d) => d.id).toSet();
+          final parentIds = <String>{};
+
+          // جلب أولياء الأمور المرتبطين بهؤلاء الطلاب
+          final parentsSnap = await FirebaseFirestore.instance
+              .collection('Schools').doc(schoolId).collection('Parents').get();
+
+          final batch = FirebaseFirestore.instance.batch();
+          for (final parentDoc in parentsSnap.docs) {
+            final data = parentDoc.data();
+            final childrenIds = (data['childrenIds'] as List<dynamic>? ?? []).map((e) => e.toString()).toSet();
+            final childId = data['studentId']?.toString() ?? '';
+
+            // تحقق من ارتباط ولي الأمر بطالب في هذا الصف
+            final isLinked = childrenIds.any((id) => studentIds.contains(id)) ||
+                (childId.isNotEmpty && studentIds.contains(childId));
+
+            if (!isLinked) continue;
+            if (parentIds.contains(parentDoc.id)) continue;
+            parentIds.add(parentDoc.id);
+
+            final phone = data['phoneNumber'] ?? '';
+            if (phone.isEmpty) continue;
+            final msgRef = outbox.doc();
+            batch.set(msgRef, {
+              'phoneNumber': phone, 'body': body, 'status': 'pending',
+              'createdAt': FieldValue.serverTimestamp(),
+              'createdBy': user?.id ?? '', 'createdByName': user?.name ?? '',
+              'recipientName': data['name'] ?? '', 'recipientId': parentDoc.id,
+              'sendMode': 'grade', 'grade': _selectedGrade,
+            });
+            sentCount++;
+          }
+          await batch.commit();
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('✓ تم إضافة الرسالة إلى قائمة الإرسال بنجاح'),
+            content: Text(sentCount > 1
+                ? '✓ تم إضافة $sentCount رسالة إلى قائمة الإرسال'
+                : '✓ تم إضافة الرسالة إلى قائمة الإرسال بنجاح'),
             backgroundColor: Colors.green.shade700,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
-
-        // مسح الحقول
         setState(() {
           _messageCtrl.clear();
           _selectedParentId = null;
+          _selectedGrade = null;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating),
         );
       }
     } finally {
@@ -1571,6 +1731,62 @@ class _SmsSettingsScreenState extends ConsumerState<SmsSettingsScreen>
                       ],
                     ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+// ─── زر وضع الإرسال ──────────────────────────────────────────────────────────
+class _SendModeBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SendModeBtn({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: selected ? color.withOpacity(0.12) : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? color : Colors.grey.shade300,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: selected ? color : Colors.grey.shade500, size: 22),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? color : Colors.grey.shade600,
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+              ),
+            ],
           ),
         ),
       ),

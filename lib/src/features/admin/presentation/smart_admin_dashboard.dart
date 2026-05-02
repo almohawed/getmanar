@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/school_config_service.dart';
+import '../../../core/utils/motivational_quotes.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../academic/data/school_repository.dart';
 import '../../academic/presentation/students_provider.dart';
@@ -61,13 +62,41 @@ final _smartDashboardStatsProvider =
   } catch (_) { return {}; }
 });
 
-class SmartAdminDashboard extends ConsumerWidget {
+class SmartAdminDashboard extends ConsumerStatefulWidget {
   const SmartAdminDashboard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SmartAdminDashboard> createState() => _SmartAdminDashboardState();
+}
+
+class _SmartAdminDashboardState extends ConsumerState<SmartAdminDashboard> {
+  bool _showSubscription = false;
+  String _loadedSchoolId = '';
+
+  Future<void> _loadSubscription(String schoolId) async {
+    if (schoolId.isEmpty) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('Schools').doc(schoolId).get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _showSubscription = doc.data()?['showSubscriptionSection'] == true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user        = ref.watch(authStateProvider).value;
     final schoolId    = (user?.schoolId ?? '').trim();
+
+    // تحميل عند أول حصول على schoolId
+    if (schoolId.isNotEmpty && schoolId != _loadedSchoolId) {
+      _loadedSchoolId = schoolId;
+      Future.delayed(Duration.zero, () => _loadSubscription(schoolId));
+    }
+
     final schoolName  = ref.watch(schoolProvider(schoolId).select((v) => v.value?.name ?? ''));
     final countryCode = ref.watch(schoolProvider(schoolId).select((v) => v.value?.countryCode ?? 'SA'));
     final students    = ref.watch(studentsProvider.select((v) => v.value?.length ?? 0));
@@ -131,6 +160,29 @@ class SmartAdminDashboard extends ConsumerWidget {
                   const SizedBox(height: 8),
                   _buildQuickActionsGrid(context, isWide),
                   const SizedBox(height: 16),
+                  // زر الاشتراك
+                  if (_showSubscription) ...[
+                    _sectionTitle('💳 الاشتراك', ''),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () => context.push('/subscription-plans'),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.card_membership, color: Colors.amber, size: 24),
+                          const SizedBox(width: 14),
+                          const Expanded(child: Text('الاشتراك', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))),
+                          const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 14),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   _buildFullDashboardButton(context),
                   const SizedBox(height: 60),
                 ]),
@@ -173,6 +225,13 @@ class SmartAdminDashboard extends ConsumerWidget {
                     style: const TextStyle(color: Colors.white, fontSize: 17,
                         fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Text(
+                  MotivationalQuotes.getQuoteForRole('admin'),
+                  style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11, height: 1.3),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -382,6 +441,7 @@ class SmartAdminDashboard extends ConsumerWidget {
       {'icon': Icons.people_alt,   'label': 'الطلاب',   'color': Colors.blue,       'route': '/students-list'},
       {'icon': Icons.gavel,        'label': 'السلوك',   'color': Colors.orange,     'route': '/behavior'},
       {'icon': Icons.auto_awesome, 'label': 'الجدول',   'color': Colors.indigo,     'route': '/smart-schedule'},
+      {'icon': Icons.supervisor_account_rounded, 'label': 'الإشراف', 'color': const Color(0xFF0D47A1), 'route': '/supervision-duty'},
       {'icon': Icons.psychology,   'label': 'الإرشاد',  'color': Colors.purple,     'route': '/counselor-dashboard'},
       {'icon': Icons.campaign,     'label': 'التعاميم', 'color': Colors.amber,      'route': '/circulars'},
       {'icon': Icons.inbox,        'label': 'الوارد',   'color': Colors.green,      'route': '/incoming-mail'},

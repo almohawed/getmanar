@@ -58,15 +58,7 @@ class TeacherDashboard extends ConsumerWidget {
               TeacherWelcomeBanner(user: user),
               SizedBox(height: 24.h),
 
-              // Waiting Assignments Section (Smart & Professional)
-              waitsAsync.when(
-                data: (waits) {
-                  if (waits.isEmpty) return const SizedBox.shrink();
-                  return _buildWaitingSection(context, waits);
-                },
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
+              // Waiting Assignments Section - محذوف (يظهر في التنبيهات فقط)
 
               SizedBox(height: 32.h),
 
@@ -148,6 +140,13 @@ class TeacherDashboard extends ConsumerWidget {
                         Icons.calendar_today,
                         Colors.teal,
                         () => context.push('/teacher-schedule'),
+                      ),
+                      _buildMenuCard(
+                        context,
+                        'الإشراف والمناوبة',
+                        Icons.supervisor_account_rounded,
+                        const Color(0xFF0D47A1),
+                        () => context.push('/supervision-duty'),
                       ),
                       // Pass waiting count to alerts card
                       waitsAsync.when(

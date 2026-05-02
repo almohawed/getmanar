@@ -592,6 +592,12 @@ class _AcademicAffairsDashboardState
                   route: '/smart-schedule',
                 ),
                 _ActionItem(
+                  icon: Icons.supervisor_account_rounded,
+                  label: 'الإشراف والمناوبة',
+                  color: const Color(0xFF0D47A1),
+                  route: '/supervision-duty',
+                ),
+                _ActionItem(
                   icon: Icons.groups,
                   label: 'الجدول التشاركي',
                   color: Colors.teal,
@@ -721,6 +727,12 @@ class _AcademicAffairsDashboardState
               // ── قسم الاستئذانات ──────────────────────────────────────
               _buildSectionHeader(context, 'الاستئذانات'),
               _buildActionGrid(context, [
+                _ActionItem(
+                  icon: Icons.exit_to_app,
+                  label: 'إذن خروج طالب',
+                  color: Colors.amber.shade700,
+                  route: '/student-exit-permission',
+                ),
                 _ActionItem(
                   icon: Icons.assignment_ind,
                   label: 'لوحة إدارة الاستئذانات',

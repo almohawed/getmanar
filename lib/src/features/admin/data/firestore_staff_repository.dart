@@ -154,29 +154,19 @@ class FirestoreStaffRepository implements StaffRepository {
 
   @override
   Stream<List<User>> watchAllStaff(String schoolId) {
+    // الكادر الإداري فقط من Staff collection (بدون Teachers)
     return _firestore
         .collection('Schools')
         .doc(schoolId)
         .collection('Staff')
         .snapshots()
-        .map((snapshot) {
-          debugPrint('Fetching staff: ${snapshot.docs.length} found');
-          return snapshot.docs
-              .map((doc) {
-                try {
-                  final data = doc.data();
-                  data['id'] = doc.id;
-                  debugPrint('Staff loaded: ${data['name']} (${data['role']})');
-                  return User.fromMap(data);
-                } catch (e) {
-                  debugPrint('Error parsing staff ${doc.id}: $e');
-                  return null;
-                }
-              })
-              .where((u) => u != null)
-              .cast<User>()
-              .toList();
-        });
+        .map((snap) => snap.docs.map((doc) {
+          try {
+            final data = doc.data();
+            data['id'] = doc.id;
+            return User.fromMap(data);
+          } catch (e) { return null; }
+        }).where((u) => u != null).cast<User>().toList());
   }
 
   @override

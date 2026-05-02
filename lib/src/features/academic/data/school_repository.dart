@@ -211,12 +211,31 @@ final schoolRepositoryProvider = Provider<SchoolRepository>((ref) {
   return SchoolRepository(FirebaseFirestore.instance);
 });
 
-final schoolProvider = FutureProvider.family<School?, String>((
+final schoolProvider = FutureProvider.autoDispose.family<School?, String>((
   ref,
   schoolId,
 ) async {
+  if (schoolId.isEmpty) return null;
   final repo = ref.watch(schoolRepositoryProvider);
   return repo.getSchool(schoolId);
+});
+
+/// Provider خفيف لقراءة showSubscriptionSection فقط — يُحدَّث في الوقت الفعلي
+final showSubscriptionProvider = FutureProvider.autoDispose.family<bool, String>((
+  ref,
+  schoolId,
+) async {
+  if (schoolId.isEmpty) return true;
+  try {
+    final doc = await FirebaseFirestore.instance
+        .collection('Schools')
+        .doc(schoolId)
+        .get();
+    if (!doc.exists) return true;
+    return doc.data()?['showSubscriptionSection'] ?? true;
+  } catch (_) {
+    return true;
+  }
 });
 
 // Final Production Provider

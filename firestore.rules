@@ -152,14 +152,50 @@ service cloud.firestore {
       allow read, update, delete: if isAuthenticated() && isSuperAdmin();
     }
 
-    match /Schools/{schoolId}/{document=**} {
-      allow read: if isAuthenticated() && (
+    match /Schools/{schoolId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isSuperAdmin();
+      allow update: if isAuthenticated() && (
         isSuperAdmin() ||
-        isSchoolMember(schoolId) ||
         isSchoolStaffMember(schoolId)
       );
-      allow write: if isAuthenticated() && (isSuperAdmin() || isSchoolMember(schoolId)) &&
-        document[0] != 'StaffCirculars';
+    }
+
+    match /Schools/{schoolId}/Teachers/{teacherId} {
+      allow read: if isAuthenticated();
+    }
+
+    match /Schools/{schoolId}/Staff/{staffId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        isSuperAdmin() || isSchoolMember(schoolId) || isSchoolStaffMember(schoolId)
+      );
+    }
+
+    match /Schools/{schoolId}/TeacherSchedules/{docId} {
+      allow read: if isAuthenticated();
+    }
+
+    match /Schools/{schoolId}/WaitSchedule/{docId} {
+      allow read, write: if isAuthenticated() && (
+        isSuperAdmin() || isSchoolMember(schoolId) || isSchoolStaffMember(schoolId)
+      );
+    }
+
+    match /Schools/{schoolId}/{document=**} {
+      // القراءة: مسجّل دخوله + ينتمي للمدرسة (عبر Teachers أو Staff أو GlobalUsers)
+      allow read: if isAuthenticated() && (
+        isSuperAdmin() ||
+        userSchoolId() == schoolId ||
+        teacherDoc(schoolId).exists ||
+        staffDoc(schoolId).exists
+      );
+      allow write: if isAuthenticated() && (
+        isSuperAdmin() ||
+        userSchoolId() == schoolId ||
+        teacherDoc(schoolId).exists ||
+        staffDoc(schoolId).exists
+      ) && document[0] != 'StaffCirculars';
     }
 
     match /Schools/{schoolId}/Students/{studentId} {
@@ -202,8 +238,16 @@ service cloud.firestore {
       }
     }
 
+    match /Schools/{schoolId}/AdminTasks/{taskId} {
+      allow read, write: if isAuthenticated() && (
+        isSuperAdmin() ||
+        userSchoolId() == schoolId
+      );
+    }
+
     match /{document=**} {
-      allow read, write: if isAuthenticated() &&
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() &&
         !(document[0] == 'Schools' && document[2] == 'StaffCirculars');
     }
   }

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:go_router/go_router.dart';
 import '../../auth/presentation/auth_controller.dart';
+import 'excel_import_wizard.dart';
 import '../services/pdf_export_service.dart';
 import '../services/schedule_config.dart';
 import '../services/ortools_schedule_service.dart';
@@ -21,8 +22,10 @@ class _SmartScheduleScreenState extends ConsumerState<SmartScheduleScreen> {
   String? _schoolId;
   String? _selectedClassId;
   Map<String, dynamic>? _generatedSchedule;
-  String _viewMode = 'school'; // 'school' or 'class'
+  String _viewMode = 'school'; // 'school', 'class', or 'assignments'
   List<Map<String, dynamic>> _schoolSchedules = [];
+  bool _isImportingExcel = false;
+  String? _importMessage;
 
   final _days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
   
@@ -314,19 +317,62 @@ class _SmartScheduleScreenState extends ConsumerState<SmartScheduleScreen> {
     if (confirm != true) return;
 
     try {
-      // Update all schedules to approved status
-      for (var schedule in _schoolSchedules) {
-        await FirebaseFirestore.instance
-            .collection('Schools/$_schoolId/Schedules')
-            .doc(schedule['classId'])
-            .update({'status': 'approved', 'approvedAt': FieldValue.serverTimestamp()});
+      int approvedCount = 0;
+
+      // اعتماد جداول المعلمين مباشرة من Teachers collection
+      final teachersSnap = await FirebaseFirestore.instance
+          .collection('Schools').doc(_schoolId).collection('Teachers').get();
+
+      for (final t in teachersSnap.docs) {
+        final data = t.data();
+        if (data.containsKey('schedule') && (data['schedule'] as List?)?.isNotEmpty == true) {
+          await t.reference.update({
+            'scheduleApproved': true,
+            'approvedAt': FieldValue.serverTimestamp(),
+          });
+          approvedCount++;
+        }
+      }
+
+      // أيضاً اعتماد ClassSchedules
+      final classesSnap = await FirebaseFirestore.instance
+          .collection('Schools').doc(_schoolId).collection('Classes').get();
+      for (final cls in classesSnap.docs) {
+        final schedSnap = await FirebaseFirestore.instance
+            .collection('Schools').doc(_schoolId)
+            .collection('Classes').doc(cls.id)
+            .collection('ClassSchedules')
+            .orderBy('createdAt', descending: true)
+            .limit(1)
+            .get();
+        if (schedSnap.docs.isNotEmpty) {
+          await schedSnap.docs.first.reference.update({
+            'status': 'approved',
+            'approvedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      // اعتماد GeneralSchedule
+      final generalSnap = await FirebaseFirestore.instance
+          .collection('Schools').doc(_schoolId)
+          .collection('GeneralSchedule')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+      if (generalSnap.docs.isNotEmpty) {
+        await generalSnap.docs.first.reference.update({
+          'status': 'approved',
+          'approvedAt': FieldValue.serverTimestamp(),
+        });
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ تم اعتماد جميع الجداول بنجاح'),
+            content: Text('✅ تم اعتماد جداول $approvedCount معلم بنجاح'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -578,6 +624,12 @@ class _SmartScheduleScreenState extends ConsumerState<SmartScheduleScreen> {
             tooltip: 'القائمة',
             onSelected: (value) {
               switch (value) {
+                case 'waiting':
+                  context.push('/wait-management', extra: {'schoolId': _schoolId ?? ''});
+                  break;
+                case 'subjects':
+                  context.push('/subjects-management');
+                  break;
                 case 'assignments':
                   context.push('/subject-assignment');
                   break;
@@ -599,6 +651,26 @@ class _SmartScheduleScreenState extends ConsumerState<SmartScheduleScreen> {
               }
             },
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'waiting',
+                child: Row(
+                  children: [
+                    Icon(Icons.hourglass_top_rounded, size: 20, color: Colors.orange),
+                    SizedBox(width: 12),
+                    Text('جدول الانتظار'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'subjects',
+                child: Row(
+                  children: [
+                    Icon(Icons.menu_book_rounded, size: 20, color: Color(0xFF7C3AED)),
+                    SizedBox(width: 12),
+                    Text('المواد الدراسية'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'assignments',
                 child: Row(
@@ -679,7 +751,9 @@ class _SmartScheduleScreenState extends ConsumerState<SmartScheduleScreen> {
                 Expanded(
                   child: _viewMode == 'school'
                       ? _buildSchoolView()
-                      : _buildClassView(),
+                      : _viewMode == 'class'
+                          ? _buildClassView()
+                          : _buildAssignmentsView(),
                 ),
               ],
             ),
@@ -839,6 +913,14 @@ class _SmartScheduleScreenState extends ConsumerState<SmartScheduleScreen> {
               'class',
             ),
           ),
+          Container(width: 1, height: 40, color: Colors.grey[300]),
+          Expanded(
+            child: _buildModeButton(
+              'التكليفات',
+              Icons.assignment_ind,
+              'assignments',
+            ),
+          ),
         ],
       ),
     );
@@ -914,6 +996,52 @@ class _SmartScheduleScreenState extends ConsumerState<SmartScheduleScreen> {
                     ),
                   ),
                 ),
+              ],
+            ),
+          ),
+          // ─── زر رفع جدول Excel ───────────────────────────────────
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/schedule-import'),
+                    icon: const Icon(Icons.table_chart_rounded, size: 20),
+                    label: const Text(
+                      '📊 استيراد جدول Excel',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.indigo.shade700,
+                      side: BorderSide(color: Colors.indigo.shade400, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                if (_importMessage != null) ...[
+                  SizedBox(height: 8),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _importMessage!.contains('فشل') || _importMessage!.contains('⚠️')
+                          ? Colors.orange.shade50 : Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _importMessage!.contains('فشل') || _importMessage!.contains('⚠️')
+                            ? Colors.orange.shade200 : Colors.green.shade200),
+                    ),
+                    child: Text(_importMessage!,
+                        style: TextStyle(
+                          color: _importMessage!.contains('فشل') || _importMessage!.contains('⚠️')
+                              ? Colors.orange.shade800 : Colors.green.shade800,
+                          fontSize: 13)),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1307,6 +1435,186 @@ class _SmartScheduleScreenState extends ConsumerState<SmartScheduleScreen> {
             ],
           );
         }),
+      ),
+    );
+  }
+
+  // ─── استيراد جدول من Excel (Wizard) ─────────────────────────────────────
+  Future<void> _importScheduleFromExcel() async {
+    if (_schoolId == null) return;
+    final result = await showExcelImportWizard(
+      context,
+      _schoolId!,
+      () => _loadSchoolSchedules(),
+    );
+    if (result == true) {
+      setState(() => _importMessage = '✅ تم استيراد الجدول بنجاح');
+      await _loadSchoolSchedules();
+    }
+  }
+
+  /// استيراد جدول عام للمعلمين (Sheet واحد) — يُحفظ في Schools/{id}/GeneralSchedule
+
+  // ─── قسم التكليفات ────────────────────────────────────────────────────────
+  Widget _buildAssignmentsView() {
+    if (_schoolId == null) return const SizedBox();
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('Schools').doc(_schoolId).collection('Teachers').snapshots(),
+      builder: (context, teachersSnap) {
+        if (!teachersSnap.hasData) return const Center(child: CircularProgressIndicator());
+        final teachers = teachersSnap.data!.docs;
+        if (teachers.isEmpty) {
+          return Center(child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.person_off, size: 64, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              Text('لا يوجد معلمون مسجلون',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+            ],
+          ));
+        }
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('Schools').doc(_schoolId).collection('Classes').snapshots(),
+          builder: (context, classesSnap) {
+            final classes = classesSnap.data?.docs ?? [];
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: teachers.length,
+              itemBuilder: (context, i) {
+                final teacher = teachers[i];
+                final data = teacher.data() as Map<String, dynamic>;
+                final name = data['name'] ?? 'معلم';
+                final spec = data['specialization'] ?? data['primarySubjectId'] ?? '';
+                final assignedIds = List<String>.from(data['assignedClassIds'] ?? []);
+                final assignedNames = assignedIds.map((id) {
+                  final cls = classes.where((c) => c.id == id).firstOrNull;
+                  return ((cls?.data() as Map<String, dynamic>?)?['name'] ?? id).toString();
+                }).join('، ');
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          CircleAvatar(
+                            backgroundColor: Colors.indigo.shade100,
+                            child: Text(name.isNotEmpty ? name[0] : '?',
+                                style: TextStyle(color: Colors.indigo.shade700,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(name, style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15)),
+                              if (spec.isNotEmpty)
+                                Text(spec, style: TextStyle(
+                                    color: Colors.grey.shade600, fontSize: 12)),
+                            ],
+                          )),
+                          TextButton.icon(
+                            onPressed: () => _showAssignDialog(teacher.id, name, classes),
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: const Text('تعديل'),
+                            style: TextButton.styleFrom(foregroundColor: Colors.indigo),
+                          ),
+                        ]),
+                        if (assignedNames.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.shade200)),
+                            child: Row(children: [
+                              Icon(Icons.class_, size: 14, color: Colors.green.shade700),
+                              const SizedBox(width: 6),
+                              Expanded(child: Text('الفصول: $assignedNames',
+                                  style: TextStyle(color: Colors.green.shade800, fontSize: 12))),
+                            ]),
+                          ),
+                        ] else ...[
+                          const SizedBox(height: 6),
+                          Text('لا توجد فصول مكلّفة',
+                              style: TextStyle(color: Colors.orange.shade600, fontSize: 12)),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showAssignDialog(
+      String teacherId, String teacherName, List<QueryDocumentSnapshot> classes) async {
+    final doc = await FirebaseFirestore.instance
+        .collection('Schools').doc(_schoolId).collection('Teachers').doc(teacherId).get();
+    final selected = Set<String>.from(
+        (doc.data()?['assignedClassIds'] as List<dynamic>?) ?? []);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: Text('تكليف: $teacherName'),
+          content: SizedBox(
+            width: 400,
+            child: classes.isEmpty
+                ? const Text('لا توجد فصول')
+                : SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: classes.map((cls) {
+                        final name = ((cls.data() as Map)['name'] ?? cls.id).toString();
+                        return CheckboxListTile(
+                          value: selected.contains(cls.id),
+                          onChanged: (v) => setS(() {
+                            if (v == true) selected.add(cls.id);
+                            else selected.remove(cls.id);
+                          }),
+                          title: Text(name),
+                          dense: true,
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await FirebaseFirestore.instance
+                    .collection('Schools').doc(_schoolId)
+                    .collection('Teachers').doc(teacherId)
+                    .update({'assignedClassIds': selected.toList()});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('✅ تم حفظ التكليف'),
+                        backgroundColor: Colors.green));
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+              child: const Text('حفظ'),
+            ),
+          ],
+        ),
       ),
     );
   }

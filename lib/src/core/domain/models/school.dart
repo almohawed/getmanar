@@ -137,7 +137,7 @@ class School {
       ownerId: map['ownerId'] ?? '',
       countryCode: map['countryCode'] ?? 'SA',
       policyVersion: map['policyVersion'] ?? 'v1',
-      showSubscriptionSection: map['showSubscriptionSection'] ?? true,
+      showSubscriptionSection: map['showSubscriptionSection'] ?? false,
       startTime: map['startTime'] ?? '06:30',
       schoolEducationProfile: map['schoolEducationProfile'],
       secondaryProgramType: map['secondaryProgramType'],

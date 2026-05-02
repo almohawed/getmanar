@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:rxdart/rxdart.dart';
 import '../../maintenance/data/firestore_maintenance_repository.dart';
 import '../../requests/data/permission_repository.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -76,186 +75,149 @@ final schoolStatusProvider = StreamProvider.autoDispose<SchoolStatusMetrics>((
   ref,
 ) {
   final user = ref.watch(authStateProvider).value;
-  if (user == null || user.schoolId == null) {
+  if (user == null || (user.schoolId ?? '').isEmpty) {
     return Stream.value(SchoolStatusMetrics());
   }
 
+  final schoolId = user.schoolId!;
   final firestore = FirebaseFirestore.instance;
-  final schoolRef = firestore.collection('Schools').doc(user.schoolId);
+  final schoolRef = firestore.collection('Schools').doc(schoolId);
 
-  // 1. Maintenance Stream (Open/Pending/InProgress/Overdue)
-  final maintenanceStream = schoolRef
-      .collection('MaintenanceTickets')
-      .where('status', whereIn: ['open', 'in_progress', 'pending', 'overdue'])
-      .snapshots()
-      .map((s) => s.docs.length)
-      .startWith(0);
+  // استخدام Future بدلاً من streams متعددة لتجنب خطأ Firestore INTERNAL ASSERTION
+  return Stream.fromFuture(() async {
+    try {
+      final startOfDay = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
 
-  // 2. Permissions Stream (Pending)
-  final permissionsPendingStream = schoolRef
-      .collection('Permissions')
-      .where('status', isEqualTo: 'pending')
-      .snapshots()
-      .map((s) => s.docs.length)
-      .startWith(0);
+      final results = await Future.wait([
+        schoolRef.collection('MaintenanceTickets')
+            .where('status', whereIn: ['open', 'in_progress', 'pending', 'overdue'])
+            .get().then((s) => s.docs.length).catchError((_) => 0),
+        schoolRef.collection('Permissions')
+            .where('status', isEqualTo: 'pending')
+            .get().then((s) => s.docs.length).catchError((_) => 0),
+        schoolRef.collection('Transactions')
+            .where('receivedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+            .get().then((s) => s.docs.length).catchError((_) => 0),
+        schoolRef.collection('OutgoingTransactions')
+            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+            .get().then((s) => s.docs.length).catchError((_) => 0),
+        schoolRef.collection('Transactions')
+            .where('status', whereIn: ['awaitingDirectorRouting', 'routed', 'needsFollowup'])
+            .get().then((s) => s.docs.length).catchError((_) => 0),
+        schoolRef.collection('Transactions')
+            .where('status', isEqualTo: 'delayed')
+            .get().then((s) => s.docs.length).catchError((_) => 0),
+      ]);
 
-  final startOfDay = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-    DateTime.now().day,
-  );
-
-  // 3. Incoming Transactions (Today)
-  final inboxTodayStream = schoolRef
-      .collection('Transactions')
-      .where(
-        'receivedAt',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
-      )
-      .snapshots()
-      .map((s) => s.docs.length)
-      .startWith(0);
-
-  // 4. Outgoing Transactions (Today)
-  final outboxTodayStream = schoolRef
-      .collection('OutgoingTransactions')
-      .where(
-        'createdAt',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
-      )
-      .snapshots()
-      .map((s) => s.docs.length)
-      .startWith(0);
-
-  // 5. Pending / Delayed Incoming Transactions
-  final pendingTxStream = schoolRef
-      .collection('Transactions')
-      .where(
-        'status',
-        whereIn: ['awaitingDirectorRouting', 'routed', 'needsFollowup'],
-      )
-      .snapshots()
-      .map((s) => s.docs.length)
-      .startWith(0);
-
-  final delayedTxStream = schoolRef
-      .collection('Transactions')
-      .where('status', isEqualTo: 'delayed')
-      .snapshots()
-      .map((s) => s.docs.length)
-      .startWith(0);
-
-  return Rx.combineLatest6(
-    maintenanceStream,
-    permissionsPendingStream,
-    inboxTodayStream,
-    outboxTodayStream,
-    pendingTxStream,
-    delayedTxStream,
-    (maintenance, pendingPerm, inboxToday, outboxToday, pendingTx, delayedTx) =>
-        SchoolStatusMetrics(
-          incomingToday: inboxToday,
-          outgoingToday: outboxToday,
-          pendingTransactions: pendingTx,
-          delayedTransactions: delayedTx,
-          openMaintenanceReports: maintenance,
-          requestsAwaitingApproval: pendingPerm,
-        ),
-  );
+      return SchoolStatusMetrics(
+        openMaintenanceReports: results[0],
+        requestsAwaitingApproval: results[1],
+        incomingToday: results[2],
+        outgoingToday: results[3],
+        pendingTransactions: results[4],
+        delayedTransactions: results[5],
+      );
+    } catch (_) {
+      return SchoolStatusMetrics();
+    }
+  }());
 });
 
 final actionNeededProvider = StreamProvider.autoDispose<List<ActionNeededItem>>(
   (ref) {
     final user = ref.watch(authStateProvider).value;
-    if (user == null || user.schoolId == null) {
+    if (user == null || (user.schoolId ?? '').isEmpty) {
       return Stream.value([]);
     }
 
+    final schoolId = user.schoolId!;
     final firestore = FirebaseFirestore.instance;
-    final schoolRef = firestore.collection('Schools').doc(user.schoolId);
+    final schoolRef = firestore.collection('Schools').doc(schoolId);
 
-    // 1. Overdue Admin Tasks
-    final tasksStream = schoolRef
-        .collection('AdminTasks')
-        .where('status', whereIn: ['open', 'in_progress'])
-        .where('dueDate', isLessThan: Timestamp.now())
-        .snapshots()
-        .map(
-          (s) => s.docs.map((d) {
-            final data = d.data();
-            return ActionNeededItem(
+    return Stream.fromFuture(() async {
+      try {
+        final results = await Future.wait([
+          // 1. Overdue Admin Tasks
+          schoolRef.collection('AdminTasks')
+              .where('status', whereIn: ['open', 'in_progress'])
+              .where('dueDate', isLessThan: Timestamp.now())
+              .get().catchError((_) => null as dynamic),
+          // 2. Pending Permissions
+          schoolRef.collection('Permissions')
+              .where('status', isEqualTo: 'pending')
+              .get().catchError((_) => null as dynamic),
+          // 3. Maintenance Reports
+          schoolRef.collection('MaintenanceTickets')
+              .where('status', whereIn: ['open', 'pending', 'overdue'])
+              .get().catchError((_) => null as dynamic),
+        ]);
+
+        final allItems = <ActionNeededItem>[];
+
+        // Tasks
+        final tasksSnap = results[0];
+        if (tasksSnap != null) {
+          for (final d in tasksSnap.docs) {
+            final data = d.data() as Map<String, dynamic>;
+            allItems.add(ActionNeededItem(
               id: d.id,
               title: data['title'] ?? 'مهمة إدارية',
               subtitle: 'متأخرة عن موعدها',
               type: 'transaction',
               date: (data['dueDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
               priorityLevel: 1,
-            );
-          }).toList(),
-        )
-        .startWith([]);
+            ));
+          }
+        }
 
-    // 2. Pending Permissions
-    final permissionsStream = schoolRef
-        .collection('Permissions')
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map(
-          (s) => s.docs.map((d) {
-            final data = d.data();
-            return ActionNeededItem(
+        // Permissions
+        final permSnap = results[1];
+        if (permSnap != null) {
+          for (final d in permSnap.docs) {
+            final data = d.data() as Map<String, dynamic>;
+            allItems.add(ActionNeededItem(
               id: d.id,
               title: 'استئذان: ${data['studentName'] ?? 'طالب'}',
               subtitle: 'بانتظار الموافقة',
               type: 'permission',
-              date:
-                  (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              date: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
               priorityLevel: 2,
-            );
-          }).toList(),
-        )
-        .startWith([]);
+            ));
+          }
+        }
 
-    // 3. Maintenance Reports (Pending/Overdue)
-    final maintenanceStream = schoolRef
-        .collection('MaintenanceTickets')
-        .where('status', whereIn: ['open', 'pending', 'overdue'])
-        .snapshots()
-        .map(
-          (s) => s.docs.map((d) {
-            final data = d.data();
+        // Maintenance
+        final maintSnap = results[2];
+        if (maintSnap != null) {
+          for (final d in maintSnap.docs) {
+            final data = d.data() as Map<String, dynamic>;
             final isOverdue = data['status'] == 'overdue';
-            return ActionNeededItem(
+            allItems.add(ActionNeededItem(
               id: d.id,
               title: data['title'] ?? 'بلاغ صيانة',
               subtitle: isOverdue ? 'متأخر' : 'جديد',
               type: 'maintenance',
-              date:
-                  (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              date: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
               priorityLevel: isOverdue ? 1 : 2,
-            );
-          }).toList(),
-        )
-        .startWith([]);
+            ));
+          }
+        }
 
-    return Rx.combineLatest3(
-      tasksStream,
-      permissionsStream,
-      maintenanceStream,
-      (tasks, permissions, maintenance) {
-        final allItems = [...tasks, ...permissions, ...maintenance];
-        // Sort by priority (1 is high), then by date (newest first)
         allItems.sort((a, b) {
           if (a.priorityLevel != b.priorityLevel) {
-            return a.priorityLevel.compareTo(
-              b.priorityLevel,
-            ); // 1 comes before 2
+            return a.priorityLevel.compareTo(b.priorityLevel);
           }
           return b.date.compareTo(a.date);
         });
         return allItems;
-      },
-    );
+      } catch (_) {
+        return <ActionNeededItem>[];
+      }
+    }());
   },
 );
 

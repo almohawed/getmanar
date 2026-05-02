@@ -161,6 +161,7 @@ final staffProvider = StreamProvider.autoDispose<List<User>>((ref) async* {
   if (user != null && (user.schoolId?.isNotEmpty ?? false)) {
     final repo = ref.watch(firestoreStaffRepositoryProvider);
     await for (final staff in repo.watchAllStaff(user.schoolId!)) {
+      // الموظفون الإداريون فقط — بدون المعلمين
       yield staff
           .where(
             (u) =>
