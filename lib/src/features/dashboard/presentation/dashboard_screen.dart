@@ -112,7 +112,7 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              error: (_, _) => Column(
+              error: (e, __) => Column(
                 children: [
                   Text(
                     'منار',

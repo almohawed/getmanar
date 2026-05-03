@@ -1508,6 +1508,169 @@ class _DutyTabState extends ConsumerState<_DutyTab> {
     }
   }
 
+  void _showDutyManagementSheet(
+    BuildContext context,
+    List<Map<String, dynamic>> teachers,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              child: Row(children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: _kPrimary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.settings_rounded, color: _kPrimary, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('إدارة جدول المناوبة',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ]),
+            ),
+            const Divider(height: 1),
+            // Content
+            Expanded(child: ListView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.all(16),
+              children: [
+                // ── التوليد التلقائي ──
+                _SectionHeader(
+                  icon: Icons.auto_awesome,
+                  title: 'توليد تلقائي بالتناوب',
+                  subtitle: 'يوزع المعلمين تلقائياً على الأيام',
+                  color: _kPrimary,
+                ),
+                const SizedBox(height: 10),
+                ..._durationOptions.asMap().entries.map((e) {
+                  final colors = [_kPrimary, Colors.green.shade700, Colors.orange.shade700];
+                  final icons = [Icons.looks_one_rounded, Icons.calendar_view_month_rounded, Icons.auto_stories_rounded];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _generateDutySchedule(teachers, e.value);
+                      },
+                      icon: Icon(icons[e.key], size: 18),
+                      label: Text(e.value.label),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colors[e.key],
+                        foregroundColor: Colors.white,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 16),
+                // ── الإدخال اليدوي ──
+                _SectionHeader(
+                  icon: Icons.edit_note_rounded,
+                  title: 'إدخال يدوي',
+                  subtitle: 'اختر معلم المناوبة لكل يوم بنفسك',
+                  color: Colors.purple.shade700,
+                ),
+                const SizedBox(height: 10),
+                ..._durationOptions.asMap().entries.map((e) {
+                  final icons = [Icons.looks_one_rounded, Icons.calendar_view_month_rounded, Icons.auto_stories_rounded];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        showDialog(
+                          context: context,
+                          builder: (_) => _ManualDutyInputDialog(
+                            schoolId: widget.schoolId,
+                            teachers: teachers,
+                            option: e.value,
+                          ),
+                        );
+                      },
+                      icon: Icon(icons[e.key], size: 18),
+                      label: Text(e.value.label),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.purple.shade700,
+                        side: BorderSide(color: Colors.purple.shade400),
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 16),
+                // ── أدوات أخرى ──
+                _SectionHeader(
+                  icon: Icons.more_horiz_rounded,
+                  title: 'أدوات أخرى',
+                  subtitle: '',
+                  color: Colors.grey.shade700,
+                ),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: _ToolbarButton(
+                    icon: Icons.upload_file,
+                    label: 'استيراد Excel',
+                    color: Colors.teal.shade700,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _importDutyFromExcel(teachers);
+                    },
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(child: _ToolbarButton(
+                    icon: Icons.delete_sweep,
+                    label: 'مسح الجدول',
+                    color: Colors.red.shade700,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _clearDutySchedule();
+                    },
+                  )),
+                ]),
+                const SizedBox(height: 8),
+              ],
+            )),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final teachersAsync = ref.watch(_teachersProvider(widget.schoolId));
@@ -1517,118 +1680,33 @@ class _DutyTabState extends ConsumerState<_DutyTab> {
       children: [
         Column(
           children: [
-            // Duration selection + actions — للإدارة فقط
+            // شريط أدوات مضغوط — للإدارة فقط
             if (widget.canEdit) Container(
               color: const Color(0xFFF0F4FF),
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Container(width: 32, height: 32,
-                      decoration: BoxDecoration(color: _kPrimary.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.auto_awesome, color: _kPrimary, size: 18)),
-                    const SizedBox(width: 8),
-                    const Text('توليد جدول المناوبة التلقائي',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: _kPrimary)),
-                  ]),
-                  const SizedBox(height: 4),
-                  const Text('اختر المدة وسيتم توزيع المعلمين تلقائياً بالتناوب',
-                      style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 12),
-                  // أزرار المدة الثلاثة — توزيع تلقائي
-                  Row(children: _durationOptions.map((opt) {
-                    final colors = [_kPrimary, Colors.green.shade700, Colors.orange.shade700];
-                    final idx = _durationOptions.indexOf(opt);
-                    final c = colors[idx];
-                    return Expanded(child: Padding(
-                      padding: EdgeInsets.only(right: idx < 2 ? 8 : 0),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final teachers = teachersAsync.value ?? [];
-                          _generateDutySchedule(teachers, opt);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: c,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          elevation: 2,
-                        ),
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(idx == 0 ? Icons.looks_one_rounded : idx == 1 ? Icons.calendar_view_month_rounded : Icons.auto_stories_rounded, size: 20),
-                          const SizedBox(height: 4),
-                          Text(opt.label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                        ]),
-                      ),
-                    ));
-                  }).toList()),
-                  const SizedBox(height: 10),
-                  // أزرار الإدخال اليدوي
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.purple.shade200),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Icon(Icons.edit_note_rounded, color: Colors.purple.shade700, size: 18),
-                        const SizedBox(width: 6),
-                        Text('إدخال يدوي', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple.shade700, fontSize: 13)),
-                        const SizedBox(width: 6),
-                        Text('اختر المدة وأدخل المعلمين يدوياً لكل يوم', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
-                      ]),
-                      const SizedBox(height: 8),
-                      Row(children: _durationOptions.map((opt) {
-                        final idx = _durationOptions.indexOf(opt);
-                        return Expanded(child: Padding(
-                          padding: EdgeInsets.only(right: idx < 2 ? 8 : 0),
-                          child: OutlinedButton(
-                            onPressed: () {
-                              final teachers = teachersAsync.value ?? [];
-                              showDialog(
-                                context: context,
-                                builder: (_) => _ManualDutyInputDialog(
-                                  schoolId: widget.schoolId,
-                                  teachers: teachers,
-                                  option: opt,
-                                ),
-                              );
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.purple.shade700,
-                              side: BorderSide(color: Colors.purple.shade400),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: Column(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(idx == 0 ? Icons.looks_one_rounded : idx == 1 ? Icons.calendar_view_month_rounded : Icons.auto_stories_rounded, size: 16),
-                              const SizedBox(height: 3),
-                              Text(opt.label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                            ]),
-                          ),
-                        ));
-                      }).toList()),
-                    ]),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(children: [
+                const Icon(Icons.swap_horiz_rounded, color: _kPrimary, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('جدول المناوبة',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _kPrimary)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    final teachers = teachersAsync.value ?? [];
+                    _showDutyManagementSheet(context, teachers);
+                  },
+                  icon: const Icon(Icons.settings_rounded, size: 16),
+                  label: const Text('إدارة', style: TextStyle(fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _kPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
                   ),
-                  const SizedBox(height: 10),
-                  // أزرار ثانوية
-                  Row(children: [
-                    Expanded(child: _ToolbarButton(
-                      icon: Icons.upload_file, label: 'استيراد Excel',
-                      color: Colors.teal.shade700,
-                      onTap: () { final teachers = teachersAsync.value ?? []; _importDutyFromExcel(teachers); },
-                    )),
-                    const SizedBox(width: 8),
-                    Expanded(child: _ToolbarButton(
-                      icon: Icons.delete_sweep, label: 'مسح الجدول',
-                      color: Colors.red.shade700, onTap: _clearDutySchedule,
-                    )),
-                  ]),
-                ],
-              ),
+                ),
+              ]),
             ),
             if (!widget.canEdit) _ReadOnlyBanner(),
             const Divider(height: 1),
@@ -1716,6 +1794,45 @@ class _DurationOptionButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+}
+// ─────────────────────────────────────────────
+// Section Header — مساعد لـ BottomSheet
+// ─────────────────────────────────────────────
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(
+        width: 32, height: 32,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color, size: 17),
+      ),
+      const SizedBox(width: 10),
+      Expanded(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+          if (subtitle.isNotEmpty)
+            Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ],
+      )),
+    ]);
   }
 }
 

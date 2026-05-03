@@ -66,7 +66,7 @@ class AdministrativeDashboard extends ConsumerWidget {
                 return _buildApprovedPermissionsList(approvedRequests);
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const SizedBox.shrink(),
+              error: (e, __) => const SizedBox.shrink(),
             ),
             SizedBox(height: 32.h),
             _buildRecentFilesList(),

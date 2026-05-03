@@ -122,7 +122,7 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
               return SizedBox(height: 24.h);
             },
             loading: () => SizedBox(height: 24.h),
-            error: (_, _) => SizedBox(height: 24.h),
+            error: (e, __) => SizedBox(height: 24.h),
           ),
 
           // Section 1: My Children
