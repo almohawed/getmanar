@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import '../../auth/presentation/auth_controller.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:js' as js; // ignore: uri_does_not_exist
+import '../../../core/utils/web_utils.dart';
 
 
 
@@ -957,35 +956,24 @@ Future<void> _printFullWaitSchedule(
 }
 
 Future<void> _openPrintPage(String htmlContent) async {
-  // استخدام JavaScript مباشرة لفتح نافذة طباعة
-  js.context.callMethod('eval', ['''
-    (function() {
-      var win = window.open('', '_blank');
-      if (!win) { alert('يرجى السماح بالنوافذ المنبثقة'); return; }
-      win.document.open();
-      win.document.write(${_jsString(htmlContent)});
-      win.document.close();
-      win.focus();
-      setTimeout(function(){ win.print(); }, 500);
-    })();
-  ''']);
-}
-
-String _jsString(String s) {
-  // تحويل النص إلى JSON string آمن لـ JavaScript
-  final escaped = s
+  if (!kIsWeb) return;
+  final escaped = htmlContent
       .replaceAll('\\', '\\\\')
       .replaceAll("'", "\\'")
       .replaceAll('\n', '\\n')
       .replaceAll('\r', '\\r');
-  return "'$escaped'";
+  evalJavaScript('''
+    (function() {
+      var win = window.open('', '_blank');
+      if (!win) { alert('يرجى السماح بالنوافذ المنبثقة'); return; }
+      win.document.open();
+      win.document.write('$escaped');
+      win.document.close();
+      win.focus();
+      setTimeout(function(){ win.print(); }, 500);
+    })();
+  ''');
 }
-
-
-
-
-
-
 
 String _normalizeDay(String s) {
   return s

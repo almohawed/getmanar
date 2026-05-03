@@ -1,11 +1,12 @@
 ﻿// ignore_for_file: avoid_web_libraries_in_flutter
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart' as intl;
 import '../../auth/presentation/auth_controller.dart';
-import 'dart:js' as js;
+import '../../../core/utils/web_utils.dart';
 
 // ─── Data Models ────────────────────────────────────────────────────────────
 
@@ -486,7 +487,13 @@ class _StudentExitPermissionScreenState
         .replaceAll('\n', '\\n')
         .replaceAll('\r', '');
 
-    js.context.callMethod('eval', [
+    js_print_web(escaped);
+  }
+
+  // ignore: non_constant_identifier_names
+  void js_print_web(String escaped) {
+    if (!kIsWeb) return;
+    evalJavaScript(
       "(function(){"
       "var win=window.open('','_blank','width=900,height=700');"
       "if(!win){alert('يرجى السماح بالنوافذ المنبثقة لطباعة الإذن');return;}"
@@ -496,7 +503,7 @@ class _StudentExitPermissionScreenState
       "win.focus();"
       "setTimeout(function(){win.print();},600);"
       "})();"
-    ]);
+    );
   }
   // ── Build ────────────────────────────────────────────────────────────────────
 

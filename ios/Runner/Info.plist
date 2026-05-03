@@ -57,5 +57,11 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>نستخدم Face ID للتحقق من هويتك بشكل آمن.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>نحتاج الكاميرا لمسح رمز QR وتصوير المستندات.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>نحتاج الوصول للصور لرفع صور الملف الشخصي والمستندات.</string>
 </dict>
 </plist>

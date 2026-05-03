@@ -2,19 +2,19 @@ workflows:
   # ─── iOS Build & App Store ────────────────────────────────────────────────
   ios-app-store:
     name: iOS App Store Release
-    max_build_duration: 60
+    max_build_duration: 90
     instance_type: mac_mini_m1
 
     environment:
-      flutter: stable
+      flutter: 3.32.0
       xcode: latest
-      cocoapods: default
+      cocoapods: 1.15.2
       groups:
-        - app_store_credentials   # يحتوي على: APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY
-        - certificate_credentials # يحتوي على: CERTIFICATE_PRIVATE_KEY
+        - app_store_credentials   # APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY
+        - certificate_credentials # CERTIFICATE_PRIVATE_KEY
       vars:
-        BUNDLE_ID: "com.masar.masarApp"
-        APP_STORE_APP_ID: "YOUR_APP_ID"  # ستحصل عليه من App Store Connect
+        BUNDLE_ID: "com.almohawed.manar"
+        APP_STORE_APP_ID: "6744042607"
 
     triggering:
       events:
@@ -24,17 +24,26 @@ workflows:
           include: true
 
     scripts:
-      - name: Set up code signing settings on Xcode project
+      - name: Set up code signing
         script: |
           xcode-project use-profiles
 
       - name: Get Flutter packages
         script: |
-          flutter packages pub get
+          flutter pub get
 
-      - name: Install pods
+      - name: Clean iOS build
         script: |
-          find . -name "Podfile" -execdir pod install \;
+          cd ios
+          rm -rf Pods Podfile.lock
+          cd ..
+
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod repo update
+          pod install --repo-update
+          cd ..
 
       - name: Flutter build IPA
         script: |
@@ -52,51 +61,4 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        submit_to_app_store: false  # غيّر إلى true للنشر المباشر
-
-  # ─── Android Build & Google Play ─────────────────────────────────────────
-  android-google-play:
-    name: Android Google Play Release
-    max_build_duration: 60
-    instance_type: linux_x2
-
-    environment:
-      flutter: stable
-      groups:
-        - google_play_credentials  # يحتوي على: GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        - keystore_credentials     # يحتوي على: CM_KEYSTORE, CM_KEY_ALIAS, CM_KEY_PASSWORD, CM_STORE_PASSWORD
-      vars:
-        PACKAGE_NAME: "com.example.masar_app"
-
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-
-    scripts:
-      - name: Set up local.properties
-        script: |
-          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
-
-      - name: Get Flutter packages
-        script: |
-          flutter packages pub get
-
-      - name: Build AAB
-        script: |
-          flutter build appbundle --release \
-            --build-name=3.0.0 \
-            --build-number=$(($(google-play get-latest-build-number --package-name "$PACKAGE_NAME" --tracks=internal) + 1))
-
-    artifacts:
-      - build/**/outputs/**/*.aab
-      - build/**/outputs/**/mapping.txt
-      - flutter_drive.log
-
-    publishing:
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal  # internal → alpha → beta → production
-        submit_as_draft: true
+        submit_to_app_store: false

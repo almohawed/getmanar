@@ -1,15 +1,3 @@
-import 'web_utils_stub.dart' if (dart.library.html) 'web_utils_web.dart';
-
-void removeWebLoadingIndicator() => removeLoadingIndicator();
-
-void downloadWebTextFile(
-  String filename,
-  String content, {
-  String mimeType = 'text/plain;charset=utf-8',
-}) => downloadTextFile(filename, content, mimeType: mimeType);
-
-void downloadWebBytesFile(
-  String filename,
-  List<int> bytes, {
-  String mimeType = 'application/octet-stream',
-}) => downloadBytesFile(filename, bytes, mimeType: mimeType);
+// Conditional import: uses web implementation on web, stub on other platforms
+export 'web_utils_stub.dart'
+    if (dart.library.js) 'web_utils_web.dart';
