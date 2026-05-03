@@ -52,4 +52,13 @@ post_install do |installer|
       ]
     end
   end
+  
+  # Fix for CocoaPods dependency conflicts
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.xcconfigs.each do |config_name, config_file|
+      xcconfig_path = aggregate_target.xcconfig_path(config_name)
+      config = Xcodeproj::Config.new(xcconfig_path)
+      config.save_as(xcconfig_path)
+    end
+  end
 end
