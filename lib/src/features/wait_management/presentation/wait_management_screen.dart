@@ -7,7 +7,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import '../../auth/presentation/auth_controller.dart';
 // ignore: avoid_web_libraries_in_flutter
-import 'dart:js' as js;
+import 'dart:js' as js; // ignore: uri_does_not_exist
 
 
 
