@@ -8,8 +8,9 @@ void evalJavaScript(String code) {
   js.context.callMethod('eval', [code]);
 }
 
-void downloadWebTextFile(String fileName, String content) {
-  final bytes = html.Blob([content], 'text/plain;charset=utf-8');
+void downloadWebTextFile(String fileName, String content, {String? mimeType}) {
+  final mime = mimeType ?? 'text/plain;charset=utf-8';
+  final bytes = html.Blob([content], mime);
   final url = html.Url.createObjectUrlFromBlob(bytes);
   final anchor = html.AnchorElement(href: url)
     ..setAttribute('download', fileName)
@@ -17,8 +18,9 @@ void downloadWebTextFile(String fileName, String content) {
   html.Url.revokeObjectUrl(url);
 }
 
-void downloadWebBytesFile(String fileName, List<int> bytes) {
-  final blob = html.Blob([bytes]);
+void downloadWebBytesFile(String fileName, List<int> bytes, {String? mimeType}) {
+  final mime = mimeType ?? 'application/octet-stream';
+  final blob = html.Blob([bytes], mime);
   final url = html.Url.createObjectUrlFromBlob(blob);
   final anchor = html.AnchorElement(href: url)
     ..setAttribute('download', fileName)
