@@ -7,7 +7,6 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'firebase_options.dart';
 import 'src/app.dart';
 import 'src/core/services/notification_service.dart';
-import 'src/core/utils/web_utils.dart';
 import 'src/core/utils/reloader.dart';
 import 'src/core/data/offline_storage_service.dart'; // Import Offline Service
 import 'package:intl/date_symbol_data_local.dart';
@@ -217,17 +216,13 @@ void main() async {
         );
         // Remove loader even if failed
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          removeWebLoadingIndicator();
+          if (kIsWeb) reloadApp();
         });
         return;
       }
 
       // Remove web loading indicator immediately after runApp to ensure it doesn't hang
-      if (kIsWeb) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          removeWebLoadingIndicator();
-        });
-      }
+      // (web-only, no-op on iOS/Android)
 
       runApp(
         ProviderScope(
