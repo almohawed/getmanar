@@ -63,5 +63,7 @@
 	<string>نحتاج الكاميرا لمسح رمز QR وتصوير المستندات.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>نحتاج الوصول للصور لرفع صور الملف الشخصي والمستندات.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
