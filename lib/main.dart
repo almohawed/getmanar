@@ -82,7 +82,7 @@ void main() async {
             // Production Mode
             await FirebaseAppCheck.instance.activate(
               androidProvider: AndroidProvider.playIntegrity,
-              appleProvider: AppleProvider.deviceCheck,
+              appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
               webProvider: ReCaptchaV3Provider(kRecaptchaSiteKey),
             );
           }
