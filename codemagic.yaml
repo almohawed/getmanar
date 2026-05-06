@@ -47,8 +47,7 @@ workflows:
 
       - name: Flutter build IPA
         script: |
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo "199")
-          BUILD_NUM=$((LATEST + 1))
+          BUILD_NUM=$(date +%s | tail -c 6)
           echo "Building with build number: $BUILD_NUM"
           flutter build ipa --release \
             --build-name=3.0.0 \
