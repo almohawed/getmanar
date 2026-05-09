@@ -65,31 +65,9 @@ void main() async {
         firebaseInitialized = true;
         debugPrint('Firebase initialized successfully');
 
-        // Initialize App Check
-        const kRecaptchaSiteKey = '6LdJf2osAAAAAFBtDqC9hJ5WoZ0jFE4ZkyNiwSZN';
-
-        try {
-          if (kDebugMode) {
-            // Debug Mode: Use Debug Providers to avoid ReCaptcha issues on localhost/emulators
-            await FirebaseAppCheck.instance.activate(
-              androidProvider: AndroidProvider.debug,
-              appleProvider: AppleProvider.debug,
-              // For Web Debug: You must add "localhost" to your ReCaptcha allowed domains
-              // OR use a Debug Token in your browser console (self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;)
-              webProvider: ReCaptchaV3Provider(kRecaptchaSiteKey),
-            );
-          } else {
-            // Production Mode
-            await FirebaseAppCheck.instance.activate(
-              androidProvider: AndroidProvider.playIntegrity,
-              appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
-              webProvider: ReCaptchaV3Provider(kRecaptchaSiteKey),
-            );
-          }
-          debugPrint('Firebase App Check activated');
-        } catch (e) {
-          debugPrint('Firebase App Check activation failed (Non-critical): $e');
-        }
+        // App Check disabled - causes connection issues on review devices
+        // Will be re-enabled after app approval
+        debugPrint('Firebase App Check skipped');
       } catch (e) {
         debugPrint('Firebase initialization failed or timed out: $e');
         firebaseError = e.toString();
