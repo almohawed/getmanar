@@ -10,8 +10,8 @@ workflows:
       xcode: latest
       cocoapods: 1.15.2
       groups:
-        - app_store_credentials   # APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY
-        - certificate_credentials # CERTIFICATE_PRIVATE_KEY
+        - app_store_credentials
+        - certificate_credentials
       vars:
         BUNDLE_ID: "com.almohawed.manar"
         APP_STORE_APP_ID: "6744042607"
@@ -27,6 +27,7 @@ workflows:
       - name: Set up code signing
         script: |
           xcode-project use-profiles
+          echo "Code signing configured"
 
       - name: Get Flutter packages
         script: |
@@ -65,3 +66,41 @@ workflows:
     #     auth: integration
     #     submit_to_testflight: true
     #     submit_to_app_store: false
+
+  # ─── Android Build (AAB + APK) ────────────────────────────────────────────
+  android-release:
+    name: Android Release (AAB + APK)
+    max_build_duration: 60
+    instance_type: linux_x2
+
+    environment:
+      flutter: 3.32.0
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+
+      - name: Build AAB (Google Play)
+        script: |
+          flutter build appbundle --release \
+            --build-name=3.0.0 \
+            --build-number=$(($(date +%s) % 100000))
+
+      - name: Build APK (Huawei AppGallery)
+        script: |
+          flutter build apk --release \
+            --build-name=3.0.0 \
+            --build-number=$(($(date +%s) % 100000))
+
+    artifacts:
+      - build/app/outputs/bundle/release/app-release.aab
+      - build/app/outputs/flutter-apk/app-release.apk
+      - flutter_drive.log
