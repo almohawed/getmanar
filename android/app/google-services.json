@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "979291699789",
+    "project_id": "etisak-784d6",
+    "storage_bucket": "etisak-784d6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979291699789:android:71cbb69c0611e4411b7a04",
+        "android_client_info": {
+          "package_name": "com.almohawed.manar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApXj1qxtyIH-9WTcRAZTs3feK2fN5FvPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
