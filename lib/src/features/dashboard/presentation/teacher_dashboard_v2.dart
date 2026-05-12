@@ -58,6 +58,8 @@ class TeacherDashboardV2 extends ConsumerWidget {
                   {'icon': Icons.assignment_turned_in, 'title': 'الواجبات', 'route': '/assignments'},
                   {'icon': Icons.quiz, 'title': 'الاختبارات', 'route': '/tests'},
                   {'icon': Icons.emoji_events, 'title': 'تعزيز السلوك', 'route': '/behavior-enhancement'},
+                  {'icon': Icons.star, 'title': 'تميز الطلاب', 'route': '/student-excellence-compensation?tab=excellence'},
+                  {'icon': Icons.refresh, 'title': 'تعويض السلوك', 'route': '/student-excellence-compensation?tab=compensation'},
                   {'icon': Icons.bar_chart, 'title': 'التقارير', 'route': '/reports'},
                 ],
               ),
