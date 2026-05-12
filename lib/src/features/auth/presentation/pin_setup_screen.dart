@@ -120,16 +120,26 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                   'Code-based binding failed, falling back to account-based: $e',
                 );
                 // Fallback to account-based binding if registry binding fails
-                await functions.httpsCallable('bindAccountDevice').call({
-                  'deviceId': deviceId,
-                });
+                try {
+                  await functions.httpsCallable('bindAccountDevice').call({
+                    'deviceId': deviceId,
+                  });
+                } catch (e2) {
+                  debugPrint('Account-based binding also failed (non-critical): $e2');
+                  // Non-critical - continue without server binding
+                }
               }
             } else {
               // B. ROOT CAUSE FIX: For accounts without codes (like the Owner),
               // bind directly to the GlobalUsers account record.
-              await functions.httpsCallable('bindAccountDevice').call({
-                'deviceId': deviceId,
-              });
+              try {
+                await functions.httpsCallable('bindAccountDevice').call({
+                  'deviceId': deviceId,
+                });
+              } catch (e) {
+                debugPrint('Device binding failed (non-critical): $e');
+                // Non-critical - continue without server binding
+              }
             }
           } else {
             debugPrint('Mock Mode: Skipping server device binding');
