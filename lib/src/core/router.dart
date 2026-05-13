@@ -178,12 +178,13 @@ import '../features/admin/presentation/development_plans_screen.dart';
 
 import '../features/behavior/presentation/student_follow_up_screen.dart'; // Import StudentFollowUpScreen
 import '../features/behavior/presentation/add_behavior_enhancement_screen.dart'; // Import AddBehaviorEnhancementScreen
+import '../features/behavior/presentation/student_excellence_compensation_screen.dart'; // Import StudentExcellenceCompensationScreen
 import '../features/behavior/presentation/add_behavior_warning_screen.dart'; // Import AddBehaviorWarningScreen
 
 import '../features/counselor/presentation/add_student_case_screen.dart'; // Import AddStudentCaseScreen
 import '../features/counselor/presentation/add_session_screen.dart'; // Import AddSessionScreen
 
-// REMOVED: import '../features/counselor/presentation/add_case_followup_screen.dart'; 
+// REMOVED: import '../features/counselor/presentation/add_case_followup_screen.dart';
 // استخدم AddFollowupScreen بدلاً منها (مستوردة بالفعل في السطر 27)
 import '../features/counselor/presentation/close_student_case_screen.dart'; // Import CloseStudentCaseScreen
 
@@ -301,6 +302,13 @@ final router = GoRouter(
       builder: (context, state) => const AddBehaviorEnhancementScreen(),
     ),
     GoRoute(
+      path: '/student-excellence-compensation',
+      builder: (context, state) {
+        final tab = state.uri.queryParameters['tab'] ?? 'excellence';
+        return StudentExcellenceCompensationScreen(initialTab: tab);
+      },
+    ),
+    GoRoute(
       path: '/add-behavior-warning',
       builder: (context, state) => const AddBehaviorWarningScreen(),
     ),
@@ -314,7 +322,8 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/add-case-followup',
-      builder: (context, state) => const AddFollowupScreen(), // استخدام الصفحة الجديدة الاحترافية
+      builder: (context, state) =>
+          const AddFollowupScreen(), // استخدام الصفحة الجديدة الاحترافية
     ),
     GoRoute(
       path: '/counselor/active-cases',
@@ -336,14 +345,30 @@ final router = GoRouter(
       path: '/counselor/sessions-reports',
       builder: (context, state) => const SessionsReportsScreen(),
     ),
-    GoRoute(path: '/counselor/comprehensive-report', builder: (context, state) => const ComprehensiveReportScreen()),
-    GoRoute(path: '/counselor/cases-statistics', builder: (context, state) => const CasesStatisticsScreen()),
-    GoRoute(path: '/counselor/cases-timeline', builder: (context, state) => const CasesTimelineScreen()),
-    GoRoute(path: '/counselor/print-reports', builder: (context, state) => const PrintReportsScreen()),
-    GoRoute(path: '/counselor/sms', builder: (context, state) => const CounselorSmsScreen()),
-    GoRoute(path: '/admin/sms-settings', builder: (context, state) => const SmsSettingsScreen()),
-    GoRoute(path: '/teacher-sms', builder: (context, state) => const TeacherSmsScreen()),
-    GoRoute(path: '/teacher-sms-limits', builder: (context, state) => const TeacherSmsLimitsScreen()),
+    GoRoute(
+        path: '/counselor/comprehensive-report',
+        builder: (context, state) => const ComprehensiveReportScreen()),
+    GoRoute(
+        path: '/counselor/cases-statistics',
+        builder: (context, state) => const CasesStatisticsScreen()),
+    GoRoute(
+        path: '/counselor/cases-timeline',
+        builder: (context, state) => const CasesTimelineScreen()),
+    GoRoute(
+        path: '/counselor/print-reports',
+        builder: (context, state) => const PrintReportsScreen()),
+    GoRoute(
+        path: '/counselor/sms',
+        builder: (context, state) => const CounselorSmsScreen()),
+    GoRoute(
+        path: '/admin/sms-settings',
+        builder: (context, state) => const SmsSettingsScreen()),
+    GoRoute(
+        path: '/teacher-sms',
+        builder: (context, state) => const TeacherSmsScreen()),
+    GoRoute(
+        path: '/teacher-sms-limits',
+        builder: (context, state) => const TeacherSmsLimitsScreen()),
     // GoRoute(
     //   path: '/counselor/progress-evaluation',
     //   builder: (context, state) => const ProgressEvaluationScreen(),
@@ -760,14 +785,14 @@ final router = GoRouter(
     ),
     GoRoute(
       path: '/subjects-management',
-          builder: (context, state) => const SubjectsManagementScreen(),
-        ),
-        GoRoute(
-          path: '/schedule-import',
-          builder: (context, state) => const ScheduleImportScreen(),
-        ),
-        GoRoute(
-          path: '/schedule-management',
+      builder: (context, state) => const SubjectsManagementScreen(),
+    ),
+    GoRoute(
+      path: '/schedule-import',
+      builder: (context, state) => const ScheduleImportScreen(),
+    ),
+    GoRoute(
+      path: '/schedule-management',
       builder: (context, state) {
         return const ScheduleManagementScreen();
       },
@@ -1503,7 +1528,7 @@ final router = GoRouter(
       path: '/behavior-enhancement',
       builder: (context, state) => const BehaviorEnhancementDashboardScreen(),
     ),
-    
+
     // New Behavior Management Routes
     GoRoute(
       path: '/behavior-dashboard',
