@@ -217,22 +217,19 @@ class _ScanActionSheet extends ConsumerWidget {
               label: 'خروج لدورة المياه',
               onTap: () async {
                 Navigator.pop(context);
-                final record = BehaviorRecord(
-                  id: const Uuid().v4(),
-                  studentId: student.id,
-                  teacherId: currentUser.id,
-                  type: BehaviorType.bathroom,
-                  description: 'خروج لدورة المياه',
-                  points: 0,
-                  timestamp: DateTime.now(),
-                  bathroomExitTime: DateTime.now(),
-                );
+                // عرض dialog اختيار المدة
+                final duration = await _showDurationDialog(context);
+                if (duration == null) return; // ألغى المعلم
                 await ref
                     .read(behaviorControllerProvider.notifier)
-                    .addRecord(record);
+                    .startBathroomTrip(student, currentUser, durationMinutes: duration);
                 if (context.mounted) {
+                  final label = duration == 0 ? 'وقت مفتوح' : '$duration دقيقة';
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم تسجيل الخروج')),
+                    SnackBar(
+                      content: Text('تم تسجيل الخروج - المدة: $label'),
+                      backgroundColor: Colors.orange,
+                    ),
                   );
                 }
               },
@@ -426,6 +423,153 @@ class _ScanActionSheet extends ConsumerWidget {
             child: const Text('تسجيل وموافقة'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Duration Selection Dialog ────────────────────────────────────────────────
+
+Future<int?> _showDurationDialog(BuildContext context) async {
+  return showDialog<int>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        backgroundColor: const Color(0xFF1A2E45),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.timer, color: Colors.orange),
+            SizedBox(width: 8),
+            Text(
+              'تحديد مدة الخروج',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'اختر المدة المسموح بها للطالب خارج الفصل:',
+              style: TextStyle(
+                color: Colors.white70,
+                fontFamily: 'Cairo',
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _DurationOption(
+              label: '5 دقائق',
+              sublabel: 'دورة المياه',
+              icon: Icons.wc,
+              color: Colors.green,
+              minutes: 5,
+            ),
+            const SizedBox(height: 8),
+            _DurationOption(
+              label: '10 دقائق',
+              sublabel: 'الوكيل / المرشد',
+              icon: Icons.person,
+              color: Colors.blue,
+              minutes: 10,
+            ),
+            const SizedBox(height: 8),
+            _DurationOption(
+              label: '15 دقيقة',
+              sublabel: 'مهمة خاصة',
+              icon: Icons.assignment,
+              color: Colors.purple,
+              minutes: 15,
+            ),
+            const SizedBox(height: 8),
+            _DurationOption(
+              label: 'وقت مفتوح',
+              sublabel: 'بدون حد زمني',
+              icon: Icons.all_inclusive,
+              color: Colors.grey,
+              minutes: 0,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text(
+              'إلغاء',
+              style: TextStyle(color: Colors.red, fontFamily: 'Cairo'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _DurationOption extends StatelessWidget {
+  final String label;
+  final String sublabel;
+  final IconData icon;
+  final Color color;
+  final int minutes;
+
+  const _DurationOption({
+    required this.label,
+    required this.sublabel,
+    required this.icon,
+    required this.color,
+    required this.minutes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context, minutes),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    sublabel,
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: color, size: 16),
+          ],
+        ),
       ),
     );
   }

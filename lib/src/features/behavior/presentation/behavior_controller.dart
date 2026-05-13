@@ -428,7 +428,7 @@ class BehaviorController extends AsyncNotifier<void> {
     });
   }
 
-  Future<void> startBathroomTrip(User student, User teacher) async {
+  Future<void> startBathroomTrip(User student, User teacher, {int durationMinutes = 5}) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(
@@ -436,8 +436,17 @@ class BehaviorController extends AsyncNotifier<void> {
       ); // Use BathroomRepository
       final notificationRepo = ref.read(notificationRepositoryProvider);
 
-      // 1. Create Bathroom Pass
+      // 1. Create Bathroom Pass with custom duration
       final now = DateTime.now();
+      // إذا كانت المدة 0 = وقت مفتوح (60 دقيقة كحد أقصى)
+      final effectiveDuration = durationMinutes <= 0 ? 60 : durationMinutes;
+      final yellowAt = durationMinutes <= 0
+          ? now.add(const Duration(minutes: 60)) // وقت مفتوح: تنبيه بعد ساعة
+          : now.add(Duration(minutes: effectiveDuration));
+      final redAt = durationMinutes <= 0
+          ? now.add(const Duration(minutes: 90)) // وقت مفتوح: أحمر بعد 90 دقيقة
+          : now.add(Duration(minutes: effectiveDuration + 5));
+
       final pass = BathroomPass(
         id: const Uuid().v4(),
         studentId: student.id,
@@ -446,8 +455,8 @@ class BehaviorController extends AsyncNotifier<void> {
         classId: null, // Add if available from context
         startTime: now,
         status: BathroomPassStatus.approved,
-        dueYellowAt: now.add(const Duration(minutes: 5)),
-        redAt: now.add(const Duration(minutes: 15)),
+        dueYellowAt: yellowAt,
+        redAt: redAt,
       );
 
       await repo.addPass(pass);
