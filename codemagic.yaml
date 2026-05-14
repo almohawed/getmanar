@@ -1,5 +1,45 @@
 workflows:
-  # ─── iOS Build & App Store ────────────────────────────────────────────────
+  # ─── Web Build & Firebase Hosting ────────────────────────────────────────
+  web-deploy:
+    name: Web Deploy to Firebase Hosting
+    max_build_duration: 30
+    instance_type: linux_x2
+
+    environment:
+      flutter: 3.32.0
+      groups:
+        - firebase_credentials
+      vars:
+        FIREBASE_PROJECT: "etisak-784d6"
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+
+      - name: Build Web
+        script: |
+          flutter build web --release --web-renderer canvaskit
+
+      - name: Install Firebase CLI
+        script: |
+          npm install -g firebase-tools
+
+      - name: Deploy to Firebase Hosting
+        script: |
+          firebase deploy --only hosting --project $FIREBASE_PROJECT --token "$FIREBASE_TOKEN"
+
+    artifacts:
+      - build/web/**
+
+
   ios-app-store:
     name: iOS App Store Release
     max_build_duration: 90
