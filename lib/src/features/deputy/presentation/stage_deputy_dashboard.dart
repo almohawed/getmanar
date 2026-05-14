@@ -198,6 +198,16 @@ class StageDeputyDashboard extends ConsumerWidget {
                             route: '/smart-schedule',
                           ),
                           _ActionItem(
+                            icon: Icons.wb_sunny_rounded,
+                            label: 'طابور الصباح',
+                            route: '/morning-assembly',
+                          ),
+                          _ActionItem(
+                            icon: Icons.edit_calendar_rounded,
+                            label: 'تعديل حصص المعلم',
+                            route: '/teacher-schedule-edit',
+                          ),
+                          _ActionItem(
                             icon: Icons.pending_actions_outlined,
                             label: 'جدول الانتظار',
                             route: '/wait-management',

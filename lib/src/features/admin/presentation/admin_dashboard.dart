@@ -872,6 +872,18 @@ class AdminDashboard extends ConsumerWidget {
               '/supervision-duty',
             ),
             _NavItem(
+              'طابور الصباح',
+              Icons.wb_sunny_rounded,
+              const Color(0xFFF57F17),
+              '/morning-assembly',
+            ),
+            _NavItem(
+              'تعديل حصص المعلم',
+              Icons.edit_calendar_rounded,
+              const Color(0xFF00695C),
+              '/teacher-schedule-edit',
+            ),
+            _NavItem(
               'الاختبارات',
               Icons.assignment,
               Colors.red.shade700,

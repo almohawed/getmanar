@@ -598,6 +598,18 @@ class _AcademicAffairsDashboardState
                   route: '/supervision-duty',
                 ),
                 _ActionItem(
+                  icon: Icons.wb_sunny_rounded,
+                  label: 'طابور الصباح',
+                  color: const Color(0xFFF57F17),
+                  route: '/morning-assembly',
+                ),
+                _ActionItem(
+                  icon: Icons.edit_calendar_rounded,
+                  label: 'تعديل حصص المعلم',
+                  color: const Color(0xFF00695C),
+                  route: '/teacher-schedule-edit',
+                ),
+                _ActionItem(
                   icon: Icons.groups,
                   label: 'الجدول التشاركي',
                   color: Colors.teal,

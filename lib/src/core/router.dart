@@ -209,6 +209,8 @@ import '../features/academic/presentation/export_academic_reports_tab.dart';
 import '../features/simple_schedule/presentation/simple_schedule_screen.dart';
 import '../features/simple_schedule/presentation/my_schedule_screen.dart';
 import '../features/requests/presentation/student_exit_permission_screen.dart';
+import '../features/attendance/presentation/morning_assembly_attendance_screen.dart';
+import '../features/schedule/presentation/teacher_schedule_edit_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/',
@@ -763,6 +765,17 @@ final router = GoRouter(
       path: '/supervision-duty',
       builder: (context, state) {
         return const SupervisionDutyScreen();
+      },
+    ),
+    GoRoute(
+      path: '/morning-assembly',
+      builder: (context, state) => const MorningAssemblyAttendanceScreen(),
+    ),
+    GoRoute(
+      path: '/teacher-schedule-edit',
+      builder: (context, state) {
+        final teacherId = state.extra as String?;
+        return TeacherScheduleEditScreen(teacherId: teacherId);
       },
     ),
     GoRoute(

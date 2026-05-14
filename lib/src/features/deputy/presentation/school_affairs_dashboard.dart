@@ -113,6 +113,16 @@ class _SchoolAffairsDashboardState
                     'route': '/supervision-duty',
                   },
                   {
+                    'icon': Icons.wb_sunny_rounded,
+                    'title': 'طابور الصباح',
+                    'route': '/morning-assembly',
+                  },
+                  {
+                    'icon': Icons.edit_calendar_rounded,
+                    'title': 'تعديل حصص المعلم',
+                    'route': '/teacher-schedule-edit',
+                  },
+                  {
                     'icon': Icons.draw,
                     'title': 'سجل التوقيعات',
                     'route': '/signatures-log',
