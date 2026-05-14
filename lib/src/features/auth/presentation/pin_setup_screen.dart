@@ -1,13 +1,8 @@
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import '../../../core/domain/models/user.dart';
-import '../data/mock_auth_repository.dart';
 import '../data/pin_service.dart';
 import 'auth_controller.dart';
 
@@ -75,93 +70,36 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
     final pinStr = _pin.join();
     final confirmPinStr = _confirmPin.join();
 
-    if (pinStr == confirmPinStr) {
-      setState(() {
-        _error = null;
-        _isLoading = true;
-      });
-      final user = ref.read(authStateProvider).value;
-      if (user != null) {
-        try {
-          final pinService = PinService();
-          final deviceId = await _getDeviceId();
-
-          // 1. Setup local PIN and session
-          await pinService.setupPin(
-            user.id,
-            user.role.name,
-            pinStr,
-            'MOCK_SESSION_TOKEN_${user.id}',
-          );
-
-          // 2. Bind device ID to server (non-critical — never block navigation)
-          _bindDeviceInBackground(user, deviceId);
-
-          if (mounted) {
-            context.go('/dashboard');
-          }
-        } catch (e) {
-          setState(() {
-            _isLoading = false;
-            _error = 'حدث خطأ أثناء حفظ الرمز السري';
-          });
-          debugPrint('PIN setup error: $e');
-        }
-      }
-    } else {
+    if (pinStr != confirmPinStr) {
       setState(() {
         _error = 'الأرقام غير متطابقة، يرجى المحاولة مرة أخرى';
         _confirmPin.clear();
       });
+      return;
     }
-  }
 
-  /// يربط الجهاز بالخادم في الخلفية — لا يوقف التطبيق عند الفشل
-  void _bindDeviceInBackground(User user, String deviceId) {
-    final repo = ref.read(authRepositoryProvider);
-    final isMockMode = repo is MockAuthRepository;
-    if (isMockMode) return;
+    setState(() { _error = null; _isLoading = true; });
 
-    final bindingCode = user.mnCode ?? user.identityNumber;
-    final functions = FirebaseFunctions.instance;
+    try {
+      final user = ref.read(authStateProvider).value;
+      if (user == null) throw Exception('لم يتم التعرف على المستخدم');
 
-    Future(() async {
-      try {
-        if (bindingCode != null) {
-          await functions.httpsCallable('manageUserCode').call({
-            'action': 'bind',
-            'code': bindingCode.toUpperCase(),
-            'email': user.email,
-            'schoolId': user.schoolId ?? '',
-            'role': user.role.name,
-            'name': user.name,
-            'deviceId': deviceId,
-          });
-        } else {
-          await functions.httpsCallable('bindAccountDevice').call({
-            'deviceId': deviceId,
-          });
-        }
-      } catch (e) {
-        // Non-critical — device binding failure doesn't affect app functionality
-        debugPrint('Device binding failed (non-critical): $e');
-      }
-    });
-  }
+      // حفظ الرمز السري محلياً فقط — لا حاجة لأي Cloud Function
+      final pinService = PinService();
+      await pinService.setupPin(
+        user.id,
+        user.role.name,
+        pinStr,
+        'SESSION_${user.id}_${DateTime.now().millisecondsSinceEpoch}',
+      );
 
-  Future<String> _getDeviceId() async {
-    if (kIsWeb) {
-      return 'web_${DateTime.now().millisecondsSinceEpoch}';
-    }
-    final deviceInfo = DeviceInfoPlugin();
-    if (Platform.isAndroid) {
-      final androidInfo = await deviceInfo.androidInfo;
-      return androidInfo.id;
-    } else if (Platform.isIOS) {
-      final iosInfo = await deviceInfo.iosInfo;
-      return iosInfo.identifierForVendor ?? 'ios_unknown';
-    } else {
-      return 'desktop_${DateTime.now().millisecondsSinceEpoch}';
+      if (mounted) context.go('/dashboard');
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'حدث خطأ أثناء حفظ الرمز السري، حاول مرة أخرى';
+      });
+      debugPrint('PIN setup error: $e');
     }
   }
 
