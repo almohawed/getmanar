@@ -94,56 +94,8 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
             'MOCK_SESSION_TOKEN_${user.id}',
           );
 
-          // 2. Bind device ID to server
-          final bindingCode = user.mnCode ?? user.identityNumber;
-          final repo = ref.read(authRepositoryProvider);
-          final isMockMode = repo is MockAuthRepository;
-
-          if (!isMockMode) {
-            final functions = FirebaseFunctions.instance;
-
-            if (bindingCode != null) {
-              // A. If user has a code (MN-Code or ID), bind via the Code Registry
-              try {
-                final callable = functions.httpsCallable('manageUserCode');
-                await callable.call({
-                  'action': 'bind',
-                  'code': bindingCode.toUpperCase(),
-                  'email': user.email,
-                  'schoolId': user.schoolId ?? '',
-                  'role': user.role.name,
-                  'name': user.name,
-                  'deviceId': deviceId,
-                });
-              } catch (e) {
-                debugPrint(
-                  'Code-based binding failed, falling back to account-based: $e',
-                );
-                // Fallback to account-based binding if registry binding fails
-                try {
-                  await functions.httpsCallable('bindAccountDevice').call({
-                    'deviceId': deviceId,
-                  });
-                } catch (e2) {
-                  debugPrint('Account-based binding also failed (non-critical): $e2');
-                  // Non-critical - continue without server binding
-                }
-              }
-            } else {
-              // B. ROOT CAUSE FIX: For accounts without codes (like the Owner),
-              // bind directly to the GlobalUsers account record.
-              try {
-                await functions.httpsCallable('bindAccountDevice').call({
-                  'deviceId': deviceId,
-                });
-              } catch (e) {
-                debugPrint('Device binding failed (non-critical): $e');
-                // Non-critical - continue without server binding
-              }
-            }
-          } else {
-            debugPrint('Mock Mode: Skipping server device binding');
-          }
+          // 2. Bind device ID to server (non-critical — never block navigation)
+          _bindDeviceInBackground(user, deviceId);
 
           if (mounted) {
             context.go('/dashboard');
@@ -151,8 +103,9 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         } catch (e) {
           setState(() {
             _isLoading = false;
-            _error = 'حدث خطأ أثناء حفظ البيانات: $e';
+            _error = 'حدث خطأ أثناء حفظ الرمز السري';
           });
+          debugPrint('PIN setup error: $e');
         }
       }
     } else {
@@ -161,6 +114,39 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         _confirmPin.clear();
       });
     }
+  }
+
+  /// يربط الجهاز بالخادم في الخلفية — لا يوقف التطبيق عند الفشل
+  void _bindDeviceInBackground(User user, String deviceId) {
+    final repo = ref.read(authRepositoryProvider);
+    final isMockMode = repo is MockAuthRepository;
+    if (isMockMode) return;
+
+    final bindingCode = user.mnCode ?? user.identityNumber;
+    final functions = FirebaseFunctions.instance;
+
+    Future(() async {
+      try {
+        if (bindingCode != null) {
+          await functions.httpsCallable('manageUserCode').call({
+            'action': 'bind',
+            'code': bindingCode.toUpperCase(),
+            'email': user.email,
+            'schoolId': user.schoolId ?? '',
+            'role': user.role.name,
+            'name': user.name,
+            'deviceId': deviceId,
+          });
+        } else {
+          await functions.httpsCallable('bindAccountDevice').call({
+            'deviceId': deviceId,
+          });
+        }
+      } catch (e) {
+        // Non-critical — device binding failure doesn't affect app functionality
+        debugPrint('Device binding failed (non-critical): $e');
+      }
+    });
   }
 
   Future<String> _getDeviceId() async {
