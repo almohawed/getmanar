@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../domain/school_request.dart';
 
@@ -83,38 +83,40 @@ class _SchoolRequestScreenState extends ConsumerState<SchoolRequestScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final result = await FirebaseFunctions.instance
-          .httpsCallable('registerNewSchool')
-          .call({
-            'schoolName': _schoolNameController.text.trim(),
-            'schoolType': _selectedSchoolType,
-            'schoolStage': _selectedSchoolStage,
-            'adminRegion': _selectedCountryCode == 'SA'
-                ? _selectedAdminRegion
-                : _customRegion.trim(),
-            'city': _cityController.text.trim(),
-            'countryCode': _selectedCountryCode == 'OTHER' ? 'OTHER' : _selectedCountryCode,
-            'principalName': _adminNameController.text.trim(), // Admin Name
-            'mobile': _mobileController.text.trim(),
-            'email': _emailController.text.trim(), // Optional Email
-            'studentCount': _studentCountController.text.trim(),
-            'hasSpecialEducation': _hasSpecialEducation,
-            // Password and Identity are no longer sent initially
-          });
+      // حفظ مباشر في Firestore بدون Cloud Function
+      final db = FirebaseFirestore.instance;
+      final requestRef = db.collection('SchoolRequests').doc();
+      final requestId = requestRef.id;
 
-      if (result.data['success'] == true) {
-        if (mounted) {
-          context.go('/school-request-success');
-        }
-      } else {
-        throw Exception('فشلت عملية إرسال الطلب');
+      await requestRef.set({
+        'id': requestId,
+        'schoolName': _schoolNameController.text.trim(),
+        'schoolType': _selectedSchoolType,
+        'schoolStage': _selectedSchoolStage,
+        'adminRegion': _selectedCountryCode == 'SA'
+            ? _selectedAdminRegion
+            : _customRegion.trim(),
+        'city': _cityController.text.trim(),
+        'countryCode': _selectedCountryCode == 'OTHER' ? 'OTHER' : _selectedCountryCode,
+        'principalName': _adminNameController.text.trim(),
+        'mobile': _mobileController.text.trim(),
+        'email': _emailController.text.trim(),
+        'studentCount': int.tryParse(_studentCountController.text.trim()) ?? 0,
+        'hasSpecialEducation': _hasSpecialEducation,
+        'status': 'pending',
+        'ownerUserId': '',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        context.go('/school-request-success');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'حدث خطأ: ${e.toString().replaceAll('FirebaseFunctionsException:', '')}',
+              'حدث خطأ: ${e.toString()}',
             ),
             backgroundColor: Colors.red,
           ),
