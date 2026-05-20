@@ -528,9 +528,9 @@ class _SmartAttendanceDashboardState extends ConsumerState<SmartAttendanceDashbo
     return Row(children: [
       Expanded(
         child: ElevatedButton.icon(
-          onPressed: () => Navigator.of(context).pushNamed('/attendance'),
+          onPressed: () => Navigator.of(context).pushNamed('/morning-assembly'),
           icon: Icon(Icons.how_to_reg_rounded, size: 18.sp),
-          label: Text('تسجيل الحضور', style: GoogleFonts.cairo(fontSize: 12.sp, fontWeight: FontWeight.w700)),
+          label: Text('تسجيل حضور الطابور', style: GoogleFonts.cairo(fontSize: 12.sp, fontWeight: FontWeight.w700)),
           style: ElevatedButton.styleFrom(
             backgroundColor: _kPrimary,
             foregroundColor: Colors.white,
