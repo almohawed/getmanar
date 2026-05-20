@@ -24,24 +24,26 @@ class FirestoreViolationsRepository {
     final snapshot = await _firestore
         .collection(_collection)
         .where('schoolId', isEqualTo: schoolId)
-        .orderBy('date', descending: true)
         .get();
 
-    return snapshot.docs
+    final list = snapshot.docs
         .map((doc) => BehavioralViolation.fromMap(doc.data()))
         .toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
   }
 
   Future<List<BehavioralViolation>> getViolationsByStudent(String studentId) async {
     final snapshot = await _firestore
         .collection(_collection)
         .where('studentId', isEqualTo: studentId)
-        .orderBy('date', descending: true)
         .get();
 
-    return snapshot.docs
+    final list = snapshot.docs
         .map((doc) => BehavioralViolation.fromMap(doc.data()))
         .toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
   }
   
   Future<List<BehavioralViolation>> getPendingViolations(String schoolId) async {
@@ -49,12 +51,13 @@ class FirestoreViolationsRepository {
         .collection(_collection)
         .where('schoolId', isEqualTo: schoolId)
         .where('status', isEqualTo: ViolationStatus.pending.name)
-        .orderBy('date', descending: true)
         .get();
 
-    return snapshot.docs
+    final list = snapshot.docs
         .map((doc) => BehavioralViolation.fromMap(doc.data()))
         .toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
   }
 
   Stream<List<BehavioralViolation>> streamPendingViolations(String schoolId) {
@@ -62,11 +65,14 @@ class FirestoreViolationsRepository {
         .collection(_collection)
         .where('schoolId', isEqualTo: schoolId)
         .where('status', isEqualTo: ViolationStatus.pending.name)
-        .orderBy('date', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => BehavioralViolation.fromMap(doc.data()))
-            .toList());
+        .map((snapshot) {
+          final list = snapshot.docs
+              .map((doc) => BehavioralViolation.fromMap(doc.data()))
+              .toList();
+          list.sort((a, b) => b.date.compareTo(a.date));
+          return list;
+        });
   }
 }
 

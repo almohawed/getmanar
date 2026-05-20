@@ -64,6 +64,8 @@ class _ViolationsListScreenState extends ConsumerState<ViolationsListScreen>
           controller: _tabController,
           indicatorColor: Colors.white,
           indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           labelStyle: GoogleFonts.cairo(
             fontWeight: FontWeight.bold,
             fontSize: 15.sp,
