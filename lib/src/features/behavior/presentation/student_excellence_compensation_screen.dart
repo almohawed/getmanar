@@ -270,18 +270,18 @@ class _StudentExcellenceCompensationScreenState
 
               var displayStudents = availableStudents;
 
-              // Filter by selected class
+              // Filter by selected class — use allStudents to ensure we have all students in the selected class
               if (_selectedClassId != null) {
                 final selected = classById[_selectedClassId!];
                 if (selected != null) {
                   final ids = selected.studentIds.toSet();
-                  displayStudents = displayStudents.where((s) {
+                  displayStudents = allStudents.where((s) {
                     final inClass = ids.contains(s.id);
                     final assigned = s.assignedClassIds ?? [];
                     return inClass || assigned.contains(_selectedClassId);
                   }).toList();
                 } else {
-                  displayStudents = displayStudents.where((s) {
+                  displayStudents = allStudents.where((s) {
                     final ids = s.assignedClassIds ?? [];
                     return ids.contains(_selectedClassId);
                   }).toList();
