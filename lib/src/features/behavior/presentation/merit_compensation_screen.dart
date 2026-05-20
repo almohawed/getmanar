@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/domain/models/user.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../common/presentation/smart_section_scaffold.dart';
+import '../../common/presentation/usage_guide_widget.dart';
 import '../../academic/data/mock_data.dart';
 import '../../academic/domain/classroom.dart';
 import '../../academic/presentation/students_provider.dart';
@@ -202,6 +203,18 @@ class _MeritCompensationScreenState
       appBar: AppBar(
         title: Text('التميز والتعويض السلوكي', style: GoogleFonts.cairo()),
         backgroundColor: _primaryColor,
+        actions: const [
+          UsageGuideButton(
+            title: 'دليل استخدام لوحة التميز والتعويض',
+            usageText: '''
+1. اختر الفصل من قائمة "اختيار الفصل".
+2. اختر الطالب من قائمة "اختيار الطالب".
+3. اختر نوع السلوك من البطاقات الظاهرة أسفل قسم "نوع السلوك".
+4. اكتب ملاحظات إضافية (اختياري).
+5. اضغط على "تسجيل سلوك التميز" أو "تسجيل السلوك التعويضي" لتسجيل السلوك.
+''',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           onTap: (_) => setState(() {
