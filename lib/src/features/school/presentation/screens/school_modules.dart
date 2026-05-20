@@ -5,8 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/presentation/widgets/unified_ui_kit.dart';
 import '../../../../core/utils/web_utils.dart';
+import '../../../../core/domain/models/user.dart';
 import '../../../auth/presentation/auth_controller.dart';
 import '../../../maintenance/data/firestore_maintenance_repository.dart';
 import '../../../maintenance/domain/models/maintenance_report.dart';
@@ -66,70 +68,102 @@ Stream<List<Map<String, dynamic>>> _watchCollection(
 
 final schoolMailItemsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'MailItems');
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'MailItems');
+});
 
 final schoolCircularsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'Circulars');
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'Circulars');
+});
 
 final schoolSignaturesStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'SignaturesLog');
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'SignaturesLog');
+});
 
 final staffAttendanceTodayStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      final today = _dateKey(DateTime.now());
-      return _schoolSubCollection(schoolId, 'StaffAttendance')
-          .where('dateKey', isEqualTo: today)
-          .orderBy('createdAt', descending: true)
-          .limit(300)
-          .snapshots()
-          .map((snap) {
-            return snap.docs.map((d) {
-              final data = d.data();
-              return {...data, 'id': d.id};
-            }).toList();
-          });
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  final today = _dateKey(DateTime.now());
+  return _schoolSubCollection(schoolId, 'StaffAttendance')
+      .where('dateKey', isEqualTo: today)
+      .orderBy('createdAt', descending: true)
+      .limit(300)
+      .snapshots()
+      .map((snap) {
+    return snap.docs.map((d) {
+      final data = d.data();
+      return {...data, 'id': d.id};
+    }).toList();
+  });
+});
+
+final schoolTeachersStreamProvider =
+    StreamProvider.autoDispose<List<User>>((ref) {
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+
+  return FirebaseFirestore.instance
+      .collection('Schools')
+      .doc(schoolId)
+      .collection('Teachers')
+      .snapshots()
+      .map((snapshot) {
+    return snapshot.docs
+        .map((doc) {
+          try {
+            final data = doc.data();
+            data['id'] = doc.id;
+            data['schoolId'] =
+                (data['schoolId'] ?? '').toString().trim().isEmpty
+                    ? schoolId
+                    : data['schoolId'];
+            return User.fromMap(data);
+          } catch (e) {
+            return null;
+          }
+        })
+        .where((u) => u != null)
+        .cast<User>()
+        .toList();
+  });
+});
 
 final safetyDrillsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'SafetyDrills');
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'SafetyDrills');
+});
 
 final safetyExtinguishersStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'Extinguishers');
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'Extinguishers');
+});
 
 final safetyEmergencyExitsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'EmergencyExits');
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'EmergencyExits');
+});
 
 final mailOpenCountProvider = Provider.autoDispose<int>((ref) {
   final items = ref.watch(schoolMailItemsStreamProvider).value ?? const [];
@@ -151,14 +185,13 @@ final staffAttendanceIssuesCountProvider = Provider.autoDispose<int>((ref) {
 
 final safetyDrillsOverdueFlagProvider = Provider.autoDispose<int>((ref) {
   final items = ref.watch(safetyDrillsStreamProvider).value ?? const [];
-  final dates =
-      items
-          .map(
-            (d) => _asDateTime(d['drillDate'] ?? d['date'] ?? d['createdAt']),
-          )
-          .whereType<DateTime>()
-          .toList()
-        ..sort((a, b) => b.compareTo(a));
+  final dates = items
+      .map(
+        (d) => _asDateTime(d['drillDate'] ?? d['date'] ?? d['createdAt']),
+      )
+      .whereType<DateTime>()
+      .toList()
+    ..sort((a, b) => b.compareTo(a));
   if (dates.isEmpty) return 1;
   final last = dates.first;
   final days = DateTime.now().difference(last).inDays;
@@ -185,35 +218,34 @@ final blockedExitsCountProvider = Provider.autoDispose<int>((ref) {
 
 final evacuationPlanMissingFlagProvider = Provider.autoDispose<int>((ref) {
   final settings = ref.watch(safetySettingsProvider).value;
-  final ok =
-      (settings?.meetingPoint.trim().isNotEmpty ?? false) &&
+  final ok = (settings?.meetingPoint.trim().isNotEmpty ?? false) &&
       (settings?.evacuationOfficer.trim().isNotEmpty ?? false);
   return ok ? 0 : 1;
 });
 
 final healthRulesChecksStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'HealthRulesChecks', limit: 400);
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'HealthRulesChecks', limit: 400);
+});
 
 final canteenChecksStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'CanteenChecks', limit: 400);
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'CanteenChecks', limit: 400);
+});
 
 final observationsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'Observations', limit: 400);
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'Observations', limit: 400);
+});
 
 final healthIssuesCountProvider = Provider.autoDispose<int>((ref) {
   final items = ref.watch(healthRulesChecksStreamProvider).value ?? const [];
@@ -231,35 +263,35 @@ final openObservationsCountProvider = Provider.autoDispose<int>((ref) {
 
 final inventoryItemsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'InventoryItems', limit: 800);
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'InventoryItems', limit: 800);
+});
 
 final materialRequestsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'MaterialRequests', limit: 400);
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'MaterialRequests', limit: 400);
+});
 
 final damageReportsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'DamageReports', limit: 400);
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'DamageReports', limit: 400);
+});
 
 final handoverLogsStreamProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
-      final user = ref.watch(authStateProvider).value;
-      final schoolId = (user?.schoolId ?? '').trim();
-      if (schoolId.isEmpty) return const Stream.empty();
-      return _watchCollection(schoolId, 'HandoverLogs', limit: 400);
-    });
+  final user = ref.watch(authStateProvider).value;
+  final schoolId = (user?.schoolId ?? '').trim();
+  if (schoolId.isEmpty) return const Stream.empty();
+  return _watchCollection(schoolId, 'HandoverLogs', limit: 400);
+});
 
 final lowStockCountProvider = Provider.autoDispose<int>((ref) {
   final items = ref.watch(inventoryItemsStreamProvider).value ?? const [];
@@ -338,12 +370,10 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
         break;
     }
 
-    final unsignedCircularsCount = circulars
-        .where((c) => !_asBool(c['isSigned']))
-        .length;
-    final signedCircularsCount = circulars
-        .where((c) => _asBool(c['isSigned']))
-        .length;
+    final unsignedCircularsCount =
+        circulars.where((c) => !_asBool(c['isSigned'])).length;
+    final signedCircularsCount =
+        circulars.where((c) => _asBool(c['isSigned'])).length;
 
     final mailInThisMonth = mailItems.where((m) {
       final dt = _asDateTime(m['date']) ?? _asDateTime(m['createdAt']);
@@ -847,24 +877,24 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
     final fab = schoolId.isEmpty
         ? null
         : (initialIndex == 0
-              ? FloatingActionButton.extended(
-                  onPressed: addMailItem,
-                  icon: const Icon(Icons.add),
-                  label: const Text('إضافة'),
-                )
-              : initialIndex == 1
-              ? FloatingActionButton.extended(
-                  onPressed: addCircular,
-                  icon: const Icon(Icons.add),
-                  label: const Text('إضافة'),
-                )
-              : initialIndex == 2
-              ? FloatingActionButton.extended(
-                  onPressed: addSignatureRecord,
-                  icon: const Icon(Icons.add),
-                  label: const Text('تسجيل'),
-                )
-              : null);
+            ? FloatingActionButton.extended(
+                onPressed: addMailItem,
+                icon: const Icon(Icons.add),
+                label: const Text('إضافة'),
+              )
+            : initialIndex == 1
+                ? FloatingActionButton.extended(
+                    onPressed: addCircular,
+                    icon: const Icon(Icons.add),
+                    label: const Text('إضافة'),
+                  )
+                : initialIndex == 2
+                    ? FloatingActionButton.extended(
+                        onPressed: addSignatureRecord,
+                        icon: const Icon(Icons.add),
+                        label: const Text('تسجيل'),
+                      )
+                    : null);
     return UnifiedPageScaffold(
       requiredDeputyType: 'school',
       showAppBar: false,
@@ -890,32 +920,31 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                       label: initialIndex == 0
                           ? 'وارد هذا الشهر'
                           : initialIndex == 1
-                          ? 'تعاميم هذا الشهر'
-                          : initialIndex == 2
-                          ? 'توقيعات هذا الشهر'
-                          : 'الصادر والوارد',
+                              ? 'تعاميم هذا الشهر'
+                              : initialIndex == 2
+                                  ? 'توقيعات هذا الشهر'
+                                  : 'الصادر والوارد',
                       value: initialIndex == 0
                           ? mailInThisMonth.toString()
                           : initialIndex == 1
-                          ? circulars
-                                .where((c) {
-                                  final dt =
-                                      _asDateTime(c['date']) ??
-                                      _asDateTime(c['createdAt']);
-                                  return isThisMonth(dt);
-                                })
-                                .length
-                                .toString()
-                          : initialIndex == 2
-                          ? signaturesThisMonth.toString()
-                          : mailItems.length.toString(),
+                              ? circulars
+                                  .where((c) {
+                                    final dt = _asDateTime(c['date']) ??
+                                        _asDateTime(c['createdAt']);
+                                    return isThisMonth(dt);
+                                  })
+                                  .length
+                                  .toString()
+                              : initialIndex == 2
+                                  ? signaturesThisMonth.toString()
+                                  : mailItems.length.toString(),
                       icon: initialIndex == 0
                           ? Icons.inbox
                           : initialIndex == 1
-                          ? Icons.folder
-                          : initialIndex == 2
-                          ? Icons.draw
-                          : Icons.analytics,
+                              ? Icons.folder
+                              : initialIndex == 2
+                                  ? Icons.draw
+                                  : Icons.analytics,
                       color: color.shade700,
                     ),
                   ),
@@ -925,24 +954,24 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                       label: initialIndex == 0
                           ? 'صادر هذا الشهر'
                           : initialIndex == 1
-                          ? 'بانتظار التوقيع'
-                          : initialIndex == 2
-                          ? 'إجمالي التوقيعات'
-                          : 'التعاميم',
+                              ? 'بانتظار التوقيع'
+                              : initialIndex == 2
+                                  ? 'إجمالي التوقيعات'
+                                  : 'التعاميم',
                       value: initialIndex == 0
                           ? mailOutThisMonth.toString()
                           : initialIndex == 1
-                          ? unsignedCircularsCount.toString()
-                          : initialIndex == 2
-                          ? signatures.length.toString()
-                          : circulars.length.toString(),
+                              ? unsignedCircularsCount.toString()
+                              : initialIndex == 2
+                                  ? signatures.length.toString()
+                                  : circulars.length.toString(),
                       icon: initialIndex == 0
                           ? Icons.outbox
                           : initialIndex == 1
-                          ? Icons.pending_actions
-                          : initialIndex == 2
-                          ? Icons.rule
-                          : Icons.folder,
+                              ? Icons.pending_actions
+                              : initialIndex == 2
+                                  ? Icons.rule
+                                  : Icons.folder,
                       color: initialIndex == 1 && unsignedCircularsCount > 0
                           ? Colors.orange.shade700
                           : Colors.green.shade700,
@@ -954,36 +983,36 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                       label: initialIndex == 0
                           ? 'معاملات مفتوحة'
                           : initialIndex == 1
-                          ? 'موقعة'
-                          : initialIndex == 2
-                          ? 'آخر توقيع'
-                          : 'سجل التوقيعات',
+                              ? 'موقعة'
+                              : initialIndex == 2
+                                  ? 'آخر توقيع'
+                                  : 'سجل التوقيعات',
                       value: initialIndex == 0
                           ? mailOpenCount.toString()
                           : initialIndex == 1
-                          ? signedCircularsCount.toString()
-                          : initialIndex == 2
-                          ? (() {
-                              final dt = signatures.isEmpty
-                                  ? null
-                                  : (_asDateTime(
-                                          signatures.first['signedAt'],
-                                        ) ??
-                                        _asDateTime(
-                                          signatures.first['createdAt'],
-                                        ));
-                              return dt == null
-                                  ? '—'
-                                  : DateFormat('MM/dd').format(dt);
-                            })()
-                          : signatures.length.toString(),
+                              ? signedCircularsCount.toString()
+                              : initialIndex == 2
+                                  ? (() {
+                                      final dt = signatures.isEmpty
+                                          ? null
+                                          : (_asDateTime(
+                                                signatures.first['signedAt'],
+                                              ) ??
+                                              _asDateTime(
+                                                signatures.first['createdAt'],
+                                              ));
+                                      return dt == null
+                                          ? '—'
+                                          : DateFormat('MM/dd').format(dt);
+                                    })()
+                                  : signatures.length.toString(),
                       icon: initialIndex == 0
                           ? Icons.assignment_late
                           : initialIndex == 1
-                          ? Icons.check_circle
-                          : initialIndex == 2
-                          ? Icons.event_available
-                          : Icons.draw,
+                              ? Icons.check_circle
+                              : initialIndex == 2
+                                  ? Icons.event_available
+                                  : Icons.draw,
                       color: initialIndex == 0 && mailOpenCount > 0
                           ? Colors.orange.shade700
                           : Colors.blueGrey.shade700,
@@ -1093,13 +1122,13 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                         final list = initialIndex == 0
                             ? mailItems
                             : initialIndex == 1
-                            ? circulars
-                            : signatures;
+                                ? circulars
+                                : signatures;
                         final emptyMsg = initialIndex == 0
                             ? 'لم يتم تسجيل معاملات حتى الآن.'
                             : initialIndex == 1
-                            ? 'لا توجد تعاميم مؤرشفة حتى الآن.'
-                            : 'لا توجد توقيعات مسجلة حتى الآن.';
+                                ? 'لا توجد تعاميم مؤرشفة حتى الآن.'
+                                : 'لا توجد توقيعات مسجلة حتى الآن.';
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1108,8 +1137,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                               initialIndex == 0
                                   ? 'آخر المعاملات'
                                   : initialIndex == 1
-                                  ? 'آخر التعاميم'
-                                  : 'آخر التوقيعات',
+                                      ? 'آخر التعاميم'
+                                      : 'آخر التوقيعات',
                               style: TextStyle(
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.bold,
@@ -1138,8 +1167,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                         final item = list[index];
 
                                         if (initialIndex == 0) {
-                                          final dt =
-                                              _asDateTime(item['date']) ??
+                                          final dt = _asDateTime(
+                                                  item['date']) ??
                                               _asDateTime(item['createdAt']);
                                           final dateStr = dt == null
                                               ? ''
@@ -1148,18 +1177,18 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                 ).format(dt);
                                           final direction =
                                               _asString(item['direction']) ==
-                                                  'out'
-                                              ? 'صادر'
-                                              : 'وارد';
+                                                      'out'
+                                                  ? 'صادر'
+                                                  : 'وارد';
                                           final statusLabel =
                                               _asString(item['status']) ==
-                                                  'closed'
-                                              ? 'مغلقة'
-                                              : 'مفتوحة';
+                                                      'closed'
+                                                  ? 'مغلقة'
+                                                  : 'مفتوحة';
                                           final statusColor =
                                               statusLabel == 'مفتوحة'
-                                              ? Colors.orange.shade700
-                                              : Colors.green.shade700;
+                                                  ? Colors.orange.shade700
+                                                  : Colors.green.shade700;
                                           return Row(
                                             children: [
                                               Container(
@@ -1170,8 +1199,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                       .withValues(alpha: 0.9),
                                                   borderRadius:
                                                       BorderRadius.circular(
-                                                        12.r,
-                                                      ),
+                                                    12.r,
+                                                  ),
                                                 ),
                                                 child: Icon(
                                                   direction == 'صادر'
@@ -1189,8 +1218,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                   children: [
                                                     Text(
                                                       _asString(
-                                                            item['subject'],
-                                                          ).isEmpty
+                                                        item['subject'],
+                                                      ).isEmpty
                                                           ? '—'
                                                           : _asString(
                                                               item['subject'],
@@ -1200,21 +1229,19 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color: Colors
-                                                            .grey
-                                                            .shade900,
+                                                            .grey.shade900,
                                                       ),
                                                     ),
                                                     SizedBox(height: 4.h),
                                                     Text(
                                                       [
-                                                            if (dateStr
-                                                                .isNotEmpty)
-                                                              dateStr,
-                                                            direction,
-                                                            _asString(
-                                                              item['counterparty'],
-                                                            ),
-                                                          ]
+                                                        if (dateStr.isNotEmpty)
+                                                          dateStr,
+                                                        direction,
+                                                        _asString(
+                                                          item['counterparty'],
+                                                        ),
+                                                      ]
                                                           .where(
                                                             (s) => s.isNotEmpty,
                                                           )
@@ -1222,8 +1249,7 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                       style: TextStyle(
                                                         fontSize: 11.sp,
                                                         color: Colors
-                                                            .grey
-                                                            .shade600,
+                                                            .grey.shade600,
                                                       ),
                                                     ),
                                                   ],
@@ -1241,8 +1267,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                   ),
                                                   borderRadius:
                                                       BorderRadius.circular(
-                                                        16.r,
-                                                      ),
+                                                    16.r,
+                                                  ),
                                                 ),
                                                 child: Text(
                                                   statusLabel,
@@ -1257,8 +1283,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                         }
 
                                         if (initialIndex == 1) {
-                                          final dt =
-                                              _asDateTime(item['date']) ??
+                                          final dt = _asDateTime(
+                                                  item['date']) ??
                                               _asDateTime(item['createdAt']);
                                           final dateStr = dt == null
                                               ? ''
@@ -1281,8 +1307,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                       .withValues(alpha: 0.9),
                                                   borderRadius:
                                                       BorderRadius.circular(
-                                                        12.r,
-                                                      ),
+                                                    12.r,
+                                                  ),
                                                 ),
                                                 child: Icon(
                                                   Icons.folder,
@@ -1298,8 +1324,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                   children: [
                                                     Text(
                                                       _asString(
-                                                            item['title'],
-                                                          ).isEmpty
+                                                        item['title'],
+                                                      ).isEmpty
                                                           ? '—'
                                                           : _asString(
                                                               item['title'],
@@ -1309,8 +1335,7 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color: Colors
-                                                            .grey
-                                                            .shade900,
+                                                            .grey.shade900,
                                                       ),
                                                     ),
                                                     SizedBox(height: 4.h),
@@ -1334,8 +1359,7 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                       style: TextStyle(
                                                         fontSize: 11.sp,
                                                         color: Colors
-                                                            .grey
-                                                            .shade600,
+                                                            .grey.shade600,
                                                       ),
                                                     ),
                                                   ],
@@ -1360,34 +1384,30 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                     vertical: 4.h,
                                                   ),
                                                   decoration: BoxDecoration(
-                                                    color:
-                                                        (signed
-                                                                ? Colors.green
-                                                                : Colors
-                                                                      .blueGrey)
-                                                            .withValues(
-                                                              alpha: 0.08,
-                                                            ),
+                                                    color: (signed
+                                                            ? Colors.green
+                                                            : Colors.blueGrey)
+                                                        .withValues(
+                                                      alpha: 0.08,
+                                                    ),
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                          16.r,
-                                                        ),
+                                                      16.r,
+                                                    ),
                                                   ),
                                                   child: Text(
                                                     signed
                                                         ? 'موقّع'
                                                         : requires
-                                                        ? 'بانتظار'
-                                                        : 'لا يتطلب',
+                                                            ? 'بانتظار'
+                                                            : 'لا يتطلب',
                                                     style: TextStyle(
                                                       fontSize: 11.sp,
                                                       color: signed
                                                           ? Colors
-                                                                .green
-                                                                .shade700
-                                                          : Colors
-                                                                .blueGrey
-                                                                .shade700,
+                                                              .green.shade700
+                                                          : Colors.blueGrey
+                                                              .shade700,
                                                     ),
                                                   ),
                                                 ),
@@ -1397,7 +1417,7 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
 
                                         final dt =
                                             _asDateTime(item['signedAt']) ??
-                                            _asDateTime(item['createdAt']);
+                                                _asDateTime(item['createdAt']);
                                         final dateStr = dt == null
                                             ? ''
                                             : DateFormat(
@@ -1428,8 +1448,8 @@ class SchoolAdminModuleScreen extends ConsumerWidget {
                                                 children: [
                                                   Text(
                                                     _asString(
-                                                          item['signerName'],
-                                                        ).isEmpty
+                                                      item['signerName'],
+                                                    ).isEmpty
                                                         ? '—'
                                                         : _asString(
                                                             item['signerName'],
@@ -1944,9 +1964,9 @@ class ServicesModuleScreen extends ConsumerWidget {
                       value: initialIndex == 1
                           ? openObsCount().toString()
                           : (initialIndex == 2
-                                    ? checksThisMonth(canteenChecks)
-                                    : checksThisMonth(healthChecks))
-                                .toString(),
+                                  ? checksThisMonth(canteenChecks)
+                                  : checksThisMonth(healthChecks))
+                              .toString(),
                       icon: initialIndex == 1
                           ? Icons.pending_actions
                           : Icons.fact_check,
@@ -1963,52 +1983,49 @@ class ServicesModuleScreen extends ConsumerWidget {
                           : 'ملاحظات هذا الشهر',
                       value: initialIndex == 1
                           ? observations
-                                .where((o) {
-                                  final dt = _asDateTime(
-                                    o['date'] ?? o['createdAt'],
-                                  );
-                                  return isThisMonth(dt) &&
-                                      _asString(o['status']).toLowerCase() ==
-                                          'closed';
-                                })
-                                .length
-                                .toString()
+                              .where((o) {
+                                final dt = _asDateTime(
+                                  o['date'] ?? o['createdAt'],
+                                );
+                                return isThisMonth(dt) &&
+                                    _asString(o['status']).toLowerCase() ==
+                                        'closed';
+                              })
+                              .length
+                              .toString()
                           : (initialIndex == 2
-                                    ? issuesThisMonth(canteenChecks)
-                                    : issuesThisMonth(healthChecks))
-                                .toString(),
-                      icon: initialIndex == 1
-                          ? Icons.check_circle
-                          : Icons.report,
+                                  ? issuesThisMonth(canteenChecks)
+                                  : issuesThisMonth(healthChecks))
+                              .toString(),
+                      icon:
+                          initialIndex == 1 ? Icons.check_circle : Icons.report,
                       color: Colors.green.shade700,
                     ),
                   ),
                   SizedBox(width: 12.w),
                   Expanded(
                     child: _SchoolMetricCard(
-                      label: initialIndex == 1
-                          ? 'عالية الخطورة'
-                          : 'إجمالي السجل',
+                      label:
+                          initialIndex == 1 ? 'عالية الخطورة' : 'إجمالي السجل',
                       value: initialIndex == 1
                           ? observations
-                                .where(
-                                  (o) =>
-                                      _asString(o['severity']).toLowerCase() ==
-                                          'high' &&
-                                      _asString(o['status']).toLowerCase() !=
-                                          'closed',
-                                )
-                                .length
-                                .toString()
+                              .where(
+                                (o) =>
+                                    _asString(o['severity']).toLowerCase() ==
+                                        'high' &&
+                                    _asString(o['status']).toLowerCase() !=
+                                        'closed',
+                              )
+                              .length
+                              .toString()
                           : (initialIndex == 2
-                                    ? canteenChecks.length
-                                    : healthChecks.length)
-                                .toString(),
+                                  ? canteenChecks.length
+                                  : healthChecks.length)
+                              .toString(),
                       icon: initialIndex == 1
                           ? Icons.priority_high
                           : Icons.list_alt,
-                      color:
-                          initialIndex == 1 &&
+                      color: initialIndex == 1 &&
                               observations
                                       .where(
                                         (o) =>
@@ -2091,13 +2108,13 @@ class ServicesModuleScreen extends ConsumerWidget {
                                     final sevLabel = sev == 'high'
                                         ? 'عالية'
                                         : sev == 'medium'
-                                        ? 'متوسطة'
-                                        : 'منخفضة';
+                                            ? 'متوسطة'
+                                            : 'منخفضة';
                                     final sevColor = sev == 'high'
                                         ? Colors.red
                                         : sev == 'medium'
-                                        ? Colors.orange
-                                        : Colors.green;
+                                            ? Colors.orange
+                                            : Colors.green;
                                     return ListTile(
                                       leading: CircleAvatar(
                                         backgroundColor: sevColor.withValues(
@@ -2153,9 +2170,8 @@ class ServicesModuleScreen extends ConsumerWidget {
                                 );
                         }
 
-                        final list = initialIndex == 2
-                            ? canteenChecks
-                            : healthChecks;
+                        final list =
+                            initialIndex == 2 ? canteenChecks : healthChecks;
                         final emptyMsg = initialIndex == 2
                             ? 'لا توجد متابعات للمقصف مسجلة.'
                             : 'لا توجد متابعات صحية مسجلة.';
@@ -2195,14 +2211,14 @@ class ServicesModuleScreen extends ConsumerWidget {
                                   final sevLabel = sev == 'high'
                                       ? 'عالية'
                                       : sev == 'medium'
-                                      ? 'متوسطة'
-                                      : 'منخفضة';
+                                          ? 'متوسطة'
+                                          : 'منخفضة';
                                   final colorStatus = isIssue
                                       ? (sev == 'high'
-                                            ? Colors.red
-                                            : sev == 'medium'
-                                            ? Colors.orange
-                                            : Colors.amber)
+                                          ? Colors.red
+                                          : sev == 'medium'
+                                              ? Colors.orange
+                                              : Colors.amber)
                                       : Colors.green;
                                   return ListTile(
                                     leading: CircleAvatar(
@@ -2247,19 +2263,28 @@ class ServicesModuleScreen extends ConsumerWidget {
 // ==============================================================================
 // 2. Staff Attendance Module
 // ==============================================================================
-class StaffAttendanceModuleScreen extends ConsumerWidget {
+class StaffAttendanceModuleScreen extends ConsumerStatefulWidget {
   final int initialIndex;
 
   const StaffAttendanceModuleScreen({super.key, this.initialIndex = 0});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StaffAttendanceModuleScreen> createState() =>
+      _StaffAttendanceModuleScreenState();
+}
+
+class _StaffAttendanceModuleScreenState
+    extends ConsumerState<StaffAttendanceModuleScreen> {
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).value;
     final schoolId = (user?.schoolId ?? '').trim();
+    final teachersAsync = ref.watch(schoolTeachersStreamProvider);
     final records =
         ref.watch(staffAttendanceTodayStreamProvider).value ?? const [];
 
     String norm(String v) => v.trim().toLowerCase();
+
     String statusLabel(String raw) {
       final s = norm(raw);
       if (s == 'present' || s == 'حاضر') return 'حاضر';
@@ -2270,9 +2295,9 @@ class StaffAttendanceModuleScreen extends ConsumerWidget {
 
     Color statusColor(String raw) {
       final s = statusLabel(raw);
-      if (s == 'حاضر') return Colors.green;
-      if (s == 'متأخر') return Colors.orange;
-      if (s == 'غائب') return Colors.red;
+      if (s == 'حاضر') return const Color(0xFF2E7D32);
+      if (s == 'متأخر') return const Color(0xFFFF9800);
+      if (s == 'غائب') return const Color(0xFFC62828);
       return Colors.blueGrey;
     }
 
@@ -2286,13 +2311,11 @@ class StaffAttendanceModuleScreen extends ConsumerWidget {
         .where((r) => statusLabel(_asString(r['status'])) == 'غائب')
         .length;
 
-    Future<void> addAttendance() async {
+    Future<void> markTeacherAttendance(User teacher) async {
       if (schoolId.isEmpty) return;
-      final nameCtrl = TextEditingController();
-      final idCtrl = TextEditingController();
-      final notesCtrl = TextEditingController();
       String status = 'present';
       DateTime? checkIn;
+      final notesCtrl = TextEditingController();
 
       final ok = await showDialog<bool>(
         context: context,
@@ -2300,58 +2323,107 @@ class StaffAttendanceModuleScreen extends ConsumerWidget {
           return StatefulBuilder(
             builder: (context, setState) {
               return AlertDialog(
-                title: const Text('تسجيل حضور موظف'),
+                title: Text(
+                  'تسجيل حضور ${teacher.name}',
+                  style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                ),
                 content: SizedBox(
                   width: 420.w,
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        TextField(
-                          controller: nameCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'اسم الموظف',
+                        Container(
+                          width: 80.w,
+                          height: 80.w,
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            size: 40.r,
+                            color: Colors.indigo,
                           ),
                         ),
-                        SizedBox(height: 8.h),
-                        TextField(
-                          controller: idCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'رقم الموظف (اختياري)',
+                        SizedBox(height: 16.h),
+                        Text(
+                          teacher.name,
+                          style: GoogleFonts.cairo(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade800,
                           ),
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 24.h),
                         DropdownButtonFormField<String>(
                           value: status,
-                          items: const [
+                          decoration: InputDecoration(
+                            labelText: 'الحالة',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 12.h,
+                            ),
+                          ),
+                          items: [
                             DropdownMenuItem(
                               value: 'present',
-                              child: Text('حاضر'),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle,
+                                      color: Color(0xFF2E7D32)),
+                                  SizedBox(width: 8.w),
+                                  Text('حاضر', style: GoogleFonts.cairo()),
+                                ],
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'late',
-                              child: Text('متأخر'),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.access_time,
+                                      color: Color(0xFFFF9800)),
+                                  SizedBox(width: 8.w),
+                                  Text('متأخر', style: GoogleFonts.cairo()),
+                                ],
+                              ),
                             ),
                             DropdownMenuItem(
                               value: 'absent',
-                              child: Text('غائب'),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.close,
+                                      color: Color(0xFFC62828)),
+                                  SizedBox(width: 8.w),
+                                  Text('غائب', style: GoogleFonts.cairo()),
+                                ],
+                              ),
                             ),
                           ],
                           onChanged: (v) => setState(() {
                             status = v ?? 'present';
                           }),
-                          decoration: const InputDecoration(
-                            labelText: 'الحالة',
-                          ),
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 16.h),
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: const Text('وقت الحضور (اختياري)'),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                            side: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          title: Text(
+                            'وقت الحضور (اختياري)',
+                            style: GoogleFonts.cairo(),
+                          ),
                           subtitle: Text(
                             checkIn == null
                                 ? '—'
                                 : DateFormat('HH:mm').format(checkIn!),
+                            style:
+                                GoogleFonts.cairo(color: Colors.grey.shade600),
                           ),
                           trailing: const Icon(Icons.access_time),
                           onTap: () async {
@@ -2376,13 +2448,16 @@ class StaffAttendanceModuleScreen extends ConsumerWidget {
                             }
                           },
                         ),
-                        SizedBox(height: 8.h),
+                        SizedBox(height: 16.h),
                         TextField(
                           controller: notesCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'ملاحظات (اختياري)',
-                          ),
                           maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: 'ملاحظات (اختياري)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -2391,11 +2466,15 @@ class StaffAttendanceModuleScreen extends ConsumerWidget {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(ctx).pop(false),
-                    child: const Text('إلغاء'),
+                    child: Text('إلغاء', style: GoogleFonts.cairo()),
                   ),
                   ElevatedButton(
                     onPressed: () => Navigator.of(ctx).pop(true),
-                    child: const Text('حفظ'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A237E),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text('حفظ', style: GoogleFonts.cairo()),
                   ),
                 ],
               );
@@ -2405,13 +2484,12 @@ class StaffAttendanceModuleScreen extends ConsumerWidget {
       );
 
       if (ok != true) return;
-      final staffName = nameCtrl.text.trim();
-      if (staffName.isEmpty) return;
+
       final id = const Uuid().v4();
       final today = _dateKey(DateTime.now());
       await _schoolSubCollection(schoolId, 'StaffAttendance').doc(id).set({
-        'staffName': staffName,
-        'staffId': idCtrl.text.trim(),
+        'staffName': teacher.name,
+        'staffId': teacher.id,
         'status': status,
         'checkInAt': checkIn == null ? null : Timestamp.fromDate(checkIn!),
         'notes': notesCtrl.text.trim(),
@@ -2423,182 +2501,347 @@ class StaffAttendanceModuleScreen extends ConsumerWidget {
     }
 
     return UnifiedPageScaffold(
-      requiredDeputyType: 'school',
-      showAppBar: false,
-      title: 'حضور وانصراف الموظفين',
-      floatingActionButton: schoolId.isEmpty
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: addAttendance,
-              icon: const Icon(Icons.add),
-              label: const Text('تسجيل'),
-            ),
+      allowedRoles: [UserRole.deputy, UserRole.admin, UserRole.superAdmin],
+      showAppBar: true,
+      title: 'حضور المعلمين',
+      floatingActionButton: null,
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.all(16.w),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _SchoolModuleHeader(
-                title: 'حضور وانصراف الموظفين',
-                description:
-                    'لوحة لمتابعة حضور المعلمين والإداريين وربطها بسجلات الدوام.',
-                icon: Icons.access_time_filled,
-                color: Colors.indigo,
-              ),
-              SizedBox(height: 16.h),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SchoolMetricCard(
-                      label: 'حاضرون اليوم',
-                      value: presentCount.toString(),
-                      icon: Icons.verified,
-                      color: Colors.green.shade700,
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF1A237E),
+                      const Color(0xFF3949AB),
+                    ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  borderRadius: BorderRadius.circular(20.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1A237E).withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: _SchoolMetricCard(
-                      label: 'غائبون',
-                      value: absentCount.toString(),
-                      icon: Icons.person_off,
-                      color: Colors.red.shade700,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: _SchoolMetricCard(
-                      label: 'متأخرون',
-                      value: lateCount.toString(),
-                      icon: Icons.access_time,
-                      color: Colors.orange.shade700,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16.h),
-              Expanded(
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(16.w),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'لوحة حركة الدوام اليومي',
-                          style: TextStyle(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey.shade800,
+                  ],
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(20.r),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat.yMMMMd('ar').format(DateTime.now()),
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white70,
+                                  fontSize: 14.sp,
+                                ),
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                'حضور المعلمين',
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white,
+                                  fontSize: 24.sp,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        SizedBox(height: 12.h),
-                        Expanded(
-                          child: records.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    'لا توجد سجلات حضور اليوم.',
-                                    style: TextStyle(
-                                      fontSize: 13.sp,
-                                      color: Colors.grey.shade600,
+                          Container(
+                            padding: EdgeInsets.all(12.r),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.group_rounded,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20.h),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: EdgeInsets.all(12.r),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    presentCount.toString(),
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 28.sp,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
                                     ),
                                   ),
-                                )
-                              : ListView.separated(
-                                  itemCount: records.length.clamp(0, 80),
-                                  separatorBuilder: (_, __) => Divider(
-                                    height: 12.h,
-                                    color: Colors.grey.shade200,
+                                  SizedBox(height: 4.h),
+                                  Text(
+                                    'حاضر',
+                                    style: GoogleFonts.cairo(
+                                      color: Colors.white70,
+                                      fontSize: 13.sp,
+                                    ),
                                   ),
-                                  itemBuilder: (context, index) {
-                                    final r = records[index];
-                                    final name = _asString(r['staffName']);
-                                    final status = statusLabel(
-                                      _asString(r['status']),
-                                    );
-                                    final color = statusColor(
-                                      _asString(r['status']),
-                                    );
-                                    final checkIn = _asDateTime(r['checkInAt']);
-                                    final detail =
-                                        status == 'حاضر' || status == 'متأخر'
-                                        ? (checkIn == null
-                                              ? 'وقت الحضور غير مسجل'
-                                              : "وقت الحضور: ${DateFormat('HH:mm').format(checkIn)}")
-                                        : 'لم يسجل حضور اليوم';
-
-                                    return Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 18.r,
-                                          backgroundColor: color.withValues(
-                                            alpha: 0.12,
-                                          ),
-                                          child: Icon(
-                                            Icons.person,
-                                            color: color,
-                                            size: 20.sp,
-                                          ),
-                                        ),
-                                        SizedBox(width: 12.w),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                name.isEmpty ? '—' : name,
-                                                style: TextStyle(
-                                                  fontSize: 13.sp,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.grey.shade900,
-                                                ),
-                                              ),
-                                              SizedBox(height: 4.h),
-                                              Text(
-                                                detail,
-                                                style: TextStyle(
-                                                  fontSize: 11.sp,
-                                                  color: Colors.grey.shade600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        SizedBox(width: 8.w),
-                                        Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 8.w,
-                                            vertical: 4.h,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: color.withValues(
-                                              alpha: 0.08,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              16.r,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            status,
-                                            style: TextStyle(
-                                              fontSize: 11.sp,
-                                              color: color,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8.w),
+                          Expanded(
+                            child: Container(
+                              padding: EdgeInsets.all(12.r),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    lateCount.toString(),
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 28.sp,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4.h),
+                                  Text(
+                                    'متأخر',
+                                    style: GoogleFonts.cairo(
+                                      color: Colors.white70,
+                                      fontSize: 13.sp,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8.w),
+                          Expanded(
+                            child: Container(
+                              padding: EdgeInsets.all(12.r),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    absentCount.toString(),
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 28.sp,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4.h),
+                                  Text(
+                                    'غائب',
+                                    style: GoogleFonts.cairo(
+                                      color: Colors.white70,
+                                      fontSize: 13.sp,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 20.h),
+              Expanded(
+                child: teachersAsync.when(
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF1A237E),
                     ),
                   ),
+                  error: (error, stack) => Center(
+                    child: Text(
+                      'خطأ في تحميل البيانات',
+                      style: GoogleFonts.cairo(),
+                    ),
+                  ),
+                  data: (teachers) {
+                    if (teachers.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.group_off_rounded,
+                              size: 64.r,
+                              color: Colors.grey.shade300,
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'لا يوجد معلمين مسجلين',
+                              style: GoogleFonts.cairo(
+                                fontSize: 18.sp,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final Map<String, Map<String, dynamic>> attendanceMap = {};
+                    for (final r in records) {
+                      final staffId = _asString(r['staffId']);
+                      if (staffId.isNotEmpty) {
+                        attendanceMap[staffId] = r;
+                      }
+                    }
+
+                    return GridView.builder(
+                      padding: EdgeInsets.zero,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: MediaQuery.of(context).size.width > 1200
+                            ? 4
+                            : MediaQuery.of(context).size.width > 900
+                                ? 3
+                                : MediaQuery.of(context).size.width > 600
+                                    ? 2
+                                    : 1,
+                        crossAxisSpacing: 12.w,
+                        mainAxisSpacing: 12.h,
+                        childAspectRatio: 2.8,
+                      ),
+                      itemCount: teachers.length,
+                      itemBuilder: (context, index) {
+                        final teacher = teachers[index];
+                        final attendance = attendanceMap[teacher.id];
+                        final currentStatus = attendance != null
+                            ? statusLabel(_asString(attendance['status']))
+                            : 'لم يتم تسجيله';
+                        final currentColor = attendance != null
+                            ? statusColor(_asString(attendance['status']))
+                            : Colors.grey.shade400;
+                        final checkIn = attendance != null
+                            ? _asDateTime(attendance['checkInAt'])
+                            : null;
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16.r),
+                            child: InkWell(
+                              onTap: () => markTeacherAttendance(teacher),
+                              borderRadius: BorderRadius.circular(16.r),
+                              child: Padding(
+                                padding: EdgeInsets.all(16.r),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 56.w,
+                                      height: 56.w,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF1A237E)
+                                            .withOpacity(0.1),
+                                        borderRadius:
+                                            BorderRadius.circular(14.r),
+                                      ),
+                                      child: Icon(
+                                        Icons.person_rounded,
+                                        color: const Color(0xFF1A237E),
+                                        size: 28.r,
+                                      ),
+                                    ),
+                                    SizedBox(width: 14.w),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            teacher.name,
+                                            style: GoogleFonts.cairo(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15.sp,
+                                              color: Colors.grey.shade800,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          SizedBox(height: 4.h),
+                                          if (checkIn != null)
+                                            Text(
+                                              'وقت الحضور: ${DateFormat('HH:mm').format(checkIn)}',
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 12.sp,
+                                                color: Colors.grey.shade500,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(width: 12.w),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 14.w,
+                                        vertical: 8.h,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: currentColor.withOpacity(0.12),
+                                        borderRadius:
+                                            BorderRadius.circular(12.r),
+                                      ),
+                                      child: Text(
+                                        currentStatus,
+                                        style: GoogleFonts.cairo(
+                                          color: currentColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12.sp,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ],
@@ -2632,9 +2875,8 @@ class MaintenanceModuleScreen extends ConsumerWidget {
               r.status == MaintenanceStatus.overdue,
         )
         .toList();
-    final overdueReports = reports
-        .where((r) => r.status == MaintenanceStatus.overdue)
-        .toList();
+    final overdueReports =
+        reports.where((r) => r.status == MaintenanceStatus.overdue).toList();
 
     final now = DateTime.now();
     final completedThisMonth = reports.where((r) {
@@ -2770,10 +3012,15 @@ class MaintenanceModuleScreen extends ConsumerWidget {
   }
 
   Widget _buildPrioritySection(List<MaintenanceReport> reports) {
-    final criticalReports = reports.where((r) => r.priority == MaintenancePriority.critical).toList();
-    final highReports = reports.where((r) => r.priority == MaintenancePriority.high).toList();
-    final mediumReports = reports.where((r) => r.priority == MaintenancePriority.medium).toList();
-    final lowReports = reports.where((r) => r.priority == MaintenancePriority.low).toList();
+    final criticalReports = reports
+        .where((r) => r.priority == MaintenancePriority.critical)
+        .toList();
+    final highReports =
+        reports.where((r) => r.priority == MaintenancePriority.high).toList();
+    final mediumReports =
+        reports.where((r) => r.priority == MaintenancePriority.medium).toList();
+    final lowReports =
+        reports.where((r) => r.priority == MaintenancePriority.low).toList();
 
     return SingleChildScrollView(
       child: Column(
@@ -2821,19 +3068,23 @@ class MaintenanceModuleScreen extends ConsumerWidget {
           SizedBox(height: 16.h),
           // أقسام الأولوية
           if (criticalReports.isNotEmpty) ...[
-            _buildPrioritySectionWidget('بلاغات حرجة', criticalReports, Colors.purple),
+            _buildPrioritySectionWidget(
+                'بلاغات حرجة', criticalReports, Colors.purple),
             SizedBox(height: 12.h),
           ],
           if (highReports.isNotEmpty) ...[
-            _buildPrioritySectionWidget('بلاغات عالية الأولوية', highReports, Colors.red),
+            _buildPrioritySectionWidget(
+                'بلاغات عالية الأولوية', highReports, Colors.red),
             SizedBox(height: 12.h),
           ],
           if (mediumReports.isNotEmpty) ...[
-            _buildPrioritySectionWidget('بلاغات متوسطة الأولوية', mediumReports, Colors.orange),
+            _buildPrioritySectionWidget(
+                'بلاغات متوسطة الأولوية', mediumReports, Colors.orange),
             SizedBox(height: 12.h),
           ],
           if (lowReports.isNotEmpty) ...[
-            _buildPrioritySectionWidget('بلاغات منخفضة الأولوية', lowReports, Colors.green),
+            _buildPrioritySectionWidget(
+                'بلاغات منخفضة الأولوية', lowReports, Colors.green),
           ],
           if (reports.isEmpty)
             Center(
@@ -2841,11 +3092,13 @@ class MaintenanceModuleScreen extends ConsumerWidget {
                 padding: EdgeInsets.all(32.w),
                 child: Column(
                   children: [
-                    Icon(Icons.build_circle_outlined, size: 64.sp, color: Colors.grey.shade400),
+                    Icon(Icons.build_circle_outlined,
+                        size: 64.sp, color: Colors.grey.shade400),
                     SizedBox(height: 16.h),
                     Text(
                       'لا توجد بلاغات صيانة',
-                      style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade600),
+                      style: TextStyle(
+                          fontSize: 16.sp, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
@@ -2856,7 +3109,8 @@ class MaintenanceModuleScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPrioritySectionWidget(String title, List<MaintenanceReport> reports, Color color) {
+  Widget _buildPrioritySectionWidget(
+      String title, List<MaintenanceReport> reports, Color color) {
     return Builder(
       builder: (context) => Container(
         padding: EdgeInsets.all(12.w),
@@ -2891,27 +3145,28 @@ class MaintenanceModuleScreen extends ConsumerWidget {
             ),
             SizedBox(height: 8.h),
             ...reports.take(3).map((report) => Padding(
-              padding: EdgeInsets.only(bottom: 4.h),
-              child: GestureDetector(
-                onTap: () => _showReportDetails(context, report),
-                child: Container(
-                  padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 8.w),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(6.r),
-                  ),
-                  child: Text(
-                    '• ${report.title}',
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      color: Colors.grey.shade700,
+                  padding: EdgeInsets.only(bottom: 4.h),
+                  child: GestureDetector(
+                    onTap: () => _showReportDetails(context, report),
+                    child: Container(
+                      padding:
+                          EdgeInsets.symmetric(vertical: 4.h, horizontal: 8.w),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(6.r),
+                      ),
+                      child: Text(
+                        '• ${report.title}',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ),
-            )),
+                )),
             if (reports.length > 3)
               Text(
                 'و ${reports.length - 3} بلاغات أخرى...',
@@ -2928,10 +3183,14 @@ class MaintenanceModuleScreen extends ConsumerWidget {
   }
 
   Widget _buildStatusTrackingSection(List<MaintenanceReport> reports) {
-    final pendingReports = reports.where((r) => r.status == MaintenanceStatus.pending).toList();
-    final inProgressReports = reports.where((r) => r.status == MaintenanceStatus.inProgress).toList();
-    final completedReports = reports.where((r) => r.status == MaintenanceStatus.completed).toList();
-    final overdueReports = reports.where((r) => r.status == MaintenanceStatus.overdue).toList();
+    final pendingReports =
+        reports.where((r) => r.status == MaintenanceStatus.pending).toList();
+    final inProgressReports =
+        reports.where((r) => r.status == MaintenanceStatus.inProgress).toList();
+    final completedReports =
+        reports.where((r) => r.status == MaintenanceStatus.completed).toList();
+    final overdueReports =
+        reports.where((r) => r.status == MaintenanceStatus.overdue).toList();
 
     return SingleChildScrollView(
       child: Column(
@@ -2999,21 +3258,22 @@ class MaintenanceModuleScreen extends ConsumerWidget {
                 SizedBox(height: 12.h),
                 if (reports.isNotEmpty)
                   ...reports.take(10).map((report) => Padding(
-                    padding: EdgeInsets.only(bottom: 8.h),
-                    child: Builder(
-                      builder: (context) => GestureDetector(
-                        onTap: () => _showReportDetails(context, report),
-                        child: buildTimelineItem(report),
-                      ),
-                    ),
-                  ))
+                        padding: EdgeInsets.only(bottom: 8.h),
+                        child: Builder(
+                          builder: (context) => GestureDetector(
+                            onTap: () => _showReportDetails(context, report),
+                            child: buildTimelineItem(report),
+                          ),
+                        ),
+                      ))
                 else
                   Center(
                     child: Padding(
                       padding: EdgeInsets.all(24.w),
                       child: Text(
                         'لا توجد بلاغات للعرض',
-                        style: TextStyle(fontSize: 14.sp, color: Colors.grey.shade600),
+                        style: TextStyle(
+                            fontSize: 14.sp, color: Colors.grey.shade600),
                       ),
                     ),
                   ),
@@ -3029,8 +3289,10 @@ class MaintenanceModuleScreen extends ConsumerWidget {
     // تجميع البلاغات حسب الموقع
     final Map<String, List<MaintenanceReport>> reportsByLocation = {};
     for (final report in reports) {
-      final location = report.location.isNotEmpty ? report.location : 'موقع غير محدد';
-      reportsByLocation[location] = (reportsByLocation[location] ?? [])..add(report);
+      final location =
+          report.location.isNotEmpty ? report.location : 'موقع غير محدد';
+      reportsByLocation[location] = (reportsByLocation[location] ?? [])
+        ..add(report);
     }
 
     return SingleChildScrollView(
@@ -3048,29 +3310,31 @@ class MaintenanceModuleScreen extends ConsumerWidget {
           SizedBox(height: 12.h),
           if (reportsByLocation.isNotEmpty)
             ...reportsByLocation.entries.map((entry) => Padding(
-              padding: EdgeInsets.only(bottom: 12.h),
-              child: Builder(
-                builder: (context) => GestureDetector(
-                  onTap: () {
-                    if (entry.value.isNotEmpty) {
-                      _showReportDetails(context, entry.value.first);
-                    }
-                  },
-                  child: buildLocationFaultCard(entry.key, entry.value),
-                ),
-              ),
-            ))
+                  padding: EdgeInsets.only(bottom: 12.h),
+                  child: Builder(
+                    builder: (context) => GestureDetector(
+                      onTap: () {
+                        if (entry.value.isNotEmpty) {
+                          _showReportDetails(context, entry.value.first);
+                        }
+                      },
+                      child: buildLocationFaultCard(entry.key, entry.value),
+                    ),
+                  ),
+                ))
           else
             Center(
               child: Padding(
                 padding: EdgeInsets.all(32.w),
                 child: Column(
                   children: [
-                    Icon(Icons.location_off, size: 64.sp, color: Colors.grey.shade400),
+                    Icon(Icons.location_off,
+                        size: 64.sp, color: Colors.grey.shade400),
                     SizedBox(height: 16.h),
                     Text(
                       'لا توجد أعطال مسجلة',
-                      style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade600),
+                      style: TextStyle(
+                          fontSize: 16.sp, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
@@ -3084,13 +3348,20 @@ class MaintenanceModuleScreen extends ConsumerWidget {
   Widget _buildBuildingReadinessSection(List<MaintenanceReport> reports) {
     // حساب نسب الجاهزية بناءً على البلاغات
     final totalReports = reports.length;
-    final completedReports = reports.where((r) => r.status == MaintenanceStatus.completed).length;
-    final pendingReports = reports.where((r) => r.status == MaintenanceStatus.pending).length;
-    final overdueReports = reports.where((r) => r.status == MaintenanceStatus.overdue).length;
+    final completedReports =
+        reports.where((r) => r.status == MaintenanceStatus.completed).length;
+    final pendingReports =
+        reports.where((r) => r.status == MaintenanceStatus.pending).length;
+    final overdueReports =
+        reports.where((r) => r.status == MaintenanceStatus.overdue).length;
 
-    final overallReadiness = totalReports == 0 ? 100 : ((completedReports / totalReports) * 100).round();
-    final safetyReadiness = overdueReports == 0 ? 95 : (95 - (overdueReports * 10)).clamp(0, 100);
-    final maintenanceReadiness = pendingReports == 0 ? 90 : (90 - (pendingReports * 5)).clamp(0, 100);
+    final overallReadiness = totalReports == 0
+        ? 100
+        : ((completedReports / totalReports) * 100).round();
+    final safetyReadiness =
+        overdueReports == 0 ? 95 : (95 - (overdueReports * 10)).clamp(0, 100);
+    final maintenanceReadiness =
+        pendingReports == 0 ? 90 : (90 - (pendingReports * 5)).clamp(0, 100);
     final facilitiesReadiness = 85; // قيمة افتراضية
 
     return SingleChildScrollView(
@@ -3110,9 +3381,11 @@ class MaintenanceModuleScreen extends ConsumerWidget {
           SizedBox(height: 12.h),
           buildReadinessItem('السلامة والأمان', safetyReadiness, Colors.green),
           SizedBox(height: 12.h),
-          buildReadinessItem('حالة الصيانة', maintenanceReadiness, Colors.orange),
+          buildReadinessItem(
+              'حالة الصيانة', maintenanceReadiness, Colors.orange),
           SizedBox(height: 12.h),
-          buildReadinessItem('التجهيزات والمرافق', facilitiesReadiness, Colors.purple),
+          buildReadinessItem(
+              'التجهيزات والمرافق', facilitiesReadiness, Colors.purple),
           SizedBox(height: 20.h),
           Container(
             padding: EdgeInsets.all(16.w),
@@ -3201,9 +3474,9 @@ class MaintenanceModuleScreen extends ConsumerWidget {
           ),
           SizedBox(height: 16.h),
           ...maintenanceTasks.map((task) => Padding(
-            padding: EdgeInsets.only(bottom: 12.h),
-            child: buildMaintenanceTaskCard(task),
-          )),
+                padding: EdgeInsets.only(bottom: 12.h),
+                child: buildMaintenanceTaskCard(task),
+              )),
           SizedBox(height: 20.h),
           Container(
             padding: EdgeInsets.all(16.w),
@@ -3217,7 +3490,8 @@ class MaintenanceModuleScreen extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.schedule, color: Colors.green.shade700, size: 20.sp),
+                    Icon(Icons.schedule,
+                        color: Colors.green.shade700, size: 20.sp),
                     SizedBox(width: 8.w),
                     Text(
                       'توصيات الصيانة الدورية',
@@ -3248,7 +3522,8 @@ class MaintenanceModuleScreen extends ConsumerWidget {
     );
   }
 
-  Widget? _buildMaintenanceFAB(BuildContext context, WidgetRef ref, int initialIndex) {
+  Widget? _buildMaintenanceFAB(
+      BuildContext context, WidgetRef ref, int initialIndex) {
     switch (initialIndex) {
       case 0: // تحديد الأولوية
         return FloatingActionButton.extended(
@@ -3363,7 +3638,7 @@ class MaintenanceModuleScreen extends ConsumerWidget {
   void _showScheduleMaintenanceDialog(BuildContext context, WidgetRef ref) {
     final titleController = TextEditingController();
     DateTime selectedDate = DateTime.now().add(const Duration(days: 7));
-    
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -3410,7 +3685,8 @@ class MaintenanceModuleScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
-                _scheduleMaintenanceTask(context, ref, titleController.text, selectedDate);
+                _scheduleMaintenanceTask(
+                    context, ref, titleController.text, selectedDate);
               },
               child: const Text('جدولة'),
             ),
@@ -3425,7 +3701,7 @@ class MaintenanceModuleScreen extends ConsumerWidget {
     try {
       final user = ref.read(authStateProvider).value;
       if (user?.schoolId == null) return;
-      
+
       final assessmentId = const Uuid().v4();
       await FirebaseFirestore.instance
           .collection('Schools')
@@ -3441,7 +3717,7 @@ class MaintenanceModuleScreen extends ConsumerWidget {
         'overallScore': 0,
         'notes': 'تقييم جاهزية شامل للمبنى',
       });
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -3463,13 +3739,14 @@ class MaintenanceModuleScreen extends ConsumerWidget {
     }
   }
 
-  void _scheduleMaintenanceTask(BuildContext context, WidgetRef ref, String title, DateTime dueDate) async {
+  void _scheduleMaintenanceTask(BuildContext context, WidgetRef ref,
+      String title, DateTime dueDate) async {
     if (title.trim().isEmpty) return;
-    
+
     try {
       final user = ref.read(authStateProvider).value;
       if (user?.schoolId == null) return;
-      
+
       final taskId = const Uuid().v4();
       await FirebaseFirestore.instance
           .collection('Schools')
@@ -3486,11 +3763,12 @@ class MaintenanceModuleScreen extends ConsumerWidget {
         'status': 'scheduled',
         'isRecurring': false,
       });
-      
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ تم جدولة: $title لتاريخ ${DateFormat('yyyy-MM-dd').format(dueDate)}'),
+            content: Text(
+                '✅ تم جدولة: $title لتاريخ ${DateFormat('yyyy-MM-dd').format(dueDate)}'),
             backgroundColor: Colors.indigo.shade600,
             duration: const Duration(seconds: 3),
           ),
@@ -3520,12 +3798,15 @@ class MaintenanceModuleScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildDetailRow('الموقع', report.location.isNotEmpty ? report.location : 'غير محدد'),
+                _buildDetailRow('الموقع',
+                    report.location.isNotEmpty ? report.location : 'غير محدد'),
                 _buildDetailRow('الأولوية', _getPriorityLabel(report.priority)),
                 _buildDetailRow('الحالة', _getStatusLabel(report.status)),
-                _buildDetailRow('تاريخ الإنشاء', DateFormat('yyyy-MM-dd HH:mm').format(report.createdAt)),
+                _buildDetailRow('تاريخ الإنشاء',
+                    DateFormat('yyyy-MM-dd HH:mm').format(report.createdAt)),
                 if (report.dueAt != null)
-                  _buildDetailRow('تاريخ الاستحقاق', DateFormat('yyyy-MM-dd').format(report.dueAt!)),
+                  _buildDetailRow('تاريخ الاستحقاق',
+                      DateFormat('yyyy-MM-dd').format(report.dueAt!)),
                 if (report.assignedTo != null && report.assignedTo!.isNotEmpty)
                   _buildDetailRow('مُكلف بالصيانة', report.assignedTo!),
                 if (report.description.isNotEmpty) ...[
@@ -3639,13 +3920,13 @@ class MaintenanceModuleScreen extends ConsumerWidget {
 
   void _showUpdateStatusDialog(BuildContext context, MaintenanceReport report) {
     MaintenanceStatus selectedStatus = report.status;
-    
+
     showDialog(
       context: context,
       builder: (ctx) => Consumer(
         builder: (context, ref, child) {
           final user = ref.watch(authStateProvider).value;
-          
+
           return StatefulBuilder(
             builder: (context, setState) => AlertDialog(
               title: const Text('تحديث حالة البلاغ'),
@@ -3681,7 +3962,7 @@ class MaintenanceModuleScreen extends ConsumerWidget {
                 ElevatedButton(
                   onPressed: () async {
                     Navigator.of(ctx).pop();
-                    
+
                     // تحديث الحالة في Firestore
                     final schoolId = user?.schoolId ?? '';
                     if (schoolId.isEmpty || report.id.isEmpty) {
@@ -3710,7 +3991,8 @@ class MaintenanceModuleScreen extends ConsumerWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('✅ تم تحديث حالة البلاغ إلى: ${_getStatusLabel(selectedStatus)}'),
+                            content: Text(
+                                '✅ تم تحديث حالة البلاغ إلى: ${_getStatusLabel(selectedStatus)}'),
                             backgroundColor: Colors.green.shade600,
                             duration: const Duration(seconds: 2),
                           ),
@@ -3737,7 +4019,6 @@ class MaintenanceModuleScreen extends ConsumerWidget {
       ),
     );
   }
-
 }
 
 // ==============================================================================
@@ -3765,15 +4046,13 @@ class SafetyModuleScreen extends ConsumerWidget {
     final drillOverdueFlag = ref.watch(safetyDrillsOverdueFlagProvider);
 
     DateTime? lastDrillDate() {
-      final dates =
-          drills
-              .map(
-                (d) =>
-                    _asDateTime(d['drillDate'] ?? d['date'] ?? d['createdAt']),
-              )
-              .whereType<DateTime>()
-              .toList()
-            ..sort((a, b) => b.compareTo(a));
+      final dates = drills
+          .map(
+            (d) => _asDateTime(d['drillDate'] ?? d['date'] ?? d['createdAt']),
+          )
+          .whereType<DateTime>()
+          .toList()
+        ..sort((a, b) => b.compareTo(a));
       return dates.isEmpty ? null : dates.first;
     }
 
@@ -3790,8 +4069,7 @@ class SafetyModuleScreen extends ConsumerWidget {
     final alarmsValue = settings?.alarmsReady == null
         ? 'غير مسجل'
         : (settings!.alarmsReady! ? 'جاهز' : 'غير جاهز');
-    final planValue =
-        (settings?.meetingPoint.trim().isNotEmpty ?? false) ||
+    final planValue = (settings?.meetingPoint.trim().isNotEmpty ?? false) ||
             (settings?.evacuationOfficer.trim().isNotEmpty ?? false)
         ? 'مسجلة'
         : 'غير مسجلة';
@@ -4356,19 +4634,19 @@ class SafetyModuleScreen extends ConsumerWidget {
               onPressed: initialIndex == 0
                   ? editPlan
                   : initialIndex == 1
-                  ? addDrill
-                  : initialIndex == 2
-                  ? addExtinguisher
-                  : addExitInspection,
+                      ? addDrill
+                      : initialIndex == 2
+                          ? addExtinguisher
+                          : addExitInspection,
               icon: const Icon(Icons.add),
               label: Text(
                 initialIndex == 0
                     ? 'تحديث'
                     : initialIndex == 1
-                    ? 'إضافة'
-                    : initialIndex == 2
-                    ? 'إضافة'
-                    : 'تسجيل',
+                        ? 'إضافة'
+                        : initialIndex == 2
+                            ? 'إضافة'
+                            : 'تسجيل',
               ),
             ),
       body: SafeArea(
@@ -4388,7 +4666,7 @@ class SafetyModuleScreen extends ConsumerWidget {
                 builder: (context, constraints) {
                   // على الجوال: عمودي، على الشاشات الكبيرة: أفقي
                   final isMobile = constraints.maxWidth < 600;
-                  
+
                   if (isMobile) {
                     // تنسيق عمودي للجوال
                     return Column(
@@ -4612,8 +4890,10 @@ class SafetyModuleScreen extends ConsumerWidget {
                                           final resultLabel = result == 'pass'
                                               ? 'ناجح'
                                               : result == 'needs_improvement'
-                                              ? 'بحاجة لتحسين'
-                                              : (result.isEmpty ? '—' : result);
+                                                  ? 'بحاجة لتحسين'
+                                                  : (result.isEmpty
+                                                      ? '—'
+                                                      : result);
                                           final resultColor = result == 'pass'
                                               ? Colors.green
                                               : Colors.orange;
@@ -4687,20 +4967,19 @@ class SafetyModuleScreen extends ConsumerWidget {
                                               : DateFormat(
                                                   'yyyy-MM-dd',
                                                 ).format(exp);
-                                          final isExpired =
-                                              exp != null &&
+                                          final isExpired = exp != null &&
                                               exp.isBefore(DateTime.now());
                                           final st = _asString(e['status']);
                                           final stLabel = st == 'ok'
                                               ? 'سليم'
                                               : st == 'needs_service'
-                                              ? 'يحتاج صيانة'
-                                              : (st.isEmpty ? '—' : st);
+                                                  ? 'يحتاج صيانة'
+                                                  : (st.isEmpty ? '—' : st);
                                           final stColor = isExpired
                                               ? Colors.red
                                               : st == 'needs_service'
-                                              ? Colors.orange
-                                              : Colors.green;
+                                                  ? Colors.orange
+                                                  : Colors.green;
                                           return ListTile(
                                             leading: CircleAvatar(
                                               backgroundColor: stColor
@@ -5421,10 +5700,10 @@ class InventoryModuleScreen extends ConsumerWidget {
               onPressed: initialIndex == 0
                   ? addInventoryItem
                   : initialIndex == 1
-                  ? addDamageReport
-                  : initialIndex == 2
-                  ? addHandoverLog
-                  : addMaterialRequest,
+                      ? addDamageReport
+                      : initialIndex == 2
+                          ? addHandoverLog
+                          : addMaterialRequest,
               icon: const Icon(Icons.add),
               label: const Text('إضافة'),
             ),
@@ -5463,9 +5742,8 @@ class InventoryModuleScreen extends ConsumerWidget {
                   SizedBox(width: 12.w),
                   Expanded(
                     child: _SchoolMetricCard(
-                      label: initialIndex == 3
-                          ? 'طلبات مفتوحة'
-                          : 'بلاغات تلف/فقد',
+                      label:
+                          initialIndex == 3 ? 'طلبات مفتوحة' : 'بلاغات تلف/فقد',
                       value: initialIndex == 3
                           ? openRequestsCount.toString()
                           : damageOpenCount.toString(),
@@ -5525,23 +5803,22 @@ class InventoryModuleScreen extends ConsumerWidget {
                               final item = _asString(r['item']);
                               final qty = _asInt(r['quantity']);
                               final st = _asString(r['status']).toLowerCase();
-                              final isOpen =
-                                  st != 'received' &&
+                              final isOpen = st != 'received' &&
                                   st != 'closed' &&
                                   st != 'rejected';
                               final pr = _asString(r['priority']).toLowerCase();
                               final prLabel = pr == 'urgent'
                                   ? 'عاجلة'
                                   : pr == 'high'
-                                  ? 'عالية'
-                                  : pr == 'low'
-                                  ? 'منخفضة'
-                                  : 'متوسطة';
+                                      ? 'عالية'
+                                      : pr == 'low'
+                                          ? 'منخفضة'
+                                          : 'متوسطة';
                               final prColor = pr == 'urgent' || pr == 'high'
                                   ? Colors.red
                                   : pr == 'medium'
-                                  ? Colors.orange
-                                  : Colors.green;
+                                      ? Colors.orange
+                                      : Colors.green;
                               return ListTile(
                                 leading: CircleAvatar(
                                   backgroundColor: prColor.withValues(
@@ -5779,19 +6056,19 @@ class InventoryModuleScreen extends ConsumerWidget {
                             final condLabel = cond == 'needs_repair'
                                 ? 'يحتاج صيانة'
                                 : cond == 'damaged'
-                                ? 'تالف'
-                                : 'سليم';
+                                    ? 'تالف'
+                                    : 'سليم';
                             final condColor = cond == 'damaged'
                                 ? Colors.red
                                 : cond == 'needs_repair'
-                                ? Colors.orange
-                                : Colors.green;
+                                    ? Colors.orange
+                                    : Colors.green;
                             return ListTile(
                               leading: CircleAvatar(
                                 backgroundColor:
                                     (low ? Colors.red : Colors.blue).withValues(
-                                      alpha: 0.12,
-                                    ),
+                                  alpha: 0.12,
+                                ),
                                 child: Icon(
                                   Icons.inventory_2,
                                   color: low ? Colors.red : Colors.blue,
