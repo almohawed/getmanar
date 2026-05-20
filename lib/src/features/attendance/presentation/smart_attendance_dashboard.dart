@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../../auth/presentation/auth_controller.dart';
 import 'providers/daily_absence_provider.dart';
 import 'providers/attendance_stats_providers.dart';
@@ -230,7 +231,7 @@ class _SmartAttendanceDashboardState
       leading: IconButton(
           icon:
               const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-          onPressed: () => Navigator.of(context).maybePop()),
+          onPressed: () => context.pop()),
       actions: [
         ScaleTransition(
           scale: _pulseAnimation,
@@ -861,7 +862,7 @@ class _SmartAttendanceDashboardState
         Row(children: [
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).pushNamed('/student-scan'),
+              onPressed: () => context.push('/student-scan'),
               icon: Icon(Icons.qr_code_scanner_rounded, size: 18.sp),
               label: Text('تسجيل الحضور بالباركود',
                   style: GoogleFonts.cairo(
@@ -881,8 +882,7 @@ class _SmartAttendanceDashboardState
         Row(children: [
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: () =>
-                  Navigator.of(context).pushNamed('/morning-assembly'),
+              onPressed: () => context.push('/morning-assembly'),
               icon: Icon(Icons.how_to_reg_rounded, size: 18.sp),
               label: Text('تسجيل حضور الطابور',
                   style: GoogleFonts.cairo(
@@ -900,8 +900,7 @@ class _SmartAttendanceDashboardState
           SizedBox(width: 12.w),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: () => Navigator.of(context)
-                  .pushNamed('/school-attendance-dashboard'),
+              onPressed: () => context.push('/school-attendance-dashboard'),
               icon: Icon(Icons.bar_chart_rounded, size: 18.sp),
               label: Text('تقرير الغياب',
                   style: GoogleFonts.cairo(
