@@ -62,13 +62,12 @@ final _teachersListProvider =
       .collection('Teachers')
       .orderBy('name')
       .snapshots()
-      .map((snap) =>
-          snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+      .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 });
 
-final _assemblyReportProvider = StreamProvider.family<
-    List<Map<String, dynamic>>,
-    _ReportQuery>((ref, query) {
+final _assemblyReportProvider =
+    StreamProvider.family<List<Map<String, dynamic>>, _ReportQuery>(
+        (ref, query) {
   return FirebaseFirestore.instance
       .collection('Schools')
       .doc(query.schoolId)
@@ -104,7 +103,6 @@ class _ReportQuery {
   @override
   int get hashCode => Object.hash(schoolId, startDate, endDate);
 }
-
 
 // ─────────────────────────────────────────────
 // Main Screen
@@ -305,8 +303,7 @@ class _TabButton extends StatelessWidget {
               style: GoogleFonts.cairo(
                 color: isActive ? Colors.white : Colors.grey.shade700,
                 fontSize: 13.sp,
-                fontWeight:
-                    isActive ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
@@ -315,7 +312,6 @@ class _TabButton extends StatelessWidget {
     );
   }
 }
-
 
 // ─────────────────────────────────────────────
 // Attendance Tab
@@ -345,17 +341,31 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
   // teacherId -> status
   final Map<String, _AttendanceStatus> _statusMap = {};
 
-  String get _dateKey =>
-      DateFormat('yyyy-MM-dd').format(_selectedDate);
+  String get _dateKey => DateFormat('yyyy-MM-dd').format(_selectedDate);
 
   String get _arabicDate {
     const months = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
     ];
     const days = [
-      'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس',
-      'الجمعة', 'السبت', 'الأحد',
+      'الاثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+      'الأحد',
     ];
     final d = _selectedDate;
     return '${days[d.weekday - 1]}، ${d.day} ${months[d.month - 1]} ${d.year}';
@@ -378,14 +388,15 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
         for (final item in list) {
           if (item is Map) {
             final id = item['teacherId']?.toString() ?? '';
-            final status = _AttendanceStatusExt.fromString(
-                item['status']?.toString());
+            final status =
+                _AttendanceStatusExt.fromString(item['status']?.toString());
             if (id.isNotEmpty) newMap[id] = status;
           }
         }
-        if (mounted) setState(() => _statusMap
-          ..clear()
-          ..addAll(newMap));
+        if (mounted)
+          setState(() => _statusMap
+            ..clear()
+            ..addAll(newMap));
       } else {
         // Initialize all teachers as present
         final newMap = <String, _AttendanceStatus>{};
@@ -393,9 +404,10 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
           final id = (t['id'] ?? '').toString();
           if (id.isNotEmpty) newMap[id] = _AttendanceStatus.present;
         }
-        if (mounted) setState(() => _statusMap
-          ..clear()
-          ..addAll(newMap));
+        if (mounted)
+          setState(() => _statusMap
+            ..clear()
+            ..addAll(newMap));
       }
     } catch (e) {
       debugPrint('Error loading assembly record: $e');
@@ -448,8 +460,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطأ في الحفظ: $e',
-                style: GoogleFonts.cairo()),
+            content: Text('خطأ في الحفظ: $e', style: GoogleFonts.cairo()),
             backgroundColor: _kRed,
           ),
         );
@@ -470,9 +481,8 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
     );
   }
 
-  int get _presentCount => _statusMap.values
-      .where((s) => s == _AttendanceStatus.present)
-      .length;
+  int get _presentCount =>
+      _statusMap.values.where((s) => s == _AttendanceStatus.present).length;
   int get _absentAssemblyCount => _statusMap.values
       .where((s) => s == _AttendanceStatus.absentAssembly)
       .length;
@@ -482,8 +492,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
 
   @override
   Widget build(BuildContext context) {
-    final teachersAsync =
-        ref.watch(_teachersListProvider(widget.schoolId));
+    final teachersAsync = ref.watch(_teachersListProvider(widget.schoolId));
 
     return Stack(
       children: [
@@ -495,15 +504,13 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
               error: (_, __) => const SizedBox.shrink(),
               data: (teachers) => _buildStatsRow(teachers.length),
             ),
-            if (!_listOpened)
-              _buildOpenListButton(teachersAsync.value ?? []),
+            if (!_listOpened) _buildOpenListButton(teachersAsync.value ?? []),
             if (_listOpened)
               Expanded(
                 child: teachersAsync.when(
-                  loading: () => const Center(
-                      child: CircularProgressIndicator()),
-                  error: (e, _) =>
-                      Center(child: Text('خطأ: $e')),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('خطأ: $e')),
                   data: (teachers) => _buildTeacherGrid(teachers),
                 ),
               ),
@@ -543,8 +550,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
       ),
       child: Row(
         children: [
-          Icon(Icons.calendar_today_rounded,
-              color: _kPrimary, size: 20.r),
+          Icon(Icons.calendar_today_rounded, color: _kPrimary, size: 20.r),
           SizedBox(width: 10.w),
           Expanded(
             child: Text(
@@ -635,8 +641,8 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
           icon: Icon(Icons.list_alt_rounded, size: 20.r),
           label: Text(
             'فتح قائمة الطابور',
-            style: GoogleFonts.cairo(
-                fontSize: 15.sp, fontWeight: FontWeight.bold),
+            style:
+                GoogleFonts.cairo(fontSize: 15.sp, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: _kPrimary,
@@ -657,8 +663,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.people_outline,
-                size: 64.r, color: Colors.grey.shade300),
+            Icon(Icons.people_outline, size: 64.r, color: Colors.grey.shade300),
             SizedBox(height: 12.h),
             Text(
               'لا يوجد معلمون مسجلون',
@@ -672,33 +677,48 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
 
     final displayTeachers = widget.isTeacher
         ? teachers
-            .where((t) =>
-                (t['id'] ?? '') == (widget.currentUser?.id ?? ''))
+            .where((t) => (t['id'] ?? '') == (widget.currentUser?.id ?? ''))
             .toList()
         : teachers;
 
-    return GridView.builder(
-      padding: EdgeInsets.all(12.r),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 1.1,
-        crossAxisSpacing: 10.w,
-        mainAxisSpacing: 10.h,
-      ),
-      itemCount: displayTeachers.length,
-      itemBuilder: (context, index) {
-        final teacher = displayTeachers[index];
-        final id = (teacher['id'] ?? '').toString();
-        final name = (teacher['name'] ?? 'معلم').toString();
-        final status =
-            _statusMap[id] ?? _AttendanceStatus.present;
-        return _TeacherCard(
-          teacherId: id,
-          teacherName: name,
-          status: status,
-          canEdit: widget.canEdit,
-          onStatusChanged: (newStatus) {
-            setState(() => _statusMap[id] = newStatus);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int crossAxisCount;
+        if (constraints.maxWidth > 1400) {
+          crossAxisCount = 6;
+        } else if (constraints.maxWidth > 1100) {
+          crossAxisCount = 5;
+        } else if (constraints.maxWidth > 800) {
+          crossAxisCount = 4;
+        } else if (constraints.maxWidth > 550) {
+          crossAxisCount = 3;
+        } else {
+          crossAxisCount = 2;
+        }
+
+        return GridView.builder(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: 1.8,
+            crossAxisSpacing: 10.w,
+            mainAxisSpacing: 10.h,
+          ),
+          itemCount: displayTeachers.length,
+          itemBuilder: (context, index) {
+            final teacher = displayTeachers[index];
+            final id = (teacher['id'] ?? '').toString();
+            final name = (teacher['name'] ?? 'معلم').toString();
+            final status = _statusMap[id] ?? _AttendanceStatus.present;
+            return _TeacherCard(
+              teacherId: id,
+              teacherName: name,
+              status: status,
+              canEdit: widget.canEdit,
+              onStatusChanged: (newStatus) {
+                setState(() => _statusMap[id] = newStatus);
+              },
+            );
           },
         );
       },
@@ -724,8 +744,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
             child: OutlinedButton.icon(
               onPressed: () => _showPrintDialog(teachers),
               icon: Icon(Icons.print_rounded, size: 18.r),
-              label: Text('طباعة',
-                  style: GoogleFonts.cairo(fontSize: 13.sp)),
+              label: Text('طباعة', style: GoogleFonts.cairo(fontSize: 13.sp)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _kPrimary,
                 side: const BorderSide(color: _kPrimary),
@@ -744,8 +763,7 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
                 icon: Icon(Icons.save_rounded, size: 18.r),
                 label: Text('حفظ الحضور',
                     style: GoogleFonts.cairo(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.bold)),
+                        fontSize: 13.sp, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _kGreen,
                   foregroundColor: Colors.white,
@@ -761,7 +779,6 @@ class _AttendanceTabState extends ConsumerState<_AttendanceTab> {
     );
   }
 }
-
 
 // ─────────────────────────────────────────────
 // Stat Card Widget
@@ -853,7 +870,7 @@ class _TeacherCard extends StatelessWidget {
   Color get _cardBgColor {
     switch (status) {
       case _AttendanceStatus.present:
-        return _kGreen.withOpacity(0.05);
+        return _kGreen.withOpacity(0.08);
       case _AttendanceStatus.absentAssembly:
         return _kOrange.withOpacity(0.05);
       case _AttendanceStatus.absentSchool:
@@ -863,80 +880,100 @@ class _TeacherCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        color: _cardBgColor,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: _cardBorderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: _cardBorderColor.withOpacity(0.15),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(8.r),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Teacher name
-            Expanded(
-              child: Center(
-                child: Text(
-                  teacherName,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.cairo(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade800,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            SizedBox(height: 6.h),
-            // Status buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _StatusButton(
-                  icon: Icons.check_circle_rounded,
-                  color: _kGreen,
-                  label: 'حضر',
-                  isSelected: status == _AttendanceStatus.present,
-                  onTap: canEdit
-                      ? () => onStatusChanged(_AttendanceStatus.present)
-                      : null,
-                ),
-                _StatusButton(
-                  icon: Icons.warning_rounded,
-                  color: _kOrange,
-                  label: 'تغيب',
-                  isSelected:
-                      status == _AttendanceStatus.absentAssembly,
-                  onTap: canEdit
-                      ? () => onStatusChanged(
-                          _AttendanceStatus.absentAssembly)
-                      : null,
-                ),
-                _StatusButton(
-                  icon: Icons.cancel_rounded,
-                  color: _kRed,
-                  label: 'غائب',
-                  isSelected:
-                      status == _AttendanceStatus.absentSchool,
-                  onTap: canEdit
-                      ? () => onStatusChanged(
-                          _AttendanceStatus.absentSchool)
-                      : null,
-                ),
-              ],
+    return MouseRegion(
+      cursor: canEdit ? SystemMouseCursors.click : MouseCursor.defer,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: _cardBgColor,
+          borderRadius: BorderRadius.circular(12.r),
+          border:
+              Border.all(color: _cardBorderColor.withOpacity(0.6), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12.r),
+          child: InkWell(
+            onTap: canEdit
+                ? () {
+                    final newStatus = status == _AttendanceStatus.present
+                        ? _AttendanceStatus.absentAssembly
+                        : status == _AttendanceStatus.absentAssembly
+                            ? _AttendanceStatus.absentSchool
+                            : _AttendanceStatus.present;
+                    onStatusChanged(newStatus);
+                  }
+                : null,
+            borderRadius: BorderRadius.circular(12.r),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Icon
+                  Container(
+                    padding: EdgeInsets.all(8.r),
+                    decoration: BoxDecoration(
+                      color: _cardBorderColor.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      status == _AttendanceStatus.present
+                          ? Icons.check_circle
+                          : status == _AttendanceStatus.absentAssembly
+                              ? Icons.warning_rounded
+                              : Icons.cancel_rounded,
+                      color: _cardBorderColor,
+                      size: 24.r,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  // Teacher Name
+                  Text(
+                    teacherName,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.cairo(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade800,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 6.h),
+                  // Status Label
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: _cardBorderColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Text(
+                      status == _AttendanceStatus.present
+                          ? 'حضر'
+                          : status == _AttendanceStatus.absentAssembly
+                              ? 'تغيب عن الطابور'
+                              : 'غائب',
+                      style: GoogleFonts.cairo(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w600,
+                        color: _cardBorderColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -967,10 +1004,10 @@ class _StatusButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+        padding: EdgeInsets.symmetric(horizontal: 0.5.w, vertical: 0.5.h),
         decoration: BoxDecoration(
           color: isSelected ? color : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.r),
+          borderRadius: BorderRadius.circular(1.r),
           border: Border.all(
             color: isSelected ? color : color.withOpacity(0.4),
           ),
@@ -981,15 +1018,14 @@ class _StatusButton extends StatelessWidget {
             Icon(
               icon,
               color: isSelected ? Colors.white : color,
-              size: 16.r,
+              size: 6.r,
             ),
-            SizedBox(height: 2.h),
             Text(
               label,
               style: GoogleFonts.cairo(
                 color: isSelected ? Colors.white : color,
-                fontSize: 9.sp,
-                fontWeight: FontWeight.w600,
+                fontSize: 4.sp,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -998,7 +1034,6 @@ class _StatusButton extends StatelessWidget {
     );
   }
 }
-
 
 // ─────────────────────────────────────────────
 // Print Dialog
@@ -1040,8 +1075,7 @@ class _PrintDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final presentList = teachers
         .where((t) =>
-            statusMap[(t['id'] ?? '').toString()] ==
-            _AttendanceStatus.present)
+            statusMap[(t['id'] ?? '').toString()] == _AttendanceStatus.present)
         .toList();
     final absentAssemblyList = teachers
         .where((t) =>
@@ -1123,18 +1157,15 @@ class _PrintDialog extends StatelessWidget {
                   final t = entry.value;
                   final id = (t['id'] ?? '').toString();
                   final name = (t['name'] ?? '').toString();
-                  final status =
-                      statusMap[id] ?? _AttendanceStatus.present;
+                  final status = statusMap[id] ?? _AttendanceStatus.present;
                   return Container(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 10.w, vertical: 7.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
                     decoration: BoxDecoration(
-                      color: i.isEven
-                          ? Colors.grey.shade50
-                          : Colors.white,
+                      color: i.isEven ? Colors.grey.shade50 : Colors.white,
                       border: Border(
-                        bottom: BorderSide(
-                            color: Colors.grey.shade200, width: 0.5),
+                        bottom:
+                            BorderSide(color: Colors.grey.shade200, width: 0.5),
                       ),
                     ),
                     child: Row(
@@ -1153,18 +1184,15 @@ class _PrintDialog extends StatelessWidget {
                           child: Text(
                             name,
                             style: GoogleFonts.cairo(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w500),
+                                fontSize: 12.sp, fontWeight: FontWeight.w500),
                           ),
                         ),
                         Container(
                           padding: EdgeInsets.symmetric(
                               horizontal: 8.w, vertical: 3.h),
                           decoration: BoxDecoration(
-                            color: _statusColor(status)
-                                .withOpacity(0.12),
-                            borderRadius:
-                                BorderRadius.circular(6.r),
+                            color: _statusColor(status).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6.r),
                           ),
                           child: Text(
                             _statusLabel(status),
@@ -1186,8 +1214,7 @@ class _PrintDialog extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('إغلاق',
-                style: GoogleFonts.cairo(color: Colors.grey)),
+            child: Text('إغلاق', style: GoogleFonts.cairo(color: Colors.grey)),
           ),
           ElevatedButton.icon(
             onPressed: () {
@@ -1235,14 +1262,13 @@ class _PrintStat extends StatelessWidget {
         ),
         Text(
           label,
-          style: GoogleFonts.cairo(
-              fontSize: 10.sp, color: color.withOpacity(0.8)),
+          style:
+              GoogleFonts.cairo(fontSize: 10.sp, color: color.withOpacity(0.8)),
         ),
       ],
     );
   }
 }
-
 
 // ─────────────────────────────────────────────
 // Report Tab
@@ -1260,19 +1286,28 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
 
-  String get _startDate =>
-      DateFormat('yyyy-MM-dd').format(DateTime(_selectedYear, _selectedMonth, 1));
+  String get _startDate => DateFormat('yyyy-MM-dd')
+      .format(DateTime(_selectedYear, _selectedMonth, 1));
 
   String get _endDate {
-    final lastDay =
-        DateTime(_selectedYear, _selectedMonth + 1, 0);
+    final lastDay = DateTime(_selectedYear, _selectedMonth + 1, 0);
     return DateFormat('yyyy-MM-dd').format(lastDay);
   }
 
   String get _monthLabel {
     const months = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
     ];
     return '${months[_selectedMonth - 1]} $_selectedYear';
   }
@@ -1294,21 +1329,19 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
   }
 
   /// Build per-teacher summary from raw Firestore docs
-  List<_TeacherReportRow> _buildReport(
-      List<Map<String, dynamic>> docs) {
+  List<_TeacherReportRow> _buildReport(List<Map<String, dynamic>> docs) {
     final Map<String, _TeacherReportRow> map = {};
 
     for (final doc in docs) {
-      final teachers =
-          (doc['teachers'] as List<dynamic>? ?? []);
+      final teachers = (doc['teachers'] as List<dynamic>? ?? []);
       for (final item in teachers) {
         if (item is! Map) continue;
         final id = (item['teacherId'] ?? '').toString();
         final name = (item['teacherName'] ?? '').toString();
         if (id.isEmpty) continue;
 
-        final status = _AttendanceStatusExt.fromString(
-            item['status']?.toString());
+        final status =
+            _AttendanceStatusExt.fromString(item['status']?.toString());
 
         final row = map.putIfAbsent(
           id,
@@ -1359,11 +1392,10 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
         _buildReportHeader(reportAsync.value ?? []),
         Expanded(
           child: reportAsync.when(
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(
-              child: Text('خطأ في تحميل التقرير: $e',
-                  style: GoogleFonts.cairo()),
+              child:
+                  Text('خطأ في تحميل التقرير: $e', style: GoogleFonts.cairo()),
             ),
             data: (docs) {
               final rows = _buildReport(docs);
@@ -1373,14 +1405,12 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.bar_chart_rounded,
-                          size: 64.r,
-                          color: Colors.grey.shade300),
+                          size: 64.r, color: Colors.grey.shade300),
                       SizedBox(height: 12.h),
                       Text(
                         'لا توجد بيانات لهذا الشهر',
                         style: GoogleFonts.cairo(
-                            color: Colors.grey.shade500,
-                            fontSize: 15.sp),
+                            color: Colors.grey.shade500, fontSize: 15.sp),
                       ),
                     ],
                   ),
@@ -1426,8 +1456,7 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
           TextButton.icon(
             onPressed: _showMonthPicker,
             icon: Icon(Icons.tune_rounded, size: 16.r),
-            label: Text('تغيير',
-                style: GoogleFonts.cairo(fontSize: 12.sp)),
+            label: Text('تغيير', style: GoogleFonts.cairo(fontSize: 12.sp)),
             style: TextButton.styleFrom(foregroundColor: _kPrimary),
           ),
           SizedBox(width: 4.w),
@@ -1437,13 +1466,11 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
               _showPrintReport(rows);
             },
             icon: Icon(Icons.print_rounded, size: 16.r),
-            label: Text('طباعة',
-                style: GoogleFonts.cairo(fontSize: 12.sp)),
+            label: Text('طباعة', style: GoogleFonts.cairo(fontSize: 12.sp)),
             style: OutlinedButton.styleFrom(
               foregroundColor: _kPrimary,
               side: const BorderSide(color: _kPrimary),
-              padding:
-                  EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8.r)),
             ),
@@ -1460,8 +1487,7 @@ class _ReportTabState extends ConsumerState<_ReportTab> {
         children: [
           // Table header
           Container(
-            padding:
-                EdgeInsets.symmetric(horizontal: 8.w, vertical: 10.h),
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 10.h),
             decoration: BoxDecoration(
               color: _kPrimary,
               borderRadius: BorderRadius.only(
@@ -1511,8 +1537,7 @@ class _TeacherReportRow {
 
   _TeacherReportRow({required this.id, required this.name});
 
-  double get attendanceRate =>
-      totalDays == 0 ? 0 : (present / totalDays) * 100;
+  double get attendanceRate => totalDays == 0 ? 0 : (present / totalDays) * 100;
 }
 
 // ─────────────────────────────────────────────
@@ -1602,9 +1627,7 @@ class _ReportTableRow extends StatelessWidget {
               '${row.present}',
               textAlign: TextAlign.center,
               style: GoogleFonts.cairo(
-                  fontSize: 11.sp,
-                  color: _kGreen,
-                  fontWeight: FontWeight.bold),
+                  fontSize: 11.sp, color: _kGreen, fontWeight: FontWeight.bold),
             ),
           ),
           // Absent assembly
@@ -1626,9 +1649,7 @@ class _ReportTableRow extends StatelessWidget {
               '${row.absentSchool}',
               textAlign: TextAlign.center,
               style: GoogleFonts.cairo(
-                  fontSize: 11.sp,
-                  color: _kRed,
-                  fontWeight: FontWeight.bold),
+                  fontSize: 11.sp, color: _kRed, fontWeight: FontWeight.bold),
             ),
           ),
           // Total days
@@ -1660,8 +1681,7 @@ class _ReportTableRow extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: rate / 100,
                     backgroundColor: rateColor.withOpacity(0.15),
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(rateColor),
+                    valueColor: AlwaysStoppedAnimation<Color>(rateColor),
                     minHeight: 5.h,
                   ),
                 ),
@@ -1673,7 +1693,6 @@ class _ReportTableRow extends StatelessWidget {
     );
   }
 }
-
 
 // ─────────────────────────────────────────────
 // Month/Year Picker Dialog
@@ -1690,18 +1709,26 @@ class _MonthYearPickerDialog extends StatefulWidget {
   });
 
   @override
-  State<_MonthYearPickerDialog> createState() =>
-      _MonthYearPickerDialogState();
+  State<_MonthYearPickerDialog> createState() => _MonthYearPickerDialogState();
 }
 
-class _MonthYearPickerDialogState
-    extends State<_MonthYearPickerDialog> {
+class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
   late int _month;
   late int _year;
 
   static const _months = [
-    'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+    'يناير',
+    'فبراير',
+    'مارس',
+    'أبريل',
+    'مايو',
+    'يونيو',
+    'يوليو',
+    'أغسطس',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
   ];
 
   @override
@@ -1718,8 +1745,8 @@ class _MonthYearPickerDialogState
       child: AlertDialog(
         title: Text(
           'اختر الشهر والسنة',
-          style: GoogleFonts.cairo(
-              fontSize: 16.sp, fontWeight: FontWeight.bold),
+          style:
+              GoogleFonts.cairo(fontSize: 16.sp, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1730,8 +1757,7 @@ class _MonthYearPickerDialogState
               children: [
                 IconButton(
                   icon: const Icon(Icons.chevron_right_rounded),
-                  onPressed: () =>
-                      setState(() => _year--),
+                  onPressed: () => setState(() => _year--),
                 ),
                 Text(
                   '$_year',
@@ -1754,8 +1780,7 @@ class _MonthYearPickerDialogState
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 4,
                 childAspectRatio: 1.6,
                 crossAxisSpacing: 6,
@@ -1768,9 +1793,7 @@ class _MonthYearPickerDialogState
                   onTap: () => setState(() => _month = i + 1),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? _kPrimary
-                          : Colors.grey.shade100,
+                      color: isSelected ? _kPrimary : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(6.r),
                     ),
                     alignment: Alignment.center,
@@ -1778,12 +1801,9 @@ class _MonthYearPickerDialogState
                       _months[i],
                       style: GoogleFonts.cairo(
                         fontSize: 10.sp,
-                        color: isSelected
-                            ? Colors.white
-                            : Colors.grey.shade700,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                        color: isSelected ? Colors.white : Colors.grey.shade700,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -1795,8 +1815,7 @@ class _MonthYearPickerDialogState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('إلغاء',
-                style: GoogleFonts.cairo(color: Colors.grey)),
+            child: Text('إلغاء', style: GoogleFonts.cairo(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1804,8 +1823,7 @@ class _MonthYearPickerDialogState
               widget.onConfirm(_month, _year);
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: _kPrimary,
-                foregroundColor: Colors.white),
+                backgroundColor: _kPrimary, foregroundColor: Colors.white),
             child: Text('تأكيد', style: GoogleFonts.cairo()),
           ),
         ],
@@ -1858,8 +1876,7 @@ class _ReportPrintDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                   child: Row(
-                    mainAxisAlignment:
-                        MainAxisAlignment.spaceAround,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _PrintStat(
                         label: 'إجمالي المعلمين',
@@ -1892,16 +1909,13 @@ class _ReportPrintDialog extends StatelessWidget {
                           ? _kOrange
                           : _kRed;
                   return Container(
-                    padding: EdgeInsets.symmetric(
-                        horizontal: 8.w, vertical: 8.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
                     decoration: BoxDecoration(
-                      color: i.isEven
-                          ? Colors.grey.shade50
-                          : Colors.white,
+                      color: i.isEven ? Colors.grey.shade50 : Colors.white,
                       border: Border(
-                        bottom: BorderSide(
-                            color: Colors.grey.shade200,
-                            width: 0.5),
+                        bottom:
+                            BorderSide(color: Colors.grey.shade200, width: 0.5),
                       ),
                     ),
                     child: Row(
@@ -1917,15 +1931,13 @@ class _ReportPrintDialog extends StatelessWidget {
                           child: Text(
                             row.name,
                             style: GoogleFonts.cairo(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600),
+                                fontSize: 11.sp, fontWeight: FontWeight.w600),
                           ),
                         ),
                         Text(
                           '${row.present}✓ ${row.absentAssembly}⚠ ${row.absentSchool}✗',
                           style: GoogleFonts.cairo(
-                              fontSize: 10.sp,
-                              color: Colors.grey.shade600),
+                              fontSize: 10.sp, color: Colors.grey.shade600),
                         ),
                         SizedBox(width: 8.w),
                         Text(
@@ -1947,8 +1959,7 @@ class _ReportPrintDialog extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('إغلاق',
-                style: GoogleFonts.cairo(color: Colors.grey)),
+            child: Text('إغلاق', style: GoogleFonts.cairo(color: Colors.grey)),
           ),
           ElevatedButton.icon(
             onPressed: () {
