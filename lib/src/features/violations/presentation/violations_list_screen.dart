@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import 'package:uuid/uuid.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../academic/data/student_repository.dart';
 import '../../notifications/domain/notification_record.dart';
 import '../../notifications/presentation/notifications_provider.dart';
-import '../../academic/data/school_repository.dart'; // Import school repository
-import '../../admin/data/firestore_class_repository.dart'; // Import for class repository provider
+import '../../academic/data/school_repository.dart';
+import '../../admin/data/firestore_class_repository.dart';
 import '../domain/behavioral_violation.dart';
 import '../data/firestore_violations_repository.dart';
 import '../application/violation_pdf_service.dart';
@@ -46,10 +47,31 @@ class _ViolationsListScreenState extends ConsumerState<ViolationsListScreen>
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('سجل المخالفات السلوكية'),
+        title: Text(
+          'سجل المخالفات السلوكية',
+          style: GoogleFonts.cairo(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 18.sp,
+          ),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: const Color(0xFF8B0000),
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelStyle: GoogleFonts.cairo(
+            fontWeight: FontWeight.bold,
+            fontSize: 15.sp,
+          ),
+          unselectedLabelStyle: GoogleFonts.cairo(
+            fontWeight: FontWeight.w600,
+            fontSize: 14.sp,
+          ),
           tabs: const [
             Tab(text: 'بانتظار الاعتماد'),
             Tab(text: 'السجل الكامل'),
@@ -63,15 +85,22 @@ class _ViolationsListScreenState extends ConsumerState<ViolationsListScreen>
           _AllViolationsList(schoolId: user.schoolId!),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF8B0000),
+        foregroundColor: Colors.white,
         onPressed: () {
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
+            backgroundColor: Colors.transparent,
             builder: (_) => const AddViolationSheet(),
           );
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add_rounded),
+        label: Text(
+          'إضافة مخالفة',
+          style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -250,62 +279,221 @@ class _ViolationCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      margin: EdgeInsets.only(bottom: 12.h),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _getLevelColor(violation.level),
-          child: Text(
-            '${violation.level.index + 1}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+    final levelColor = _getLevelColor(violation.level);
+    final levelLabel = _getLevelLabel(violation.level);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-        ),
-        title: Text(
-          violation.violationTitle,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16.r),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('الطالب: ${violation.studentName}'),
-            Text(
-              violation.date.toString().substring(0, 10),
-              style: TextStyle(fontSize: 12.sp, color: Colors.grey),
-            ),
-            if (violation.status == ViolationStatus.approved)
-              Text(
-                'معتمد',
-                style: TextStyle(color: Colors.green, fontSize: 12.sp),
-              ),
-          ],
-        ),
-        trailing: isPending
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.check, color: Colors.green),
-                    onPressed: () => _approve(context, ref),
-                    tooltip: 'اعتماد',
+            Row(
+              children: [
+                Container(
+                  width: 56.w,
+                  height: 56.w,
+                  decoration: BoxDecoration(
+                    color: levelColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16.r),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () {
-                      // Implement reject logic
-                    },
+                  child: Center(
+                    child: Text(
+                      '${violation.level.index + 1}',
+                      style: GoogleFonts.cairo(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20.sp,
+                        color: levelColor,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 14.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        violation.violationTitle,
+                        style: GoogleFonts.cairo(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16.sp,
+                          color: Colors.grey.shade900,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        'الطالب: ${violation.studentName}',
+                        style: GoogleFonts.cairo(
+                          color: Colors.grey.shade600,
+                          fontSize: 14.sp,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                  decoration: BoxDecoration(
+                    color: levelColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Text(
+                    levelLabel,
+                    style: GoogleFonts.cairo(
+                      color: levelColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.sp,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 16.r,
+                  color: Colors.grey.shade500,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  violation.date.toString().substring(0, 10),
+                  style: GoogleFonts.cairo(
+                    color: Colors.grey.shade600,
+                    fontSize: 13.sp,
+                  ),
+                ),
+                const Spacer(),
+                if (violation.status == ViolationStatus.approved)
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded,
+                            color: const Color(0xFF2E7D32), size: 16.r),
+                        SizedBox(width: 6.w),
+                        Text(
+                          'معتمد',
+                          style: GoogleFonts.cairo(
+                            color: const Color(0xFF2E7D32),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            if (isPending) ...[
+              SizedBox(height: 16.h),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _approve(context, ref),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: Color(0xFF2E7D32), width: 1.5),
+                        foregroundColor: const Color(0xFF2E7D32),
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                      icon: const Icon(Icons.check_circle_rounded),
+                      label: Text(
+                        'اعتماد',
+                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {},
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                            color: Color(0xFFC62828), width: 1.5),
+                        foregroundColor: const Color(0xFFC62828),
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                      icon: const Icon(Icons.close_rounded),
+                      label: Text(
+                        'رفض',
+                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
                 ],
-              )
-            : IconButton(
-                icon: const Icon(Icons.print, color: Colors.blue),
-                onPressed: () => _printPdf(context, ref),
-                tooltip: 'طباعة الخطاب',
               ),
+            ],
+            if (!isPending) ...[
+              SizedBox(height: 16.h),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _printPdf(context, ref),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(Icons.print_rounded),
+                  label: Text(
+                    'طباعة الخطاب',
+                    style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
+  }
+
+  String _getLevelLabel(ViolationLevel level) {
+    switch (level) {
+      case ViolationLevel.firstDegree:
+        return 'درجة أولى';
+      case ViolationLevel.secondDegree:
+        return 'درجة ثانية';
+      case ViolationLevel.thirdDegree:
+        return 'درجة ثالثة';
+      case ViolationLevel.fourthDegree:
+        return 'درجة رابعة';
+      case ViolationLevel.fifthDegree:
+        return 'درجة خامسة';
+    }
   }
 
   Color _getLevelColor(ViolationLevel level) {
@@ -327,6 +515,6 @@ class _ViolationCard extends ConsumerWidget {
 // Provider for streaming pending violations
 final pendingViolationsStreamProvider =
     StreamProvider.family<List<BehavioralViolation>, String>((ref, schoolId) {
-      final repo = ref.watch(violationsRepositoryProvider);
-      return repo.streamPendingViolations(schoolId);
-    });
+  final repo = ref.watch(violationsRepositoryProvider);
+  return repo.streamPendingViolations(schoolId);
+});
