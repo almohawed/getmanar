@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../auth/presentation/auth_controller.dart';
 
-/// شاشة ترحيل المعلمين - دمج المعلمين المكررين
+/// شاشة ترحيل المعلمين - دمج المعلمين المكررين وعرض جميع المعلمين
 class TeacherMigrationScreen extends ConsumerStatefulWidget {
   const TeacherMigrationScreen({super.key});
 
@@ -14,17 +15,26 @@ class TeacherMigrationScreen extends ConsumerStatefulWidget {
 }
 
 class _TeacherMigrationScreenState
-    extends ConsumerState<TeacherMigrationScreen> {
+    extends ConsumerState<TeacherMigrationScreen>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   bool _isProcessing = false;
   List<Map<String, dynamic>> _allTeachers = [];
   List<_DuplicateGroup> _duplicates = [];
   int _totalTeachers = 0;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadTeachers());
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTeachers() async {
@@ -109,7 +119,7 @@ class _TeacherMigrationScreenState
           children: [
             Text(
               'سيتم الاحتفاظ بـ:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp),
+              style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 13.sp),
             ),
             SizedBox(height: 4.h),
             Container(
@@ -121,13 +131,13 @@ class _TeacherMigrationScreenState
               ),
               child: Text(
                 '✅ ${original['name'] ?? ''} (${original['shortName'] ?? ''})',
-                style: TextStyle(fontSize: 12.sp, color: Colors.green.shade800),
+                style: GoogleFonts.cairo(fontSize: 12.sp, color: Colors.green.shade800),
               ),
             ),
             SizedBox(height: 8.h),
             Text(
               'سيتم حذف:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.sp),
+              style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 13.sp),
             ),
             SizedBox(height: 4.h),
             ...duplicatesToRemove.map((t) => Container(
@@ -140,13 +150,13 @@ class _TeacherMigrationScreenState
                   ),
                   child: Text(
                     '❌ ${t['name'] ?? ''} (${t['shortName'] ?? ''})',
-                    style: TextStyle(fontSize: 12.sp, color: Colors.red.shade800),
+                    style: GoogleFonts.cairo(fontSize: 12.sp, color: Colors.red.shade800),
                   ),
                 )),
             SizedBox(height: 8.h),
             Text(
               '⚠️ هذه العملية لا يمكن التراجع عنها',
-              style: TextStyle(
+              style: GoogleFonts.cairo(
                 fontSize: 11.sp,
                 color: Colors.orange.shade800,
                 fontStyle: FontStyle.italic,
@@ -157,7 +167,7 @@ class _TeacherMigrationScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('إلغاء'),
+            child: Text('إلغاء', style: GoogleFonts.cairo()),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -165,7 +175,7 @@ class _TeacherMigrationScreenState
               backgroundColor: Colors.purple.shade700,
               foregroundColor: Colors.white,
             ),
-            child: const Text('دمج'),
+            child: Text('دمج', style: GoogleFonts.cairo()),
           ),
         ],
       ),
@@ -190,7 +200,9 @@ class _TeacherMigrationScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                '✅ تم دمج ${duplicatesToRemove.length} سجل مكرر بنجاح'),
+                '✅ تم دمج ${duplicatesToRemove.length} سجل مكرر بنجاح',
+                style: GoogleFonts.cairo(),
+            ),
             backgroundColor: Colors.green.shade700,
             behavior: SnackBarBehavior.floating,
           ),
@@ -200,7 +212,8 @@ class _TeacherMigrationScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('خطأ: $e', style: GoogleFonts.cairo()),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -219,19 +232,19 @@ class _TeacherMigrationScreenState
           children: [
             Icon(Icons.merge_type, color: Colors.red.shade700, size: 28.sp),
             SizedBox(width: 10.w),
-            const Text('دمج جميع المكررين'),
+            Text('دمج جميع المكررين', style: GoogleFonts.cairo()),
           ],
         ),
         content: Text(
           'سيتم دمج ${_duplicates.length} مجموعة مكررة تلقائياً.\n\n'
           'سيتم الاحتفاظ بأول سجل في كل مجموعة وحذف الباقي.\n\n'
           '⚠️ هذه العملية لا يمكن التراجع عنها!',
-          style: TextStyle(fontSize: 13.sp, height: 1.6),
+          style: GoogleFonts.cairo(fontSize: 13.sp, height: 1.6),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('إلغاء'),
+            child: Text('إلغاء', style: GoogleFonts.cairo()),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -239,7 +252,7 @@ class _TeacherMigrationScreenState
               backgroundColor: Colors.red.shade700,
               foregroundColor: Colors.white,
             ),
-            child: const Text('دمج الكل'),
+            child: Text('دمج الكل', style: GoogleFonts.cairo()),
           ),
         ],
       ),
@@ -271,7 +284,7 @@ class _TeacherMigrationScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ تم حذف $totalDeleted سجل مكرر بنجاح'),
+            content: Text('✅ تم حذف $totalDeleted سجل مكرر بنجاح', style: GoogleFonts.cairo()),
             backgroundColor: Colors.green.shade700,
             behavior: SnackBarBehavior.floating,
           ),
@@ -281,7 +294,7 @@ class _TeacherMigrationScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('خطأ: $e', style: GoogleFonts.cairo()), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -296,11 +309,30 @@ class _TeacherMigrationScreenState
       appBar: AppBar(
         backgroundColor: Colors.purple.shade800,
         foregroundColor: Colors.white,
-        title: const Text(
+        title: Text(
           'ترحيل المعلمين',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          labelStyle: GoogleFonts.cairo(
+            fontWeight: FontWeight.bold,
+            fontSize: 15.sp,
+          ),
+          unselectedLabelStyle: GoogleFonts.cairo(
+            fontWeight: FontWeight.w600,
+            fontSize: 14.sp,
+          ),
+          tabs: const [
+            Tab(text: 'المعلمين المكررين'),
+            Tab(text: 'جميع المعلمين'),
+          ],
+        ),
         actions: [
           IconButton(
             onPressed: _loadTeachers,
@@ -318,33 +350,169 @@ class _TeacherMigrationScreenState
                     children: [
                       const CircularProgressIndicator(),
                       SizedBox(height: 16.h),
-                      const Text('جاري المعالجة...'),
+                      Text('جاري المعالجة...', style: GoogleFonts.cairo()),
                     ],
                   ),
                 )
-              : SingleChildScrollView(
-                  padding: EdgeInsets.all(16.w),
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildDuplicatesTab(),
+                    _buildAllTeachersTab(),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildDuplicatesTab() {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(16.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // بطاقة الإحصائيات
+          _buildStatsCard(),
+          SizedBox(height: 16.h),
+
+          // زر دمج الكل
+          if (_duplicates.isNotEmpty) ...[
+            _buildMergeAllButton(),
+            SizedBox(height: 16.h),
+          ],
+
+          // قائمة المكررين
+          if (_duplicates.isEmpty)
+            _buildNoDuplicatesCard()
+          else
+            ..._duplicates.map((g) => _buildDuplicateCard(g)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAllTeachersTab() {
+    if (_allTeachers.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.group_off_rounded,
+              size: 64.r,
+              color: Colors.grey.shade300,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'لا يوجد معلمين مسجلين',
+              style: GoogleFonts.cairo(
+                fontSize: 18.sp,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: EdgeInsets.all(16.w),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount:
+            MediaQuery.of(context).size.width > 1200
+                ? 4
+                : MediaQuery.of(context).size.width > 900
+                    ? 3
+                    : MediaQuery.of(context).size.width > 600
+                        ? 2
+                        : 1,
+        crossAxisSpacing: 12.w,
+        mainAxisSpacing: 12.h,
+        childAspectRatio: 2.8,
+      ),
+      itemCount: _allTeachers.length,
+      itemBuilder: (context, index) {
+        final teacher = _allTeachers[index];
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(16.r),
+            child: Row(
+              children: [
+                Container(
+                  width: 56.w,
+                  height: 56.w,
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14.r),
+                  ),
+                  child: Icon(
+                    Icons.person_rounded,
+                    color: Colors.purple.shade700,
+                    size: 28.r,
+                  ),
+                ),
+                SizedBox(width: 14.w),
+                Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // بطاقة الإحصائيات
-                      _buildStatsCard(),
-                      SizedBox(height: 16.h),
-
-                      // زر دمج الكل
-                      if (_duplicates.isNotEmpty) ...[
-                        _buildMergeAllButton(),
-                        SizedBox(height: 16.h),
-                      ],
-
-                      // قائمة المكررين
-                      if (_duplicates.isEmpty)
-                        _buildNoDuplicatesCard()
-                      else
-                        ..._duplicates.map((g) => _buildDuplicateCard(g)),
+                      Text(
+                        teacher['name'] ?? 'غير معروف',
+                        style: GoogleFonts.cairo(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15.sp,
+                          color: Colors.grey.shade800,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: 4.h),
+                      if ((teacher['shortName'] ?? '').isNotEmpty)
+                        Text(
+                          'الاسم المختصر: ${teacher['shortName']}',
+                          style: GoogleFonts.cairo(
+                            fontSize: 12.sp,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
                     ],
                   ),
                 ),
+                SizedBox(width: 12.w),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 8.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Text(
+                    'موجود',
+                    style: GoogleFonts.cairo(
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.sp,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -370,7 +538,7 @@ class _TeacherMigrationScreenState
         children: [
           Text(
             'إحصائيات المعلمين',
-            style: TextStyle(
+            style: GoogleFonts.cairo(
               color: Colors.white,
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
@@ -420,7 +588,7 @@ class _TeacherMigrationScreenState
         SizedBox(height: 4.h),
         Text(
           value,
-          style: TextStyle(
+          style: GoogleFonts.cairo(
             color: color,
             fontSize: 22.sp,
             fontWeight: FontWeight.bold,
@@ -428,7 +596,7 @@ class _TeacherMigrationScreenState
         ),
         Text(
           label,
-          style: TextStyle(
+          style: GoogleFonts.cairo(
             color: Colors.white70,
             fontSize: 10.sp,
           ),
@@ -469,7 +637,7 @@ class _TeacherMigrationScreenState
                 SizedBox(width: 8.w),
                 Text(
                   'دمج جميع المكررين (${_duplicates.length} مجموعة)',
-                  style: TextStyle(
+                  style: GoogleFonts.cairo(
                     color: Colors.white,
                     fontSize: 14.sp,
                     fontWeight: FontWeight.bold,
@@ -503,7 +671,7 @@ class _TeacherMigrationScreenState
           SizedBox(height: 16.h),
           Text(
             '✅ لا توجد مكررات',
-            style: TextStyle(
+            style: GoogleFonts.cairo(
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
               color: Colors.green.shade700,
@@ -512,18 +680,18 @@ class _TeacherMigrationScreenState
           SizedBox(height: 8.h),
           Text(
             'جميع المعلمين بأسماء فريدة',
-            style: TextStyle(
+            style: GoogleFonts.cairo(
               fontSize: 13.sp,
               color: Colors.grey.shade600,
             ),
           ),
           SizedBox(height: 16.h),
           ElevatedButton.icon(
-            onPressed: () => context.mounted
-                ? Navigator.of(context).pop()
-                : null,
+            onPressed: () {
+              _tabController.animateTo(1);
+            },
             icon: const Icon(Icons.calendar_view_week),
-            label: const Text('عرض الجداول'),
+            label: Text('عرض جميع المعلمين', style: GoogleFonts.cairo()),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade600,
               foregroundColor: Colors.white,
@@ -573,7 +741,7 @@ class _TeacherMigrationScreenState
                 Expanded(
                   child: Text(
                     'مكرر: "${group.key}"',
-                    style: TextStyle(
+                    style: GoogleFonts.cairo(
                       fontWeight: FontWeight.bold,
                       fontSize: 14.sp,
                       color: Colors.red.shade800,
@@ -589,7 +757,7 @@ class _TeacherMigrationScreenState
                   ),
                   child: Text(
                     '${group.teachers.length} سجلات',
-                    style: TextStyle(
+                    style: GoogleFonts.cairo(
                       color: Colors.white,
                       fontSize: 11.sp,
                       fontWeight: FontWeight.bold,
@@ -639,7 +807,7 @@ class _TeacherMigrationScreenState
                           children: [
                             Text(
                               t['name'] ?? 'غير معروف',
-                              style: TextStyle(
+                              style: GoogleFonts.cairo(
                                 fontSize: 13.sp,
                                 fontWeight: FontWeight.w600,
                                 color: isOriginal
@@ -650,7 +818,7 @@ class _TeacherMigrationScreenState
                             if ((t['shortName'] ?? '').isNotEmpty)
                               Text(
                                 'الاسم المختصر: ${t['shortName']}',
-                                style: TextStyle(
+                                style: GoogleFonts.cairo(
                                   fontSize: 11.sp,
                                   color: Colors.grey.shade600,
                                 ),
@@ -669,7 +837,7 @@ class _TeacherMigrationScreenState
                         ),
                         child: Text(
                           isOriginal ? 'يُحتفظ به' : 'يُحذف',
-                          style: TextStyle(
+                          style: GoogleFonts.cairo(
                             fontSize: 10.sp,
                             fontWeight: FontWeight.bold,
                             color: isOriginal
@@ -694,7 +862,9 @@ class _TeacherMigrationScreenState
                 onPressed: () => _mergeDuplicate(group),
                 icon: const Icon(Icons.merge_type),
                 label: Text(
-                    'دمج هذه المجموعة (حذف ${group.teachers.length - 1} مكرر)'),
+                    'دمج هذه المجموعة (حذف ${group.teachers.length - 1} مكرر)',
+                    style: GoogleFonts.cairo(),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.purple.shade700,
                   foregroundColor: Colors.white,
