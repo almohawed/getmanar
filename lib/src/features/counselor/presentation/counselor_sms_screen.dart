@@ -9,7 +9,15 @@ import '../../academic/presentation/students_provider.dart';
 import '../../academic/data/firestore_parent_repository.dart';
 import '../../sms/data/firestore_sms_repository.dart';
 import '../../sms/domain/sms_message.dart';
-import '../../deputy/presentation/deputy_sms_screen.dart' show parentsProvider;
+
+// Provider to fetch all parents
+final parentsProvider = StreamProvider<List<User>>((ref) {
+  final userAsync = ref.watch(authStateProvider);
+  final user = userAsync.value;
+  if (user == null || user.schoolId == null) return Stream.value([]);
+  final repo = ref.watch(firestoreParentRepositoryProvider);
+  return repo.watchParents(user.schoolId!);
+});
 
 /// شاشة إرسال رسائل SMS لأولياء الأمور - المرشد الطلابي
 /// تستخدم نفس خدمة SMS التي يضبطها الوكيل والمدير
