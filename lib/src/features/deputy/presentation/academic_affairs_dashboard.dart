@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../dashboard/presentation/web_access_footer.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../dashboard/presentation/widgets/welcome_banner.dart';
@@ -35,13 +36,11 @@ class _AcademicAffairsDashboardState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(auditServiceProvider)
-          .logAction(
-            action: 'view_dashboard',
-            description: 'User viewed Academic Affairs Dashboard',
-            metadata: {'section': 'academic_affairs'},
-          );
+      ref.read(auditServiceProvider).logAction(
+        action: 'view_dashboard',
+        description: 'User viewed Academic Affairs Dashboard',
+        metadata: {'section': 'academic_affairs'},
+      );
     });
   }
 
@@ -129,9 +128,8 @@ class _AcademicAffairsDashboardState
                         _isPresentationMode
                             ? Icons.close_fullscreen
                             : Icons.slideshow,
-                        color: _isPresentationMode
-                            ? Colors.black
-                            : Colors.white,
+                        color:
+                            _isPresentationMode ? Colors.black : Colors.white,
                         size: 20.sp,
                       ),
                     ),
@@ -186,20 +184,20 @@ class _AcademicAffairsDashboardState
                       },
                       itemBuilder: (BuildContext context) =>
                           <PopupMenuEntry<String>>[
-                            const PopupMenuItem<String>(
-                              value: 'admin_dashboard',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.admin_panel_settings,
-                                    color: Colors.indigo,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text('التحول إلى لوحة مدير المدرسة'),
-                                ],
+                        const PopupMenuItem<String>(
+                          value: 'admin_dashboard',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.admin_panel_settings,
+                                color: Colors.indigo,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: 8),
+                              Text('التحول إلى لوحة مدير المدرسة'),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                 ],
               ),
@@ -244,8 +242,7 @@ class _AcademicAffairsDashboardState
     final inboxCount =
         ref.watch(pendingTeacherNotesProvider).value?.length ?? 0;
 
-    final hasDelegatedAdmin =
-        user != null &&
+    final hasDelegatedAdmin = user != null &&
         user.delegatedPermissions != null &&
         user.delegatedPermissions!.isNotEmpty;
 
@@ -367,8 +364,8 @@ class _AcademicAffairsDashboardState
                               Wrap(
                                 spacing: 6.w,
                                 runSpacing: 4.h,
-                                children:
-                                    (user?.delegatedPermissions?.keys.map((
+                                children: (user?.delegatedPermissions?.keys
+                                        .map((
                                       key,
                                     ) {
                                       final sectionNames = {
@@ -871,11 +868,11 @@ class _AcademicAffairsDashboardState
             child: Text(
               title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.indigo.shade900,
-                fontSize: 18.sp,
-                letterSpacing: 0.3,
-              ),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade900,
+                    fontSize: 18.sp,
+                    letterSpacing: 0.3,
+                  ),
             ),
           ),
         ],
@@ -1021,49 +1018,58 @@ class _AcademicAffairsDashboardState
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12.r),
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-            color: color.withOpacity(0.15),
-            width: 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.06),
-              blurRadius: 6,
-              offset: const Offset(0, 1),
-              spreadRadius: 0,
-            ),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: color.withOpacity(0.25),
+          width: 1.5,
         ),
-        child: Center(
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16.r),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16.r),
+          splashColor: color.withOpacity(0.2),
+          highlightColor: color.withOpacity(0.15),
           child: Padding(
-            padding: EdgeInsets.all(2.w), // Reduced to 2.w for tighter spacing
+            padding: EdgeInsets.all(16.r),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Icon - much bigger and clearer
-                Icon(
-                  icon,
-                  color: color,
-                  size: 64.sp, // Increased to 64.sp for maximum clarity
+                Container(
+                  padding: EdgeInsets.all(16.r),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: 40.sp,
+                  ),
                 ),
-                SizedBox(height: 8.h),
-                // Text - slightly bigger to match larger icon
+                SizedBox(height: 12.h),
                 Text(
                   label,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12.sp, // Increased from 11.sp to 12.sp
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade800,
-                    height: 1.2,
-                    letterSpacing: -0.1,
+                  style: GoogleFonts.cairo(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    height: 1.3,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
