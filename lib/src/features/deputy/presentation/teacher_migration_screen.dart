@@ -4,8 +4,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../admin/data/firestore_class_repository.dart';
+import '../../academic/domain/classroom.dart';
 
-/// شاشة ترحيل المعلمين - دمج المعلمين المكررين وعرض جميع المعلمين
+/// شاشة ترحيل المعلمين - دمج المعلمين المكررين وعرض جميع المعلمين ونقل المعلمين بين الفصول
 class TeacherMigrationScreen extends ConsumerStatefulWidget {
   const TeacherMigrationScreen({super.key});
 
@@ -14,20 +16,20 @@ class TeacherMigrationScreen extends ConsumerStatefulWidget {
       _TeacherMigrationScreenState();
 }
 
-class _TeacherMigrationScreenState
-    extends ConsumerState<TeacherMigrationScreen>
+class _TeacherMigrationScreenState extends ConsumerState<TeacherMigrationScreen>
     with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   bool _isProcessing = false;
   List<Map<String, dynamic>> _allTeachers = [];
   List<_DuplicateGroup> _duplicates = [];
+  List<Classroom> _allClasses = [];
   int _totalTeachers = 0;
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadTeachers());
   }
 
@@ -47,17 +49,20 @@ class _TeacherMigrationScreenState
     }
 
     try {
-      final snap = await FirebaseFirestore.instance
+      final teachersSnap = await FirebaseFirestore.instance
           .collection('Schools')
           .doc(schoolId)
           .collection('Teachers')
           .get();
 
-      final teachers = snap.docs.map((d) {
+      final teachers = teachersSnap.docs.map((d) {
         final data = d.data();
         data['id'] = d.id;
         return data;
       }).toList();
+
+      final classRepo = ref.read(classRepositoryProvider);
+      final classes = await classRepo.getClasses(schoolId);
 
       _totalTeachers = teachers.length;
 
@@ -82,6 +87,7 @@ class _TeacherMigrationScreenState
       setState(() {
         _allTeachers = teachers;
         _duplicates = duplicates;
+        _allClasses = classes;
         _isLoading = false;
       });
     } catch (e) {
@@ -105,7 +111,8 @@ class _TeacherMigrationScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         title: Row(
           children: [
             Icon(Icons.merge_type, color: Colors.purple.shade700, size: 28.sp),
@@ -119,7 +126,8 @@ class _TeacherMigrationScreenState
           children: [
             Text(
               'سيتم الاحتفاظ بـ:',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 13.sp),
+              style: GoogleFonts.cairo(
+                  fontWeight: FontWeight.bold, fontSize: 13.sp),
             ),
             SizedBox(height: 4.h),
             Container(
@@ -131,13 +139,15 @@ class _TeacherMigrationScreenState
               ),
               child: Text(
                 '✅ ${original['name'] ?? ''} (${original['shortName'] ?? ''})',
-                style: GoogleFonts.cairo(fontSize: 12.sp, color: Colors.green.shade800),
+                style: GoogleFonts.cairo(
+                    fontSize: 12.sp, color: Colors.green.shade800),
               ),
             ),
             SizedBox(height: 8.h),
             Text(
               'سيتم حذف:',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 13.sp),
+              style: GoogleFonts.cairo(
+                  fontWeight: FontWeight.bold, fontSize: 13.sp),
             ),
             SizedBox(height: 4.h),
             ...duplicatesToRemove.map((t) => Container(
@@ -150,7 +160,8 @@ class _TeacherMigrationScreenState
                   ),
                   child: Text(
                     '❌ ${t['name'] ?? ''} (${t['shortName'] ?? ''})',
-                    style: GoogleFonts.cairo(fontSize: 12.sp, color: Colors.red.shade800),
+                    style: GoogleFonts.cairo(
+                        fontSize: 12.sp, color: Colors.red.shade800),
                   ),
                 )),
             SizedBox(height: 8.h),
@@ -200,8 +211,8 @@ class _TeacherMigrationScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                '✅ تم دمج ${duplicatesToRemove.length} سجل مكرر بنجاح',
-                style: GoogleFonts.cairo(),
+              '✅ تم دمج ${duplicatesToRemove.length} سجل مكرر بنجاح',
+              style: GoogleFonts.cairo(),
             ),
             backgroundColor: Colors.green.shade700,
             behavior: SnackBarBehavior.floating,
@@ -212,7 +223,8 @@ class _TeacherMigrationScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e', style: GoogleFonts.cairo()),
+          SnackBar(
+              content: Text('خطأ: $e', style: GoogleFonts.cairo()),
               backgroundColor: Colors.red),
         );
       }
@@ -227,7 +239,8 @@ class _TeacherMigrationScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         title: Row(
           children: [
             Icon(Icons.merge_type, color: Colors.red.shade700, size: 28.sp),
@@ -284,7 +297,8 @@ class _TeacherMigrationScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ تم حذف $totalDeleted سجل مكرر بنجاح', style: GoogleFonts.cairo()),
+            content: Text('✅ تم حذف $totalDeleted سجل مكرر بنجاح',
+                style: GoogleFonts.cairo()),
             backgroundColor: Colors.green.shade700,
             behavior: SnackBarBehavior.floating,
           ),
@@ -294,7 +308,9 @@ class _TeacherMigrationScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e', style: GoogleFonts.cairo()), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('خطأ: $e', style: GoogleFonts.cairo()),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -322,15 +338,16 @@ class _TeacherMigrationScreenState
           unselectedLabelColor: Colors.white70,
           labelStyle: GoogleFonts.cairo(
             fontWeight: FontWeight.bold,
-            fontSize: 15.sp,
+            fontSize: 13.sp,
           ),
           unselectedLabelStyle: GoogleFonts.cairo(
             fontWeight: FontWeight.w600,
-            fontSize: 14.sp,
+            fontSize: 12.sp,
           ),
           tabs: const [
             Tab(text: 'المعلمين المكررين'),
             Tab(text: 'جميع المعلمين'),
+            Tab(text: 'نقل المعلمين'),
           ],
         ),
         actions: [
@@ -359,6 +376,7 @@ class _TeacherMigrationScreenState
                   children: [
                     _buildDuplicatesTab(),
                     _buildAllTeachersTab(),
+                    _buildTransferTab(),
                   ],
                 ),
     );
@@ -417,14 +435,13 @@ class _TeacherMigrationScreenState
     return GridView.builder(
       padding: EdgeInsets.all(16.w),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:
-            MediaQuery.of(context).size.width > 1200
-                ? 4
-                : MediaQuery.of(context).size.width > 900
-                    ? 3
-                    : MediaQuery.of(context).size.width > 600
-                        ? 2
-                        : 1,
+        crossAxisCount: MediaQuery.of(context).size.width > 1200
+            ? 4
+            : MediaQuery.of(context).size.width > 900
+                ? 3
+                : MediaQuery.of(context).size.width > 600
+                    ? 2
+                    : 1,
         crossAxisSpacing: 12.w,
         mainAxisSpacing: 12.h,
         childAspectRatio: 2.8,
@@ -510,6 +527,406 @@ class _TeacherMigrationScreenState
                 ),
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTransferTab() {
+    Map<String, dynamic>? selectedTeacher;
+    Classroom? sourceClass;
+    Classroom? targetClass;
+
+    return StatefulBuilder(
+      builder: (context, setTabState) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(16.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: EdgeInsets.all(16.w),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.teal.shade700, Colors.teal.shade900],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  borderRadius: BorderRadius.circular(16.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.teal.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'نقل المعلمين',
+                              style: GoogleFonts.cairo(
+                                color: Colors.white,
+                                fontSize: 20.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 4.h),
+                            Text(
+                              'نقل المعلمين بين الفصول والمراحل الدراسية',
+                              style: GoogleFonts.cairo(
+                                color: Colors.white70,
+                                fontSize: 13.sp,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(12.r),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.swap_horiz_rounded,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 20.h),
+
+              // اختيار المعلم
+              Container(
+                padding: EdgeInsets.all(16.r),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'اختيار المعلم',
+                      style: GoogleFonts.cairo(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16.sp,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
+                    DropdownButtonFormField<Map<String, dynamic>>(
+                      value: selectedTeacher,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16.w,
+                          vertical: 12.h,
+                        ),
+                      ),
+                      items: _allTeachers.map((teacher) {
+                        return DropdownMenuItem<Map<String, dynamic>>(
+                          value: teacher,
+                          child: Text(
+                            teacher['name'] ?? 'غير معروف',
+                            style: GoogleFonts.cairo(),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setTabState(() {
+                          selectedTeacher = value;
+                        });
+                      },
+                      hint: Text(
+                        'اختر المعلم الذي تريد نقله',
+                        style: GoogleFonts.cairo(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16.h),
+
+              // اختيار الفصول
+              if (selectedTeacher != null) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: EdgeInsets.all(16.r),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'الفصل الحالي',
+                              style: GoogleFonts.cairo(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14.sp,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                            SizedBox(height: 12.h),
+                            DropdownButtonFormField<Classroom>(
+                              value: sourceClass,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16.w,
+                                  vertical: 12.h,
+                                ),
+                              ),
+                              items: _allClasses.map((cls) {
+                                return DropdownMenuItem<Classroom>(
+                                  value: cls,
+                                  child: Text(
+                                    cls.preferredLabel,
+                                    style: GoogleFonts.cairo(),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setTabState(() {
+                                  sourceClass = value;
+                                });
+                              },
+                              hint: Text(
+                                'اختر الفصل الحالي',
+                                style: GoogleFonts.cairo(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Container(
+                        padding: EdgeInsets.all(16.r),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'الفصل الجديد',
+                              style: GoogleFonts.cairo(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14.sp,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                            SizedBox(height: 12.h),
+                            DropdownButtonFormField<Classroom>(
+                              value: targetClass,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16.w,
+                                  vertical: 12.h,
+                                ),
+                              ),
+                              items: _allClasses
+                                  .where((c) => c.id != sourceClass?.id)
+                                  .map((cls) {
+                                return DropdownMenuItem<Classroom>(
+                                  value: cls,
+                                  child: Text(
+                                    cls.preferredLabel,
+                                    style: GoogleFonts.cairo(),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setTabState(() {
+                                  targetClass = value;
+                                });
+                              },
+                              hint: Text(
+                                'اختر الفصل الجديد',
+                                style: GoogleFonts.cairo(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20.h),
+
+                // زر النقل
+                if (sourceClass != null && targetClass != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final user = ref.read(authStateProvider).value;
+                        final schoolId = user?.schoolId ?? '';
+                        if (schoolId.isEmpty) return;
+                        if (selectedTeacher == null) return;
+
+                        setState(() => _isProcessing = true);
+
+                        try {
+                          final teacherId = selectedTeacher!['id'] as String;
+
+                          // الحصول على المستند الخاص بالمعلم من مجموعة Teachers
+                          final teacherDoc = await FirebaseFirestore.instance
+                              .collection('Schools')
+                              .doc(schoolId)
+                              .collection('Teachers')
+                              .doc(teacherId)
+                              .get();
+
+                          final data = teacherDoc.data();
+                          if (data != null) {
+                            // نقوم بتحديث assignedClassIds للمعلم
+                            List<String> assignedClassIds = List<String>.from(
+                                data['assignedClassIds'] ?? []);
+
+                            // إزالة الفصل الحالي (اختياري)
+                            if (assignedClassIds.contains(sourceClass!.id)) {
+                              assignedClassIds.remove(sourceClass!.id);
+                            }
+                            // إضافة الفصل الجديد
+                            if (!assignedClassIds.contains(targetClass!.id)) {
+                              assignedClassIds.add(targetClass!.id);
+                            }
+
+                            await FirebaseFirestore.instance
+                                .collection('Schools')
+                                .doc(schoolId)
+                                .collection('Teachers')
+                                .doc(teacherId)
+                                .update({
+                              'assignedClassIds': assignedClassIds,
+                            });
+                          }
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.check_circle,
+                                        color: Colors.white, size: 20.r),
+                                    SizedBox(width: 8.w),
+                                    Expanded(
+                                      child: Text(
+                                        '✅ تم نقل المعلم بنجاح',
+                                        style: GoogleFonts.cairo(
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: Colors.green.shade700,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                margin: EdgeInsets.symmetric(
+                                    horizontal: 24.w, vertical: 24.h),
+                              ),
+                            );
+                          }
+                          await _loadTeachers();
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.error_outline,
+                                        color: Colors.white, size: 20.r),
+                                    SizedBox(width: 8.w),
+                                    Expanded(
+                                      child: Text(
+                                        'خطأ: $e',
+                                        style: GoogleFonts.cairo(
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: Colors.red.shade700,
+                                duration: const Duration(seconds: 5),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                margin: EdgeInsets.symmetric(
+                                    horizontal: 24.w, vertical: 24.h),
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setState(() => _isProcessing = false);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal.shade700,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 14.h),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r)),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.swap_horiz_rounded),
+                      label: Text(
+                        'تنفيذ عملية النقل',
+                        style: GoogleFonts.cairo(
+                            fontWeight: FontWeight.bold, fontSize: 16.sp),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
           ),
         );
       },
@@ -695,8 +1112,7 @@ class _TeacherMigrationScreenState
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade600,
               foregroundColor: Colors.white,
-              padding:
-                  EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10.r)),
             ),
@@ -749,8 +1165,7 @@ class _TeacherMigrationScreenState
                   ),
                 ),
                 Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
                     color: Colors.red.shade700,
                     borderRadius: BorderRadius.circular(12.r),
@@ -781,9 +1196,8 @@ class _TeacherMigrationScreenState
                   padding:
                       EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                   decoration: BoxDecoration(
-                    color: isOriginal
-                        ? Colors.green.shade50
-                        : Colors.red.shade50,
+                    color:
+                        isOriginal ? Colors.green.shade50 : Colors.red.shade50,
                     borderRadius: BorderRadius.circular(8.r),
                     border: Border.all(
                       color: isOriginal
@@ -862,8 +1276,8 @@ class _TeacherMigrationScreenState
                 onPressed: () => _mergeDuplicate(group),
                 icon: const Icon(Icons.merge_type),
                 label: Text(
-                    'دمج هذه المجموعة (حذف ${group.teachers.length - 1} مكرر)',
-                    style: GoogleFonts.cairo(),
+                  'دمج هذه المجموعة (حذف ${group.teachers.length - 1} مكرر)',
+                  style: GoogleFonts.cairo(),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.purple.shade700,
